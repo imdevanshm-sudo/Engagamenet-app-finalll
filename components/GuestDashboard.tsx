@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useLayoutEffect } from 'react';
 import { Home, Calendar, MessageSquare, Heart, Camera, MapPin, Clock, ChevronRight, X, Users, Utensils, Minus, Plus, CheckCircle, XCircle, Sparkles, Send, Smile, Sticker, ChevronLeft, LogOut, ChevronDown, Map, Navigation, Phone, Search, Compass, Globe, Plane, Hand, Music, Gift, Sun, Moon, Mic, PhoneCall, Film, ThumbsUp, LocateFixed, Contact, Upload, Image as ImageIcon, Bot } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from "@google/generative-ai";
 
 // --- Visual Assets & Icons ---
 
