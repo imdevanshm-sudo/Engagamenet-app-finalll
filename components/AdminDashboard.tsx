@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, Settings, Scroll, Calendar, Megaphone, Plus, 
@@ -36,26 +37,26 @@ const MapElephant = ({ className, flip }: { className?: string, flip?: boolean }
 );
 
 const CityMapBackground = () => (
-    <div className="absolute inset-0 bg-[#e0f2fe] overflow-hidden pointer-events-none">
-        <div className="absolute right-0 top-0 bottom-0 w-[65%] bg-[#ecfccb] border-l-[6px] border-[#d9f99d] rounded-l-[50px] shadow-xl opacity-80"></div>
-        <div className="absolute left-0 top-0 bottom-0 w-[35%] opacity-20" style={{ backgroundImage: 'radial-gradient(#3b82f6 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
-        <svg className="absolute inset-0 w-full h-full">
-            <path d="M 85 5 L 85 30 Q 85 50 60 50 L 50 50" fill="none" stroke="#94a3b8" strokeWidth="16" strokeLinecap="round" />
-            <path d="M 85 5 L 85 30 Q 85 50 60 50 L 50 50" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeDasharray="10 10" />
-            <path d="M 50 50 Q 20 50 20 80 L 20 90" fill="none" stroke="#3b82f6" strokeWidth="14" strokeLinecap="round" />
-            <path d="M 50 50 Q 20 50 20 80 L 20 90" fill="none" stroke="#60a5fa" strokeWidth="10" strokeLinecap="round" />
-        </svg>
-        <div className="absolute top-6 right-[10%] flex flex-col items-center animate-pulse">
-             <Plane className="text-slate-600 rotate-45" size={24} />
-             <span className="text-[9px] font-bold text-slate-700 bg-white/90 px-1 rounded shadow-sm">Airport</span>
-        </div>
-        <div className="absolute bottom-12 left-[15%] flex flex-col items-center">
-             <div className="w-12 h-12 bg-rose-500/30 rounded-full animate-ping absolute"></div>
-             <div className="bg-white p-1.5 rounded-full shadow-lg z-10">
-                <MapPin className="text-rose-600" size={24} fill="#e11d48" />
-             </div>
-             <span className="text-[10px] font-bold text-white bg-rose-600 px-2 py-0.5 rounded shadow-sm mt-1">Taj Lands End</span>
-        </div>
+    <div className="absolute inset-0 bg-[#e8eaed] overflow-hidden pointer-events-none">
+        {/* Map Layers */}
+        <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(#dadce0 1px, transparent 1px), linear-gradient(90deg, #dadce0 1px, transparent 1px)', backgroundSize: '100px 100px' }}></div>
+        
+        {/* Roads */}
+        <div className="absolute top-0 bottom-0 left-1/3 w-8 bg-white border-x border-gray-300 shadow-sm"></div>
+        <div className="absolute left-0 right-0 top-1/3 h-8 bg-white border-y border-gray-300 shadow-sm"></div>
+        <div className="absolute left-0 right-0 bottom-1/4 h-12 bg-[#fce8b2] border-y border-[#f9d06e] transform -rotate-6 border-2"></div>
+
+        {/* Water */}
+        <div className="absolute right-0 bottom-0 w-1/3 h-1/3 bg-[#aadaff] rounded-tl-[100px] border-l-4 border-t-4 border-[#9acbf9]"></div>
+
+        {/* Parks */}
+        <div className="absolute top-20 right-10 w-40 h-40 bg-[#cbf0d1] rounded-full border border-[#b0e3b8]"></div>
+        <div className="absolute bottom-32 left-[-30px] w-48 h-48 bg-[#cbf0d1] rounded-full border border-[#b0e3b8]"></div>
+
+        {/* Labels */}
+        <div className="absolute top-24 right-16 text-[10px] font-bold text-[#137333] bg-white/70 px-1.5 py-0.5 rounded shadow-sm border border-white">City Park</div>
+        <div className="absolute bottom-40 left-10 text-[10px] font-bold text-[#137333] bg-white/70 px-1.5 py-0.5 rounded shadow-sm border border-white">Rose Garden</div>
+        <div className="absolute top-[35%] left-[40%] text-[10px] font-bold text-slate-600 bg-white/80 px-1.5 py-0.5 rounded border border-slate-200">Main St</div>
     </div>
 );
 
@@ -186,8 +187,8 @@ const usePanZoom = (initialScale = 1, minScale = 0.5, maxScale = 3) => {
 
 const AdminLiveMap: React.FC = () => {
     const { transform, handlers, style } = usePanZoom(1, 0.5, 3);
-    const [activeUsers, setActiveUsers] = useState<Record<string, {x: number, y: number, name: string, role: 'couple'|'guest', timestamp: number, map?: 'venue'|'city'}>>({});
-    const [viewMode, setViewMode] = useState<'venue' | 'city'>('venue');
+    const [activeUsers, setActiveUsers] = useState<Record<string, {x: number, y: number, name: string, role: 'couple'|'guest', timestamp: number, map?: 'venue'|'google'}>>({});
+    const [viewMode, setViewMode] = useState<'venue' | 'google'>('venue');
 
     useEffect(() => {
         const channel = new BroadcastChannel('wedding_live_map');
@@ -222,10 +223,10 @@ const AdminLiveMap: React.FC = () => {
                          Venue Tracker
                      </button>
                      <button 
-                        onClick={() => setViewMode('city')}
-                        className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${viewMode === 'city' ? 'bg-gold-500 text-[#2d0a0d] shadow-sm' : 'text-gold-600 hover:text-gold-800'}`}
+                        onClick={() => setViewMode('google')}
+                        className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${viewMode === 'google' ? 'bg-gold-500 text-[#2d0a0d] shadow-sm' : 'text-gold-600 hover:text-gold-800'}`}
                      >
-                         City Journey
+                         Google Maps
                      </button>
                  </div>
             </div>
@@ -433,7 +434,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
           </header>
 
           {/* Content Area */}
-          <main className="flex-grow overflow-y-auto p-8 bg-[#f5f5f4]">
+          <main className="flex-grow overflow-y-auto p-8 bg-[#f5f5f4] overscroll-contain">
               
               {activeView === 'home' && (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">

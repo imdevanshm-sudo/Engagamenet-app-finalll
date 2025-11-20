@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { User, Sparkles, Lock, Image as ImageIcon, X, Save, Check, LogIn, Volume2, VolumeX } from 'lucide-react';
+import { User, Sparkles, Lock, Image as ImageIcon, X, Save, Check, LogIn, Volume2, VolumeX, ChevronRight } from 'lucide-react';
 
 // --- Audio Utilities ---
-// (Identical audio utilities as before, preserved for functionality)
 const isAudioMuted = () => localStorage.getItem('wedding_audio_muted') === 'true';
 
 const getAudioContext = () => {
@@ -147,7 +146,7 @@ const GoldDust = () => {
     };
   }, []);
 
-  return <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none z-0 opacity-70 w-full h-full" />;
+  return <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none z-0 opacity-70 w-full h-full will-change-transform" />;
 };
 
 const PetalIcon = ({ className, style }: { className?: string, style?: React.CSSProperties }) => (
@@ -182,7 +181,7 @@ const FallingPetals = () => {
        {petals.map(p => (
           <div 
             key={p.id}
-            className="absolute -top-8 animate-petal-fall opacity-0"
+            className="absolute -top-8 animate-petal-fall opacity-0 will-change-transform"
             style={{
                left: p.left,
                animationDelay: p.delay,
@@ -225,7 +224,7 @@ const GaneshaIcon = ({ className }: { className?: string }) => (
 
 const SpinningFlower = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 100 100" className={className}>
-    <g className="origin-center animate-spin-slow">
+    <g className="origin-center animate-spin-slow will-change-transform">
       {Array.from({ length: 8 }).map((_, i) => (
         <path 
           key={i}
@@ -483,6 +482,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
         }
         .feather-sway {
           animation: sway 4s ease-in-out infinite;
+          will-change: transform;
         }
         @keyframes flicker {
            0%, 100% { opacity: 1; transform: scale(1); }
@@ -503,6 +503,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
            animation-name: petal-fall;
            animation-timing-function: linear;
            animation-iteration-count: infinite;
+           will-change: transform, opacity;
         }
         @keyframes bloom-enter {
            0% { opacity: 0; transform: scale(0.4); filter: brightness(3) blur(4px); }
@@ -511,6 +512,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
         }
         .animate-bloom {
            animation: bloom-enter 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+           will-change: transform, opacity, filter;
         }
       `}</style>
       
@@ -563,7 +565,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
       {/* --- Scrollable Content Area --- */}
       <div 
         ref={scrollRef}
-        className="relative z-10 flex flex-col h-full overflow-y-auto overflow-x-hidden no-scrollbar scroll-smooth"
+        className="relative z-10 flex flex-col h-full overflow-y-auto overflow-x-hidden no-scrollbar scroll-smooth overscroll-contain"
       >
         <header className="flex-shrink-0 pt-12 pb-4 px-4 text-center relative animate-fade-in-up duration-1000">
            <h1 className="font-cursive text-[3.5rem] sm:text-[4.2rem] leading-none text-gold-100 drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)] filter animate-fade-in-up delay-100">
@@ -581,259 +583,143 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
              <div className="absolute -inset-8 pointer-events-none animate-zoom-in delay-700 fill-mode-backwards">
                 <div className="w-full h-full animate-spin-slow">
                   <svg viewBox="0 0 200 200" className="w-full h-full fill-gold-300 opacity-40">
-                    <path d="M100,10 C110,30 130,40 100,50 C70,40 90,30 100,10" transform="rotate(0 100 100)" />
-                    <path d="M100,10 C110,30 130,40 100,50 C70,40 90,30 100,10" transform="rotate(45 100 100)" />
-                    <path d="M100,10 C110,30 130,40 100,50 C70,40 90,30 100,10" transform="rotate(90 100 100)" />
-                    <path d="M100,10 C110,30 130,40 100,50 C70,40 90,30 100,10" transform="rotate(135 100 100)" />
-                    <path d="M100,10 C110,30 130,40 100,50 C70,40 90,30 100,10" transform="rotate(180 100 100)" />
-                    <path d="M100,10 C110,30 130,40 100,50 C70,40 90,30 100,10" transform="rotate(225 100 100)" />
-                    <path d="M100,10 C110,30 130,40 100,50 C70,40 90,30 100,10" transform="rotate(270 100 100)" />
-                    <path d="M100,10 C110,30 130,40 100,50 C70,40 90,30 100,10" transform="rotate(315 100 100)" />
+                    {[0, 45, 90, 135, 180, 225, 270, 315].map(deg => (
+                        <path key={deg} d="M100,10 C110,30 130,40 100,50 C70,40 90,30 100,10" transform={`rotate(${deg} 100 100)`} />
+                    ))}
                   </svg>
                 </div>
              </div>
 
-             <div className="absolute inset-0 rounded-full border-[4px] border-[#e3c98d] shadow-[0_0_15px_rgba(227,201,141,0.4),inset_0_0_10px_rgba(0,0,0,0.5)] z-20 overflow-hidden bg-[#2d0a0d] transition-transform duration-500 ease-out group-hover:rotate-y-12 group-hover:rotate-x-12 group-hover:scale-105">
-                <div className="absolute inset-[3px] rounded-full border-[1px] border-dashed border-gold-200/50 relative z-10"></div>
-                <div className="w-full h-full relative">
-                    <img 
-                      src={coupleImage}
-                      alt="Royal Couple" 
-                      className="w-full h-full object-cover object-top opacity-90 hover:scale-110 transition-transform duration-1000 ease-out sepia-[0.1]"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#4a0e11]/80 via-transparent to-transparent z-0"></div>
+             {/* Couple Image */}
+             <div className="relative w-full h-full rounded-full p-1 bg-gradient-to-tr from-gold-300 via-gold-100 to-gold-400 shadow-2xl z-10">
+                <div className="w-full h-full rounded-full overflow-hidden border-4 border-[#4a0e11] relative">
+                    <img src={coupleImage} alt="Couple" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#4a0e11]/60 via-transparent to-transparent"></div>
                 </div>
              </div>
-             <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 z-30 drop-shadow-2xl">
-                 <div className="w-16 h-16 transition-transform hover:scale-110 duration-300">
-                    <SpinningFlower className="w-full h-full" />
-                 </div>
-             </div>
-          </div>
-          
-          <div className="relative z-20 mt-2 mb-2 text-center animate-fade-in-up delay-300">
-              <p className="text-gold-300 font-serif text-xl sm:text-2xl tracking-wider opacity-90 drop-shadow-md">स्नेहा और अमन</p>
+             
+             {/* Floating Elements */}
+             <div className="absolute -right-4 bottom-4 animate-float-slow z-20"><DiyaIcon className="w-12 h-12 drop-shadow-lg" /></div>
+             <div className="absolute -left-4 top-4 animate-float-slow z-20" style={{ animationDelay: '1s' }}><RingsIcon className="w-12 h-12 text-gold-200 drop-shadow-lg" /></div>
           </div>
 
-          <div className="w-full max-w-sm relative mt-2 animate-fade-in-up delay-500">
-             <div className="absolute -inset-1 bg-gold-400/20 rounded-t-[50%] blur-md animate-pulse-slow pointer-events-none"></div>
-             <div className="absolute inset-0 bg-gradient-to-b from-[#4a0e11] to-[#2d0a0d] rounded-t-[50%] border-t-2 border-x border-gold-400/40 shadow-[0_-5px_20px_rgba(0,0,0,0.5)]"></div>
-             <div className="absolute inset-2 bottom-0 border-t border-x border-gold-300/20 rounded-t-[45%] pointer-events-none"></div>
-             <div className="relative z-10 pt-12 pb-8 px-6 flex flex-col items-center text-center">
-                <h2 className="text-2xl font-serif text-gold-100 mb-1 drop-shadow-md animate-fade-in delay-700">
-                  Welcome to <br/> Our Celebration
-                </h2>
-                <div className="relative w-full mb-8 mt-2 group cursor-default">
-                    <div className="absolute -inset-2 bg-gold-400/10 rounded-lg blur opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <p className="text-gold-200/90 italic font-serif text-sm leading-relaxed px-4 py-2 border-y border-gold-500/10 relative z-10 animate-fade-in delay-1000">
-                        "{welcomeMsg}"
-                    </p>
-                </div>
+          {/* Text Content */}
+          <div className="text-center max-w-md mx-auto space-y-6 relative z-10">
+              <p className="font-serif text-gold-100 text-lg leading-relaxed drop-shadow-md animate-fade-in-up delay-500">
+                  {welcomeMsg}
+              </p>
+              
+              {/* Countdown */}
+              <div className="flex justify-center gap-4 py-4 animate-fade-in-up delay-700">
+                 {Object.entries(timeLeft).map(([unit, val], i) => (
+                     <div key={unit} className="flex flex-col items-center">
+                         <span className="text-2xl font-heading text-gold-200">{val}</span>
+                         <span className="text-[10px] uppercase tracking-widest text-gold-400/70">{unit}</span>
+                     </div>
+                 ))}
+              </div>
 
-                <div className="w-full space-y-4">
-                  {/* Guest Login Button */}
+              {/* Actions */}
+              <div className="flex flex-col gap-3 items-center w-full max-w-xs mx-auto animate-fade-in-up delay-1000">
                   <button 
                     onClick={() => handleUserLoginOpen('guest')}
-                    className="group relative w-full h-14 rounded-full overflow-hidden transition-all duration-300 hover:shadow-gold-glow hover:-translate-y-1 active:translate-y-0 active:scale-95 animate-fade-in-up delay-700"
+                    className="w-full bg-gradient-to-r from-gold-400 to-gold-600 text-[#4a0e11] py-3.5 rounded-full font-bold tracking-wide shadow-[0_0_20px_rgba(250,204,21,0.3)] hover:shadow-[0_0_30px_rgba(250,204,21,0.5)] hover:scale-105 transition-all active:scale-95 flex items-center justify-center gap-2"
                   >
-                     <div className="absolute inset-0 bg-gradient-to-r from-[#5e181f] via-[#751e26] to-[#3d0a0e] border border-[#8c2b36]"></div>
-                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-[shimmer_3s_infinite]"></div>
-                     <div className="relative flex items-center justify-center px-6 h-full">
-                        <div className="absolute left-6 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                           <User size={18} className="text-gold-200" />
-                        </div>
-                        <span className="text-gold-100 font-serif text-lg tracking-wide drop-shadow-sm group-hover:text-white transition-colors">Family & Friends</span>
-                        <div className="absolute right-5 flex items-center justify-center group-hover:rotate-12 transition-transform duration-300">
-                           <DiyaIcon className="w-6 h-6 text-gold-300 group-hover:text-gold-100 transition-colors" />
-                        </div>
-                     </div>
+                      <Sparkles size={18} /> Enter as Guest
                   </button>
                   
-                  {/* Couple Login Button */}
                   <button 
                     onClick={() => handleUserLoginOpen('couple')}
-                    className="group relative w-full h-14 rounded-full overflow-hidden transition-all duration-300 hover:shadow-[0_0_20px_rgba(212,140,140,0.3)] hover:-translate-y-1 active:translate-y-0 active:scale-95 animate-fade-in-up delay-[800ms]"
+                    className="text-gold-300 text-xs uppercase tracking-widest hover:text-gold-100 transition-colors py-2 flex items-center gap-1"
                   >
-                     <div className="absolute inset-0 bg-gradient-to-r from-[#d48c8c] via-[#e09e9e] to-[#b56b6b] border border-[#e8b5b5]"></div>
-                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
-                     <div className="relative flex items-center justify-center px-6 h-full">
-                        <span className="text-[#2d0a0d] font-serif text-lg tracking-wide font-medium drop-shadow-sm">Couple Login</span>
-                        <div className="absolute right-5 flex items-center justify-center group-hover:scale-110 transition-transform">
-                           <RingsIcon className="w-6 h-6 text-[#5e181f] group-hover:text-[#2d0a0d] transition-colors" />
-                        </div>
-                     </div>
+                      <Lock size={12} /> Couple Login
                   </button>
-                  
-                  {/* Admin Login Button */}
-                  <button 
-                    onClick={handleAdminClick}
-                    className="group relative w-full h-14 rounded-full overflow-hidden transition-all duration-300 hover:shadow-[0_0_20px_rgba(197,157,95,0.3)] hover:-translate-y-1 active:translate-y-0 active:scale-95 animate-fade-in-up delay-[900ms]"
-                  >
-                     <div className="absolute inset-0 bg-gradient-to-r from-[#c59d5f] via-[#d4af37] to-[#9c7836] border border-[#e6cf9c]"></div>
-                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
-                     <div className="relative flex items-center justify-center px-4 h-full">
-                        <span className="text-[#2d0a0d] font-serif text-lg tracking-wide font-medium drop-shadow-sm">Organisers/Admin Login</span>
-                        <div className="absolute right-5 flex items-center justify-center">
-                           <GaneshaIcon className="w-7 h-7 text-[#4a0e11] group-hover:scale-110 transition-transform" />
-                        </div>
-                     </div>
-                  </button>
-                </div>
-                
-                 <div className="mt-10 mb-4 relative z-20 flex flex-col items-center w-full animate-fade-in delay-1000">
-                     <div className="flex items-center justify-center gap-6 text-gold-200 font-heading relative">
-                         <div className="flex flex-col items-center group cursor-default transition-transform hover:-translate-y-1">
-                             <span className="text-3xl font-bold text-gold-100 drop-shadow-lg">{timeLeft.days}</span>
-                             <span className="text-[9px] uppercase opacity-60 font-serif tracking-widest mt-1">Days</span>
-                         </div>
-                         <span className="text-gold-500/60 mb-4 text-xl animate-pulse">:</span>
-                         <div className="flex flex-col items-center group cursor-default transition-transform hover:-translate-y-1">
-                             <span className="text-3xl font-bold text-gold-100 drop-shadow-lg">{timeLeft.hours}</span>
-                             <span className="text-[9px] uppercase opacity-60 font-serif tracking-widest mt-1">Hours</span>
-                         </div>
-                         <span className="text-gold-500/60 mb-4 text-xl animate-pulse">:</span>
-                         <div className="flex flex-col items-center group cursor-default transition-transform hover:-translate-y-1">
-                             <span className="text-3xl font-bold text-gold-100 drop-shadow-lg">{timeLeft.minutes}</span>
-                             <span className="text-[9px] uppercase opacity-60 font-serif tracking-widest mt-1">Mins</span>
-                         </div>
-                     </div>
-                     <div className="mt-4 flex items-center gap-3 w-full justify-center opacity-40">
-                         <div className="h-[1px] w-8 bg-gradient-to-r from-transparent to-gold-400"></div>
-                         <div className="w-1 h-1 rounded-full bg-gold-300"></div>
-                         <div className="h-[1px] w-8 bg-gradient-to-l from-transparent to-gold-400"></div>
-                     </div>
-                 </div>
-             </div>
-          </div>
-
-          <div className="mt-8 mb-2 px-4 relative z-20 w-full max-w-xs animate-fade-in delay-[1200ms] text-center">
-             <p className="font-cursive text-2xl sm:text-3xl text-gold-300 leading-relaxed drop-shadow-md opacity-90">
-               "Two souls with but a single thought, <br/> two hearts that beat as one."
-             </p>
+              </div>
           </div>
         </main>
 
-        <footer className="relative w-full z-20 pointer-events-none">
-           <div 
-              ref={feathersRef}
-              className="flex justify-center items-end -mb-8 sm:-mb-12 space-x-[-1.8rem] sm:space-x-[-2.2rem] relative z-0 will-change-transform perspective-1000"
-              style={{ '--scroll-p': 0 } as React.CSSProperties}
-           >
-              {featherConfig.map((f, i) => (
-                <div 
-                  key={i}
-                  className="transition-transform duration-75 ease-out origin-bottom-center"
-                  style={{
-                    transform: `
-                      rotate(calc(${f.rotate}deg + (var(--scroll-p) * ${(i - 3) * 12}deg))) 
-                      translateY(calc(${f.y}px + (var(--scroll-p) * 40px))) 
-                      scale(${f.scale})
-                    `,
-                    zIndex: 10 - Math.abs(i - 3),
-                    filter: 'drop-shadow(0 5px 15px rgba(0,0,0,0.6))'
-                  }}
-                >
-                    <div 
-                        className={`transform transition-all duration-[1500ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] feather-sway origin-bottom ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'}`}
-                        style={{ 
-                            transitionDelay: `${i * 80}ms`,
-                            animationDelay: `${i * 0.3}s` // Stagger the sway too
-                        }}
-                    >
-                        <PeacockFeather className="w-32 h-64 sm:w-40 sm:h-80" />
-                    </div>
-                </div>
-              ))}
-           </div>
+        {/* Decorative Bottom */}
+        <div className="absolute bottom-0 left-0 right-0 h-32 pointer-events-none z-0 flex justify-between items-end opacity-40">
+            <PeacockFeather className="w-24 h-64 -ml-4 -mb-4 transform -rotate-12" />
+            <PeacockFeather className="w-24 h-64 -mr-4 -mb-4 transform rotate-12 scale-x-[-1]" />
+        </div>
 
-           <div className="relative z-30 bg-[#1a0507] border-t border-gold-600/30 pt-4 pb-6 shadow-[0_-10px_40px_rgba(0,0,0,0.8)] animate-slide-up delay-1000">
-              <div className="flex justify-center items-center gap-6 text-gold-500/50 text-[10px] sm:text-xs font-serif tracking-[0.2em] pointer-events-auto">
-                  <span className="hover:text-gold-300 transition-colors cursor-pointer flex items-center gap-1">
-                     Exclusively for Family & Loved Ones
-                  </span>
-              </div>
-              <div className="flex justify-between items-center px-8 mt-2 opacity-40">
-                 <Sparkles size={10} className="text-gold-300 animate-pulse" />
-                 <div className="h-[1px] bg-gradient-to-r from-transparent via-gold-600/50 to-transparent flex-1 mx-4"></div>
-                 <Sparkles size={10} className="text-gold-300 animate-pulse delay-75" />
-              </div>
-           </div>
-        </footer>
-      </div>
+        {/* Admin Trigger */}
+        <button 
+            onClick={handleAdminClick} 
+            className="absolute bottom-2 left-1/2 -translate-x-1/2 text-white/5 hover:text-white/20 text-[10px] p-2"
+        >
+            Admin
+        </button>
 
-      {/* --- Modals --- */}
-      
-      {showAdminLogin && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
-            <div className="bg-[#2d0a0d] border border-gold-400/30 w-full max-w-xs rounded-xl shadow-2xl overflow-hidden relative animate-zoom-in">
-                <div className="bg-[#4a0e11] px-4 py-3 flex justify-between items-center border-b border-gold-400/20">
-                    <h3 className="text-gold-100 font-serif tracking-wide flex items-center gap-2"><Lock size={14}/> Admin Access</h3>
-                    <button onClick={() => setShowAdminLogin(false)} className="text-gold-400 hover:text-gold-100"><X size={18}/></button>
-                </div>
-                <form onSubmit={handleLoginSubmit} className="p-6 flex flex-col gap-4">
-                    <div className="space-y-2">
-                        <label className="text-gold-400/70 text-xs font-serif uppercase tracking-wider">Enter PIN</label>
+        {/* --- Modals --- */}
+        
+        {/* Admin Login Modal */}
+        {showAdminLogin && (
+            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+                <div className="bg-[#2d0a0d] border border-gold-500/30 p-6 rounded-2xl w-full max-w-xs text-center shadow-2xl animate-zoom-in">
+                    <h3 className="text-gold-200 font-heading text-xl mb-4">Admin Access</h3>
+                    <form onSubmit={handleLoginSubmit} className="space-y-4">
                         <input 
                             type="password" 
+                            value={adminPin} 
+                            onChange={e => setAdminPin(e.target.value)}
+                            className="w-full bg-black/30 border border-gold-500/20 rounded-lg px-4 py-2 text-center text-gold-100 tracking-[0.5em] focus:outline-none focus:border-gold-400"
+                            placeholder="PIN"
                             autoFocus
-                            maxLength={4}
-                            value={adminPin}
-                            onChange={(e) => setAdminPin(e.target.value)}
-                            className="w-full bg-black/20 border-b border-gold-500/30 text-gold-100 p-2 focus:outline-none focus:border-gold-400 placeholder-gold-500/30 text-center tracking-[0.5em] text-xl font-serif"
-                            placeholder="••••"
                         />
-                    </div>
-                    <button type="submit" className="bg-gold-500 hover:bg-gold-400 text-[#2d0a0d] py-2 rounded font-serif font-bold flex items-center justify-center gap-2 transition-colors mt-2 hover:shadow-[0_0_15px_rgba(227,201,141,0.4)] active:scale-95 transform">
-                        <LogIn size={16} /> Login
-                    </button>
-                </form>
-            </div>
-        </div>
-      )}
-
-      {showUserLogin && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
-            <div className="bg-[#2d0a0d] border border-gold-400/30 w-full max-w-xs rounded-xl shadow-2xl overflow-hidden relative animate-zoom-in">
-                <div className="bg-[#4a0e11] px-4 py-3 flex justify-between items-center border-b border-gold-400/20">
-                    <h3 className="text-gold-100 font-serif tracking-wide flex items-center gap-2">
-                        {loginType === 'guest' ? <User size={14}/> : <RingsIcon className="w-4 h-4"/>} 
-                        {loginType === 'guest' ? 'Guest Entry' : 'Couple Entry'}
-                    </h3>
-                    <button onClick={() => setShowUserLogin(false)} className="text-gold-400 hover:text-gold-100"><X size={18}/></button>
+                        <div className="flex gap-2">
+                            <button type="button" onClick={() => setShowAdminLogin(false)} className="flex-1 py-2 rounded-lg border border-gold-500/20 text-gold-400 hover:bg-white/5">Cancel</button>
+                            <button type="submit" className="flex-1 py-2 rounded-lg bg-gold-600 text-[#2d0a0d] font-bold hover:bg-gold-500">Unlock</button>
+                        </div>
+                    </form>
                 </div>
-                <form onSubmit={handleUserLoginSubmit} className="p-6 flex flex-col gap-4">
-                    <div className="space-y-1">
-                        <label className="text-gold-400/70 text-xs font-serif uppercase tracking-wider">Full Name</label>
-                        <input 
-                            type="text" 
-                            autoFocus
-                            value={userName}
-                            onChange={(e) => setUserName(e.target.value)}
-                            className="w-full bg-black/20 border-b border-gold-500/30 text-gold-100 p-2 focus:outline-none focus:border-gold-400 placeholder-gold-500/30 font-serif"
-                            placeholder="Enter your name"
-                            required
-                        />
-                    </div>
-                    <div className="space-y-1">
-                        <label className="text-gold-400/70 text-xs font-serif uppercase tracking-wider">Phone Number</label>
-                        <input 
-                            type="tel" 
-                            value={userPhone}
-                            onChange={(e) => setUserPhone(e.target.value)}
-                            className="w-full bg-black/20 border-b border-gold-500/30 text-gold-100 p-2 focus:outline-none focus:border-gold-400 placeholder-gold-500/30 font-serif"
-                            placeholder="Enter phone number"
-                            required
-                        />
-                    </div>
-                    <button type="submit" className="bg-gold-500 hover:bg-gold-400 text-[#2d0a0d] py-2 rounded font-serif font-bold flex items-center justify-center gap-2 transition-colors mt-4 relative overflow-hidden group hover:shadow-[0_0_15px_rgba(227,201,141,0.4)] active:scale-95 transform">
-                        <span className="absolute inset-0 w-full h-full bg-white/30 transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300"></span>
-                        <Check size={16} /> Enter Celebration
-                    </button>
-                </form>
             </div>
-        </div>
-      )}
+        )}
 
+        {/* User Login Modal */}
+        {showUserLogin && (
+            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+                <div className="bg-[#fffbf5] text-[#4a0e11] p-8 rounded-2xl w-full max-w-sm shadow-2xl relative animate-slide-up border-4 border-[#4a0e11]">
+                    <button onClick={() => setShowUserLogin(false)} className="absolute top-2 right-2 text-stone-400 hover:text-[#4a0e11]"><X size={20} /></button>
+                    
+                    <div className="text-center mb-6">
+                        <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-3 text-[#4a0e11]">
+                             {loginType === 'couple' ? <GaneshaIcon className="w-10 h-10" /> : <User size={32} />}
+                        </div>
+                        <h3 className="font-heading text-2xl">{loginType === 'couple' ? 'Couple Login' : 'Guest Entry'}</h3>
+                        <p className="text-xs text-stone-500 font-serif italic mt-1">Please provide your details</p>
+                    </div>
+
+                    <form onSubmit={handleUserLoginSubmit} className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-stone-500 mb-1">Full Name</label>
+                            <input 
+                                type="text" 
+                                value={userName} 
+                                onChange={e => setUserName(e.target.value)}
+                                className="w-full bg-white border border-stone-200 rounded-lg px-4 py-3 focus:outline-none focus:border-[#4a0e11] focus:ring-1 focus:ring-[#4a0e11]"
+                                placeholder="e.g. Rajesh Kumar"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-stone-500 mb-1">Phone Number</label>
+                            <input 
+                                type="tel" 
+                                value={userPhone} 
+                                onChange={e => setUserPhone(e.target.value)}
+                                className="w-full bg-white border border-stone-200 rounded-lg px-4 py-3 focus:outline-none focus:border-[#4a0e11] focus:ring-1 focus:ring-[#4a0e11]"
+                                placeholder="10-digit mobile number"
+                            />
+                        </div>
+                        <button type="submit" className="w-full bg-[#4a0e11] text-gold-100 py-3 rounded-lg font-bold shadow-lg hover:bg-[#691419] transition-colors active:scale-95 flex items-center justify-center gap-2 mt-2">
+                            <span>Continue</span> <ChevronRight size={16} />
+                        </button>
+                    </form>
+                </div>
+            </div>
+        )}
+      </div>
     </div>
   );
 };

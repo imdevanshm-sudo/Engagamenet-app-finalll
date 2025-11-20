@@ -101,8 +101,15 @@
       body {
         background-color: #2d0a0d;
         overflow-x: hidden; /* Prevent horizontal scroll from animations */
+        overflow-y: hidden; /* Prevent body scroll, rely on inner containers */
         touch-action: manipulation; /* Improve touch handling */
         -webkit-tap-highlight-color: transparent;
+        overscroll-behavior-y: none; /* Prevent pull-to-refresh on Android */
+      }
+      #root {
+        height: 100vh;
+        height: 100dvh; /* Use dynamic viewport height for mobile browsers */
+        overflow: hidden;
       }
       /* Custom scrollbar hide */
       .no-scrollbar::-webkit-scrollbar {
@@ -112,6 +119,12 @@
         -ms-overflow-style: none;
         scrollbar-width: none;
       }
+      
+      /* Smooth scrolling for internal containers */
+      .scroll-smooth {
+        -webkit-overflow-scrolling: touch;
+      }
+
       /* Staggered Animation Delays */
       .delay-100 { animation-delay: 100ms; }
       .delay-200 { animation-delay: 200ms; }

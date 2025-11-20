@@ -4,7 +4,7 @@ import {
   Home, Calendar, MessageSquare, Heart, Camera, MapPin, Clock, 
   ChevronRight, LogOut, Sparkles, Map, Send, 
   Smile, Upload, Phone, Download, Lock, Search, ExternalLink, Contact,
-  User, Music, Info, MailCheck
+  User, Music, Info, MailCheck, X, Navigation, Share2, Check
 } from 'lucide-react';
 
 // --- Types ---
@@ -34,11 +34,11 @@ interface GuestContact {
 }
 
 // --- Assets & Stickers ---
-const FloralPattern = ({ className, opacity = 0.1 }: { className?: string, opacity?: number }) => (
+const FloralPattern = ({ className, opacity = 0.05 }: { className?: string, opacity?: number }) => (
   <div className={`absolute inset-0 pointer-events-none ${className}`} style={{ opacity }}>
     <svg width="100%" height="100%">
-      <pattern id="floral-pat" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
-        <path d="M20,0 C25,10 35,10 40,0 C30,5 30,15 40,20 C30,25 30,35 40,40 C35,30 25,30 20,40 C25,30 15,30 10,40 C10,30 10,20 0,20 C10,15 10,5 0,0 C5,10 15,10 20,0 Z" fill="currentColor" />
+      <pattern id="floral-pat" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse">
+         <path d="M30,5 C35,15 45,15 50,5 C40,10 40,20 50,25 C40,30 40,40 50,45 C45,35 35,35 30,45 C35,35 25,35 20,45 C20,35 20,25 10,25 C20,20 20,10 10,5 C15,15 25,15 30,5 Z" fill="currentColor" />
       </pattern>
       <rect width="100%" height="100%" fill="url(#floral-pat)" />
     </svg>
@@ -157,15 +157,21 @@ const AdoreMeter = ({ count, onTrigger }: { count: number, onTrigger: () => void
                  ))}
             </div>
 
-            <div className="relative w-12 h-36 cursor-pointer group transition-transform active:scale-95 hover:scale-105 duration-300">
-                <svg viewBox="0 0 60 200" className="absolute inset-0 w-full h-full drop-shadow-2xl">
+            <div className="relative w-12 h-32 cursor-pointer group transition-transform active:scale-95 hover:scale-105 duration-300">
+                <svg viewBox="0 0 60 200" className="absolute inset-0 w-full h-full drop-shadow-xl">
+                    <defs>
+                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                           <feGaussianBlur stdDeviation="2" result="blur" />
+                           <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                        </filter>
+                    </defs>
                     <path d="M30,190 C45,190 55,180 55,165 L55,35 C55,15 45,5 30,5 C15,5 5,15 5,35 L5,165 C5,180 15,190 30,190 Z" fill="#fffbf5" stroke="#b45309" strokeWidth="2"/>
                     {Array.from({ length: 8 }).map((_, i) => (
                         <line key={i} x1="20" y1={35 + i * 18} x2="40" y2={35 + i * 18} stroke="#d6d3d1" strokeWidth="1" />
                     ))}
                     <circle cx="30" cy="165" r="18" fill="#fffbf5" stroke="#b45309" strokeWidth="2" />
                 </svg>
-                <div className="absolute bottom-[26px] left-[10px] right-[10px] bg-stone-100 rounded-t-full overflow-hidden h-[125px] w-[28px] ml-auto mr-auto z-10">
+                <div className="absolute bottom-[23px] left-[10px] right-[10px] bg-stone-100 rounded-t-full overflow-hidden h-[110px] w-[28px] ml-auto mr-auto z-10">
                     <div 
                         className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-rose-600 via-rose-500 to-rose-400 transition-all duration-700 ease-out flex items-start justify-center pt-1"
                         style={{ height: `${fillPercent}%` }}
@@ -173,11 +179,11 @@ const AdoreMeter = ({ count, onTrigger }: { count: number, onTrigger: () => void
                          <div className="w-full h-2 bg-white/30 animate-pulse blur-[1px]"></div>
                     </div>
                 </div>
-                <div className="absolute bottom-[7px] left-[11px] w-[26px] h-[26px] rounded-full bg-gradient-to-br from-rose-500 to-rose-700 z-20 shadow-inner flex items-center justify-center">
+                <div className="absolute bottom-[7px] left-[11px] w-[26px] h-[26px] rounded-full bg-gradient-to-br from-rose-500 to-rose-700 z-20 shadow-inner flex items-center justify-center border border-rose-300">
                     <Heart size={14} fill="#fcd34d" className="text-gold-300 animate-pulse" />
                 </div>
             </div>
-            <div className="mt-1 px-2 py-0.5 bg-black/40 backdrop-blur-sm rounded-full text-[8px] font-bold text-gold-200 tracking-widest uppercase shadow-sm border border-gold-500/30 text-center">
+            <div className="mt-1 px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded-full text-[8px] font-bold text-gold-200 tracking-widest uppercase shadow-sm border border-gold-500/30 text-center">
                 Adore Meter<br/>{count}
             </div>
         </div>
@@ -268,7 +274,7 @@ const GuestBookView = ({ userName }: { userName: string }) => {
 
     return (
         <div className="flex flex-col h-full relative animate-fade-in bg-[#fffbf5]">
-            <div className="bg-[#4a0e11] p-4 pb-2 text-white shadow-md z-20">
+            <div className="bg-[#4a0e11] p-4 pb-2 text-white shadow-md z-20 shrink-0">
                 <h2 className="font-serif font-bold text-xl flex items-center gap-2 mb-3"><Contact size={20} className="text-gold-400"/> Guest Book</h2>
                 <div className="flex gap-2">
                     <button 
@@ -287,7 +293,7 @@ const GuestBookView = ({ userName }: { userName: string }) => {
             </div>
             
             {view === 'directory' ? (
-                <div className="flex-grow overflow-y-auto p-4 pb-32">
+                <div className="flex-grow overflow-y-auto p-4 pb-32 bg-stone-50 overscroll-contain">
                      <div className="relative mb-4">
                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={16}/>
                          <input 
@@ -295,19 +301,19 @@ const GuestBookView = ({ userName }: { userName: string }) => {
                             placeholder="Find a guest..." 
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-white border border-stone-200 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-gold-400"
+                            className="w-full bg-white border border-stone-200 rounded-full py-3 pl-10 pr-4 text-sm focus:outline-none focus:border-gold-400 shadow-sm"
                          />
                      </div>
                      <div className="space-y-3">
                          {filteredGuests.map(guest => (
-                             <div key={guest.id} className="bg-white p-4 rounded-xl shadow-sm border border-stone-100 flex justify-between items-center animate-slide-up">
+                             <div key={guest.id} className="bg-white p-4 rounded-xl shadow-sm border border-stone-100 flex justify-between items-center animate-slide-up hover:shadow-md transition-shadow">
                                  <div className="flex items-center gap-3">
-                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${guest.role === 'Couple' ? 'bg-rose-100 text-rose-800' : 'bg-stone-100 text-stone-600'}`}>
+                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-inner ${guest.role === 'Couple' ? 'bg-rose-100 text-rose-800' : 'bg-stone-100 text-stone-600'}`}>
                                          {guest.name.charAt(0)}
                                      </div>
                                      <div>
                                          <h3 className="font-bold text-[#4a0e11]">{guest.name}</h3>
-                                         <span className="text-[10px] uppercase tracking-wider text-stone-400 bg-stone-50 px-2 py-0.5 rounded">{guest.role}</span>
+                                         <span className="text-[10px] uppercase tracking-wider text-stone-500 bg-stone-100 px-2 py-0.5 rounded-full border border-stone-200">{guest.role}</span>
                                      </div>
                                  </div>
                                  <a href={`tel:${guest.phone}`} className="w-10 h-10 rounded-full bg-green-50 text-green-600 flex items-center justify-center hover:bg-green-100 transition-colors active:scale-95 shadow-sm border border-green-100">
@@ -321,45 +327,53 @@ const GuestBookView = ({ userName }: { userName: string }) => {
                      </div>
                 </div>
             ) : (
-                <div className="flex flex-col flex-grow h-full overflow-hidden relative">
-                    <div ref={scrollRef} className="flex-grow overflow-y-auto p-4 space-y-4 bg-[#fffbf5] pb-32">
+                <div className="flex flex-col flex-grow h-full overflow-hidden relative bg-[#f8f5f2]">
+                    <FloralPattern className="opacity-[0.03] z-0" />
+                    <div ref={scrollRef} className="flex-grow overflow-y-auto p-4 space-y-4 pb-24 relative z-10 overscroll-contain">
                         {messages.map((msg, i) => {
                             const isMe = msg.sender === userName;
                             return (
                                 <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-fade-in-up`} style={{ animationDelay: `${i * 20}ms` }}>
                                     {!isMe && (
-                                        <span className="text-[10px] text-stone-500 ml-1 mb-0.5 font-bold">
-                                            {msg.sender} {msg.isCouple && <span className="text-rose-500">(Couple)</span>}
-                                        </span>
+                                        <div className="flex items-center gap-1 ml-1 mb-0.5">
+                                            <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold ${msg.isCouple ? 'bg-rose-100 text-rose-600' : 'bg-stone-200 text-stone-600'}`}>
+                                                {msg.sender.charAt(0)}
+                                            </div>
+                                            <span className="text-[10px] text-stone-500 font-bold">
+                                                {msg.sender}
+                                            </span>
+                                        </div>
                                     )}
-                                    <div className={`max-w-[80%] px-4 py-2 rounded-2xl text-sm font-serif shadow-sm ${
+                                    <div className={`max-w-[80%] px-4 py-2 text-sm font-serif shadow-sm relative ${
                                         msg.type === 'sticker' ? 'bg-transparent shadow-none p-0' :
-                                        isMe ? 'bg-[#4a0e11] text-gold-100 rounded-tr-sm' : 
-                                        msg.isCouple ? 'bg-rose-100 text-rose-900 border border-rose-200' : 'bg-white text-stone-800 border border-stone-100 rounded-tl-sm'
+                                        isMe ? 'bg-[#4a0e11] text-gold-100 rounded-2xl rounded-tr-none shadow-md' : 
+                                        msg.isCouple ? 'bg-gradient-to-br from-rose-50 to-white text-rose-900 border border-rose-200 rounded-2xl rounded-tl-none shadow-sm' : 
+                                        'bg-white text-stone-800 border border-stone-100 rounded-2xl rounded-tl-none shadow-sm'
                                     }`}>
                                         {msg.type === 'sticker' && msg.stickerKey ? (
-                                            <div className="w-24 h-24">{STICKER_MAP[msg.stickerKey]}</div>
+                                            <div className="w-24 h-24 drop-shadow-sm transform hover:scale-105 transition-transform">{STICKER_MAP[msg.stickerKey]}</div>
                                         ) : msg.text}
+                                        {isMe && msg.type !== 'sticker' && <div className="absolute bottom-0 right-1 text-[8px] opacity-60"><Check size={10} /></div>}
                                     </div>
-                                    <span className="text-[9px] text-stone-300 mt-1 mx-1">{msg.timestamp}</span>
+                                    <span className="text-[9px] text-stone-400 mt-1 mx-1">{msg.timestamp}</span>
                                 </div>
                             );
                         })}
                     </div>
 
-                    {/* Adore Meter Inside Chat - Positioned higher to clear input bar */}
+                    {/* Adore Meter Inside Chat - Positioned absolute, slightly adjusted */}
                     <div className="absolute bottom-[11rem] right-4 z-40">
                         <AdoreMeter count={heartCount} onTrigger={triggerHeart} />
                     </div>
 
-                    <div className="p-3 bg-white border-t border-stone-100 relative z-50 pb-24 lg:pb-3">
+                    <div className="p-3 bg-white border-t border-stone-200 relative z-50 pb-24 lg:pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                         {activeTab && (
                             <div className="absolute bottom-full left-0 right-0 bg-[#fffbf5] border-t border-gold-300 h-56 shadow-2xl animate-slide-up z-0 flex flex-col">
                                 <div className="flex border-b border-gold-200">
                                     <button onClick={() => setActiveTab('emoji')} className={`flex-1 py-3 text-xs font-bold transition-colors ${activeTab === 'emoji' ? 'bg-maroon-50 text-maroon-900 border-b-2 border-maroon-900' : 'text-stone-500'}`}>Emojis</button>
                                     <button onClick={() => setActiveTab('sticker')} className={`flex-1 py-3 text-xs font-bold transition-colors ${activeTab === 'sticker' ? 'bg-maroon-50 text-maroon-900 border-b-2 border-maroon-900' : 'text-stone-500'}`}>Stickers</button>
                                 </div>
-                                <div className="flex-grow overflow-y-auto p-4">
+                                <div className="flex-grow overflow-y-auto p-4 overscroll-contain">
                                 {activeTab === 'sticker' ? (
                                     <div className="grid grid-cols-3 gap-4">
                                             {Object.keys(STICKER_MAP).map((key) => (
@@ -385,23 +399,35 @@ const GuestBookView = ({ userName }: { userName: string }) => {
                                 value={inputText} 
                                 onChange={e => setInputText(e.target.value)}
                                 onFocus={() => setActiveTab(null)}
-                                className="flex-grow bg-stone-50 border border-stone-200 rounded-full px-4 py-2 text-sm focus:outline-none focus:border-maroon-300 transition-colors"
+                                className="flex-grow bg-stone-50 border border-stone-200 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:border-maroon-300 transition-colors"
                                 placeholder="Send wishes..."
                                 onKeyDown={e => e.key === 'Enter' && sendMessage(inputText)}
                             />
-                            <button onClick={() => sendMessage(inputText)} className="p-2 bg-[#4a0e11] text-gold-100 rounded-full hover:scale-105 active:scale-95 transition-transform"><Send size={18}/></button>
+                            <button onClick={() => sendMessage(inputText)} className="p-2.5 bg-[#4a0e11] text-gold-100 rounded-full hover:scale-105 active:scale-95 transition-transform shadow-md"><Send size={18}/></button>
                         </div>
                     </div>
                 </div>
             )}
-            
-            {/* Helper function to set view via other methods if needed */}
         </div>
     );
 };
 
+const Lightbox = ({ url, onClose, caption }: { url: string, onClose: () => void, caption?: string }) => (
+    <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center animate-in fade-in duration-300" style={{ touchAction: 'none' }}>
+        <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white p-2 bg-black/20 rounded-full"><X size={32} /></button>
+        <div className="max-w-4xl max-h-[80vh] w-full px-4 flex items-center justify-center relative">
+            <img src={url} alt="Full view" className="max-w-full max-h-full object-contain rounded-md shadow-2xl" />
+        </div>
+        {caption && <p className="mt-4 text-gold-100 font-serif text-lg text-center px-4">{caption}</p>}
+        <button className="mt-6 bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-full flex items-center gap-2 transition-colors border border-white/20">
+             <Download size={18} /> Save Memory
+        </button>
+    </div>
+);
+
 const MemoriesView = () => {
     const [photos, setPhotos] = useState<MediaItem[]>([]);
+    const [selectedPhoto, setSelectedPhoto] = useState<MediaItem | null>(null);
     
     useEffect(() => {
         const saved = localStorage.getItem('wedding_gallery_media');
@@ -411,7 +437,7 @@ const MemoriesView = () => {
     const handleUpload = () => {
         const newPhoto: MediaItem = {
              id: Date.now().toString(),
-             url: `https://source.unsplash.com/random/400x400?wedding-party&sig=${Date.now()}`, 
+             url: `https://source.unsplash.com/random/800x800?wedding-party&sig=${Date.now()}`, 
              type: 'image',
              caption: 'Shared Memory',
              timestamp: Date.now()
@@ -419,42 +445,34 @@ const MemoriesView = () => {
         const updated = [newPhoto, ...photos];
         setPhotos(updated);
         localStorage.setItem('wedding_gallery_media', JSON.stringify(updated));
-        alert("Photo Uploaded Successfully!");
-    };
-
-    const handleDownload = (url: string, e: React.MouseEvent) => {
-        e.stopPropagation();
-        alert("Downloading memory to device...");
-        // In a real app, this would trigger a blob download
     };
 
     return (
-        <div className="h-full flex flex-col bg-[#1a0507] animate-fade-in">
-            <div className="p-6 pb-4 border-b border-white/10 flex justify-between items-end">
+        <div className="h-full flex flex-col bg-[#1a0507] animate-fade-in relative">
+            {selectedPhoto && <Lightbox url={selectedPhoto.url} caption={selectedPhoto.caption} onClose={() => setSelectedPhoto(null)} />}
+            
+            <div className="p-6 pb-4 border-b border-white/10 flex justify-between items-end bg-gradient-to-b from-black/40 to-transparent sticky top-0 z-20 backdrop-blur-sm">
                 <div>
                     <h2 className="text-gold-100 font-heading text-2xl animate-fade-in-up">Memories</h2>
                     <p className="text-gold-400 text-xs animate-fade-in-up delay-100">Shared moments from everyone</p>
                 </div>
-                <button onClick={handleUpload} className="bg-gold-500 text-[#2d0a0d] text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1 hover:bg-gold-400 active:scale-95 transition-transform">
+                <button onClick={handleUpload} className="bg-gold-500 text-[#2d0a0d] text-xs font-bold px-4 py-2 rounded-full flex items-center gap-1 hover:bg-gold-400 active:scale-95 transition-transform shadow-lg shadow-gold-500/20">
                     <Upload size={14}/> Upload
                 </button>
             </div>
-            <div className="flex-grow overflow-y-auto p-4 grid grid-cols-2 gap-3 pb-24">
+            <div className="flex-grow overflow-y-auto p-4 grid grid-cols-2 gap-3 pb-24 content-start overscroll-contain">
                 {photos.length === 0 && (
                     <div className="col-span-2 text-center text-gold-400/50 mt-10 italic text-sm">No memories shared yet. Be the first!</div>
                 )}
                 {photos.map((photo, i) => (
-                    <div key={i} className="aspect-square rounded-xl overflow-hidden relative group animate-zoom-in shadow-lg" style={{ animationDelay: `${i*50}ms` }}>
-                        <img src={photo.url} alt="Memory" className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
-                            <span className="text-gold-100 text-[10px] font-bold mb-1">{photo.caption}</span>
-                            <button 
-                                onClick={(e) => handleDownload(photo.url, e)}
-                                className="self-end bg-white/20 backdrop-blur-md p-1.5 rounded-full text-white hover:bg-white/40 transition-colors"
-                            >
-                                <Download size={16} />
-                            </button>
-                        </div>
+                    <div 
+                        key={i} 
+                        className="aspect-square rounded-xl overflow-hidden relative group animate-zoom-in shadow-lg cursor-pointer" 
+                        style={{ animationDelay: `${i*50}ms` }}
+                        onClick={() => setSelectedPhoto(photo)}
+                    >
+                        <img src={photo.url} alt="Memory" className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700" />
+                        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors"></div>
                     </div>
                 ))}
             </div>
@@ -466,7 +484,6 @@ const MapView = ({ userName }: { userName: string }) => {
     const [viewMode, setViewMode] = useState<'venue' | 'google'>('venue');
     const [activeUsers, setActiveUsers] = useState<Record<string, any>>({});
     
-    // Geolocation logic
     useEffect(() => {
         const channel = new BroadcastChannel('wedding_live_map');
         channel.onmessage = (event) => {
@@ -480,7 +497,6 @@ const MapView = ({ userName }: { userName: string }) => {
         if (navigator.geolocation) {
             watchId = navigator.geolocation.watchPosition(
                 (position) => {
-                     // Mock mapping lat/long to visual map (0-100%)
                      const { latitude, longitude } = position.coords;
                      const pseudoX = (Math.abs(longitude * 10000) % 80) + 10; 
                      const pseudoY = (Math.abs(latitude * 10000) % 80) + 10;
@@ -521,18 +537,18 @@ const MapView = ({ userName }: { userName: string }) => {
 
     return (
         <div className="h-full bg-[#f5f5f4] relative overflow-hidden flex flex-col animate-fade-in">
-             <div className="absolute top-4 left-4 right-4 z-20 flex flex-col gap-3 animate-slide-up">
-                 <div className="bg-white/90 backdrop-blur p-3 rounded-xl shadow-lg border border-stone-200 flex justify-between items-center">
+             <div className="absolute top-4 left-4 right-4 z-20 flex flex-col gap-3 animate-slide-up pointer-events-none">
+                 <div className="bg-white/90 backdrop-blur p-3 rounded-xl shadow-lg border border-stone-200 flex justify-between items-center pointer-events-auto">
                      <div>
                          <h3 className="font-bold text-[#4a0e11] text-sm flex items-center gap-2"><MapPin size={16} className="text-rose-500"/> Live Location</h3>
                          <p className="text-[10px] text-stone-500">Showing real-time position.</p>
                      </div>
                      <button onClick={openGoogleMaps} className="bg-blue-50 border border-blue-200 p-2 rounded-full text-blue-600 hover:bg-blue-100 active:scale-95 transition-transform flex items-center gap-2 px-3">
-                         <ExternalLink size={14}/> <span className="text-xs font-bold">Google Maps</span>
+                         <ExternalLink size={14}/> <span className="text-xs font-bold">Open App</span>
                      </button>
                  </div>
                  
-                 <div className="bg-black/40 backdrop-blur-md rounded-full p-1 flex border border-gold-500/30 self-center shadow-lg">
+                 <div className="bg-black/60 backdrop-blur-md rounded-full p-1 flex border border-gold-500/30 self-center shadow-lg pointer-events-auto">
                      <button 
                         onClick={() => setViewMode('venue')}
                         className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${viewMode === 'venue' ? 'bg-gold-500 text-[#2d0a0d] shadow-sm' : 'text-gold-300 hover:text-gold-100'}`}
@@ -548,7 +564,7 @@ const MapView = ({ userName }: { userName: string }) => {
                  </div>
              </div>
              
-             <div className="flex-grow relative map-container bg-[#f5f5f4] overflow-hidden">
+             <div className="flex-grow relative map-container bg-[#f5f5f4] overflow-hidden" style={{ touchAction: 'none' }}>
                  {viewMode === 'venue' ? (
                      <>
                          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#4a0e11 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
@@ -565,21 +581,33 @@ const MapView = ({ userName }: { userName: string }) => {
                          ))}
                      </>
                  ) : (
-                     // Google Maps Simulation (Realtime Map)
-                     <div className="absolute inset-0 bg-[#f3f4f6] overflow-hidden pointer-events-none">
+                     // Refined Google Maps Simulation
+                     <div className="absolute inset-0 bg-[#e8eaed] overflow-hidden pointer-events-none">
+                        {/* Map Layers */}
+                        <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(#dadce0 1px, transparent 1px), linear-gradient(90deg, #dadce0 1px, transparent 1px)', backgroundSize: '100px 100px' }}></div>
+                        
                         {/* Roads */}
-                        <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(90deg, transparent 95%, #fff 95%), linear-gradient(transparent 95%, #fff 95%)', backgroundSize: '50px 50px' }}></div>
-                        <div className="absolute top-0 bottom-0 left-1/3 w-4 bg-white border-x border-gray-300"></div>
-                        <div className="absolute left-0 right-0 top-1/3 h-4 bg-white border-y border-gray-300"></div>
-                        <div className="absolute left-0 right-0 bottom-1/4 h-6 bg-[#fbbf24]/30 border-y border-[#fbbf24] transform -rotate-6"></div>
+                        <div className="absolute top-0 bottom-0 left-1/3 w-8 bg-white border-x border-gray-300 shadow-sm"></div>
+                        <div className="absolute left-0 right-0 top-1/3 h-8 bg-white border-y border-gray-300 shadow-sm"></div>
+                        <div className="absolute left-0 right-0 bottom-1/4 h-12 bg-[#fce8b2] border-y border-[#f9d06e] transform -rotate-6 border-2"></div>
+
+                        {/* Water */}
+                        <div className="absolute right-0 bottom-0 w-1/3 h-1/3 bg-[#aadaff] rounded-tl-[100px] border-l-4 border-t-4 border-[#9acbf9]"></div>
 
                         {/* Parks */}
-                        <div className="absolute top-10 right-10 w-32 h-32 bg-green-100 rounded-full border border-green-200 opacity-50"></div>
-                        <div className="absolute bottom-20 left-[-20px] w-40 h-40 bg-green-100 rounded-full border border-green-200 opacity-50"></div>
+                        <div className="absolute top-20 right-10 w-40 h-40 bg-[#cbf0d1] rounded-full border border-[#b0e3b8]"></div>
+                        <div className="absolute bottom-32 left-[-30px] w-48 h-48 bg-[#cbf0d1] rounded-full border border-[#b0e3b8]"></div>
 
                         {/* Labels */}
-                        <div className="absolute top-12 right-16 text-[10px] font-bold text-green-800 opacity-70 bg-white/50 px-1 rounded">City Park</div>
-                        <div className="absolute bottom-32 left-6 text-[10px] font-bold text-green-800 opacity-70 bg-white/50 px-1 rounded">Garden</div>
+                        <div className="absolute top-24 right-16 text-[10px] font-bold text-[#137333] bg-white/70 px-1.5 py-0.5 rounded shadow-sm border border-white">City Park</div>
+                        <div className="absolute bottom-40 left-10 text-[10px] font-bold text-[#137333] bg-white/70 px-1.5 py-0.5 rounded shadow-sm border border-white">Rose Garden</div>
+                        <div className="absolute top-[35%] left-[40%] text-[10px] font-bold text-slate-600 bg-white/80 px-1.5 py-0.5 rounded border border-slate-200">Main St</div>
+                        
+                        <div className="absolute bottom-10 right-10 pointer-events-auto">
+                            <button onClick={openGoogleMaps} className="bg-blue-600 text-white px-4 py-3 rounded-full shadow-xl font-bold text-sm flex items-center gap-2 animate-pulse hover:scale-105 transition-transform">
+                                <Navigation size={18} fill="currentColor" /> Navigate
+                            </button>
+                        </div>
                     </div>
                  )}
                  
@@ -600,7 +628,7 @@ const MapView = ({ userName }: { userName: string }) => {
                                     <Sparkles size={18} className="text-gold-300 opacity-80" />
                                 </div>
                             </div>
-                            <div className="mt-2 px-2 py-0.5 bg-black/70 backdrop-blur-md rounded text-[9px] text-gold-100 font-bold">
+                            <div className="mt-2 px-2 py-0.5 bg-black/70 backdrop-blur-md rounded text-[9px] text-gold-100 font-bold shadow-md whitespace-nowrap">
                                 {u.name === userName ? 'You' : u.name}
                             </div>
                         </div>
@@ -671,19 +699,19 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
       <FloralPattern className="text-[#4a0e11] opacity-[0.03] z-0" />
       
       {/* Main Content Area */}
-      <div className="flex-grow overflow-y-auto no-scrollbar relative z-10 pb-20">
+      <div className="flex-grow overflow-y-auto no-scrollbar relative z-10 pb-20 overscroll-contain">
         
         {/* Header */}
-        <header className="pt-8 pb-4 px-6 flex justify-between items-center bg-gradient-to-b from-[#fffbf5] to-[#fffbf5]/90 sticky top-0 z-30 backdrop-blur-sm">
+        <header className="pt-8 pb-4 px-6 flex justify-between items-center bg-gradient-to-b from-[#fffbf5] via-[#fffbf5] to-transparent sticky top-0 z-30 backdrop-blur-[2px]">
             <div>
                 <h1 className="font-cursive text-3xl text-[#4a0e11]">Sneha & Aman</h1>
-                <p className="text-[10px] tracking-[0.3em] text-[#b45309] normal-case">The Engagement</p>
+                <p className="text-[10px] tracking-[0.3em] text-[#b45309] font-serif mt-1 normal-case">The Engagement</p>
             </div>
             <div className="text-center">
-                 <div className="bg-[#4a0e11] text-gold-100 px-3 py-1 rounded-lg shadow-md flex gap-2 text-xs font-mono">
-                     <span className="flex flex-col leading-none"><span>{timeLeft.days}</span><span className="text-[6px] opacity-60">D</span></span>:
-                     <span className="flex flex-col leading-none"><span>{timeLeft.hours}</span><span className="text-[6px] opacity-60">H</span></span>:
-                     <span className="flex flex-col leading-none"><span>{timeLeft.minutes}</span><span className="text-[6px] opacity-60">M</span></span>
+                 <div className="bg-[#4a0e11] text-gold-100 px-3 py-1 rounded-lg shadow-md flex gap-2 text-xs font-mono border border-gold-500/30">
+                     <span className="flex flex-col leading-none items-center"><span>{timeLeft.days}</span><span className="text-[6px] opacity-60">D</span></span>:
+                     <span className="flex flex-col leading-none items-center"><span>{timeLeft.hours}</span><span className="text-[6px] opacity-60">H</span></span>:
+                     <span className="flex flex-col leading-none items-center"><span>{timeLeft.minutes}</span><span className="text-[6px] opacity-60">M</span></span>
                  </div>
             </div>
         </header>
@@ -691,7 +719,7 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
         {activeTab === 'home' && (
             <div className="px-6 space-y-8 animate-fade-in pb-24">
                 {/* Welcome Card */}
-                <div className="relative bg-[#2d0a0d] rounded-3xl p-8 text-center text-gold-100 shadow-2xl overflow-hidden group perspective-1000">
+                <div className="relative bg-[#2d0a0d] rounded-3xl p-8 text-center text-gold-100 shadow-2xl overflow-hidden group perspective-1000 border border-gold-500/30">
                     <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]"></div>
                     <FloralCorner className="absolute top-0 left-0 w-20 h-20 -translate-x-4 -translate-y-4 opacity-20" />
                     <FloralCorner className="absolute bottom-0 right-0 w-20 h-20 translate-x-4 translate-y-4 rotate-180 opacity-20" />
@@ -707,24 +735,26 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                              <button 
                                 onClick={handleRSVP}
                                 disabled={!isTimeUp || rsvpConfirmed}
-                                className={`w-full py-4 rounded-xl font-heading tracking-widest text-sm transition-all duration-500 shadow-[0_0_20px_rgba(0,0,0,0.3)] relative overflow-hidden group
+                                className={`w-full py-4 rounded-xl font-heading tracking-widest text-sm transition-all duration-500 shadow-lg relative overflow-hidden group
                                     ${rsvpConfirmed 
-                                        ? 'bg-green-800 text-green-100 cursor-default' 
+                                        ? 'bg-green-800 text-green-100 cursor-default border border-green-600' 
                                         : isTimeUp 
                                             ? 'bg-gradient-to-r from-gold-600 via-gold-500 to-gold-600 text-[#2d0a0d] hover:scale-105 active:scale-95' 
-                                            : 'bg-stone-800 text-stone-500 cursor-not-allowed border border-stone-700'
+                                            : 'bg-stone-800/50 text-stone-500 cursor-not-allowed border border-stone-700 backdrop-blur-sm'
                                     }`}
                              >
                                 {rsvpConfirmed ? (
                                     <span className="flex items-center justify-center gap-2"><Sparkles size={16}/> Attendance Confirmed</span>
                                 ) : !isTimeUp ? (
-                                    <span className="flex items-center justify-center gap-2"><Lock size={14}/> RSVP Locked (Nov 26)</span>
+                                    <span className="flex items-center justify-center gap-2"><Lock size={14}/> RSVP Locked</span>
                                 ) : (
                                     <span className="flex items-center justify-center gap-2"><MailCheck size={16}/> Click to RSVP</span>
                                 )}
                              </button>
                              {!isTimeUp && !rsvpConfirmed && (
-                                 <p className="text-[10px] text-stone-500 mt-2 uppercase tracking-wider">Unlocks automatically when timer ends</p>
+                                 <p className="text-[10px] text-gold-500/60 mt-3 uppercase tracking-wider flex items-center justify-center gap-1">
+                                     <Clock size={10}/> Unlocks Nov 26
+                                 </p>
                              )}
                         </div>
                     </div>
@@ -732,14 +762,14 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
 
                 {/* Quick Links */}
                 <div className="grid grid-cols-2 gap-4">
-                    <button onClick={() => setActiveTab('memories')} className="bg-white p-6 rounded-2xl shadow-sm border border-gold-100 flex flex-col items-center gap-3 hover:shadow-md transition-shadow group">
-                        <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center text-rose-600 group-hover:scale-110 transition-transform">
+                    <button onClick={() => setActiveTab('memories')} className="bg-white p-6 rounded-2xl shadow-sm border border-gold-100 flex flex-col items-center gap-3 hover:shadow-md transition-all group active:scale-95">
+                        <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center text-rose-600 group-hover:scale-110 transition-transform shadow-sm">
                             <Camera size={24} />
                         </div>
                         <span className="font-serif font-bold text-[#4a0e11] text-sm">Memories</span>
                     </button>
-                    <button onClick={() => setActiveTab('map')} className="bg-white p-6 rounded-2xl shadow-sm border border-gold-100 flex flex-col items-center gap-3 hover:shadow-md transition-shadow group">
-                        <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
+                    <button onClick={() => setActiveTab('map')} className="bg-white p-6 rounded-2xl shadow-sm border border-gold-100 flex flex-col items-center gap-3 hover:shadow-md transition-all group active:scale-95">
+                        <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform shadow-sm">
                             <Map size={24} />
                         </div>
                         <span className="font-serif font-bold text-[#4a0e11] text-sm">Live Map</span>
@@ -757,7 +787,7 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                     { time: "Dec 21 • 7:00 PM", title: "The Wedding", loc: "Shanti Gardens", icon: Heart },
                     { time: "Dec 21 • 9:00 PM", title: "Royal Dinner", loc: "Banquet Hall", icon: User }
                 ].map((event, i) => (
-                    <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-stone-100 flex gap-4 items-start relative overflow-hidden">
+                    <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-stone-100 flex gap-4 items-start relative overflow-hidden hover:shadow-md transition-shadow">
                         <div className="w-12 h-12 rounded-full bg-[#fffbf5] border border-gold-200 flex items-center justify-center text-[#b45309] flex-shrink-0 z-10">
                             <event.icon size={20} />
                         </div>
@@ -781,24 +811,24 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
       </div>
 
       {/* Bottom Navigation */}
-      <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gold-200 px-6 py-3 flex justify-between items-center z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
-          <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center gap-1 ${activeTab === 'home' ? 'text-[#4a0e11]' : 'text-stone-400'}`}>
+      <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gold-200 px-6 py-3 flex justify-between items-center z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
+          <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'home' ? 'text-[#4a0e11]' : 'text-stone-400'}`}>
               <Home size={20} strokeWidth={activeTab === 'home' ? 2.5 : 2} />
               <span className="text-[9px] font-bold uppercase tracking-wider">Home</span>
           </button>
-          <button onClick={() => setActiveTab('schedule')} className={`flex flex-col items-center gap-1 ${activeTab === 'schedule' ? 'text-[#4a0e11]' : 'text-stone-400'}`}>
+          <button onClick={() => setActiveTab('schedule')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'schedule' ? 'text-[#4a0e11]' : 'text-stone-400'}`}>
               <Calendar size={20} strokeWidth={activeTab === 'schedule' ? 2.5 : 2} />
               <span className="text-[9px] font-bold uppercase tracking-wider">Events</span>
           </button>
-          <button onClick={() => setActiveTab('map')} className={`flex flex-col items-center gap-1 ${activeTab === 'map' ? 'text-[#4a0e11]' : 'text-stone-400'}`}>
+          <button onClick={() => setActiveTab('map')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'map' ? 'text-[#4a0e11]' : 'text-stone-400'}`}>
               <Map size={20} strokeWidth={activeTab === 'map' ? 2.5 : 2} />
               <span className="text-[9px] font-bold uppercase tracking-wider">Map</span>
           </button>
-          <button onClick={() => setActiveTab('guest-book')} className={`flex flex-col items-center gap-1 ${activeTab === 'guest-book' ? 'text-[#4a0e11]' : 'text-stone-400'}`}>
+          <button onClick={() => setActiveTab('guest-book')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'guest-book' ? 'text-[#4a0e11]' : 'text-stone-400'}`}>
               <Contact size={20} strokeWidth={activeTab === 'guest-book' ? 2.5 : 2} />
               <span className="text-[9px] font-bold uppercase tracking-wider">Guests</span>
           </button>
-          <button onClick={onLogout} className="flex flex-col items-center gap-1 text-stone-400 hover:text-rose-500">
+          <button onClick={onLogout} className="flex flex-col items-center gap-1 text-stone-400 hover:text-rose-500 transition-colors">
               <LogOut size={20} />
               <span className="text-[9px] font-bold uppercase tracking-wider">Exit</span>
           </button>

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { Home, MessageSquare, Heart, Camera, X, Sparkles, Music, Gift, Smile, Send, Play, Pause, SkipForward, SkipBack, ExternalLink, LogOut, ChevronRight, Radio, Map, Navigation, Phone, Search, Compass, Globe, Plane, Hand, Plus, Minus, Users, Utensils, PhoneCall, MapPin, Lock, User, Film, Upload, Mic, ChevronLeft, LocateFixed, Volume2, VolumeX, ListMusic } from 'lucide-react';
+import { Home, MessageSquare, Heart, Camera, X, Sparkles, Music, Gift, Smile, Send, Play, Pause, SkipForward, SkipBack, ExternalLink, LogOut, ChevronRight, Radio, Map, Navigation, Phone, Search, Compass, Globe, Plane, Hand, Plus, Minus, Users, Utensils, PhoneCall, MapPin, Lock, User, Film, Upload, Mic, ChevronLeft, LocateFixed, Volume2, VolumeX, ListMusic, Download, Check } from 'lucide-react';
 
 // --- Types ---
 interface Message {
@@ -47,15 +47,7 @@ interface LocationUpdate {
 }
 
 // --- Shared Assets (Stickers & Map Icons) ---
-const StickerKalash = () => (
-  <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md">
-    <path d="M30,80 Q30,95 50,95 Q70,95 70,80 L75,40 Q80,30 50,30 Q20,30 25,40 Z" fill="#b45309" stroke="#78350f" strokeWidth="2"/>
-    <path d="M30,40 Q50,50 70,40" stroke="#fcd34d" strokeWidth="3" fill="none"/>
-    <circle cx="50" cy="60" r="10" fill="#fcd34d" />
-    <path d="M50,30 L50,20 M40,30 L35,15 M60,30 L65,15" stroke="#15803d" strokeWidth="3"/><circle cx="50" cy="15" r="8" fill="#fbbf24"/>
-  </svg>
-);
-
+const StickerKalash = () => (<svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md"><path d="M30,80 Q30,95 50,95 Q70,95 70,80 L75,40 Q80,30 50,30 Q20,30 25,40 Z" fill="#b45309" stroke="#78350f" strokeWidth="2"/><path d="M30,40 Q50,50 70,40" stroke="#fcd34d" strokeWidth="3" fill="none"/><circle cx="50" cy="60" r="10" fill="#fcd34d" /><path d="M50,30 L50,20 M40,30 L35,15 M60,30 L65,15" stroke="#15803d" strokeWidth="3"/><circle cx="50" cy="15" r="8" fill="#fbbf24"/></svg>);
 const StickerShehnai = () => (<svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md"><path d="M20,80 L80,20 L90,30 L30,90 Z" fill="#92400e" /><circle cx="25" cy="85" r="12" fill="#fbbf24" stroke="#b45309" strokeWidth="2"/><circle cx="25" cy="85" r="6" fill="#000" opacity="0.3"/><path d="M35,65 L40,60 M50,50 L55,45 M65,35 L70,30" stroke="#fbbf24" strokeWidth="3"/></svg>);
 const StickerSagai = () => (<svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md"><defs><radialGradient id="ringGlow" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#fff" /><stop offset="100%" stopColor="transparent" /></radialGradient></defs><path d="M20,65 Q20,95 50,95 Q80,95 80,65 L80,55 Q50,45 20,55 Z" fill="#be123c" stroke="#881337" strokeWidth="2"/><path d="M20,55 Q50,45 80,55 Q50,65 20,55" fill="#9f1239" /><circle cx="50" cy="45" r="12" fill="none" stroke="#fbbf24" strokeWidth="4" /><circle cx="50" cy="33" r="4" fill="#fff" filter="url(#ringGlow)"/><path d="M50,33 L50,33" stroke="#fff" strokeWidth="2" className="animate-pulse"/><text x="50" y="85" textAnchor="middle" fontFamily="serif" fontSize="12" fill="#fbbf24" fontWeight="bold">Sagai</text></svg>);
 const StickerJodi = () => (<svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md"><path d="M50,85 L20,55 Q5,40 20,25 Q35,10 50,35 Q65,10 80,25 Q95,40 65,55 Z" fill="#be123c" stroke="#9f1239" strokeWidth="2" /><text x="50" y="45" textAnchor="middle" fontFamily="serif" fontSize="12" fill="#fff" fontWeight="bold">Jodi</text><text x="50" y="60" textAnchor="middle" fontFamily="serif" fontSize="14" fill="#fbbf24" fontWeight="bold">No. 1</text></svg>);
@@ -97,24 +89,6 @@ const MapElephant = ({ className, flip }: { className?: string, flip?: boolean }
         </pattern>
         </defs>
     </svg>
-);
-
-const CityMapBackground = () => (
-    <div className="absolute inset-0 bg-[#f3f4f6] overflow-hidden pointer-events-none">
-        {/* Roads */}
-        <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(90deg, transparent 95%, #fff 95%), linear-gradient(transparent 95%, #fff 95%)', backgroundSize: '50px 50px' }}></div>
-        <div className="absolute top-0 bottom-0 left-1/3 w-4 bg-white border-x border-gray-300"></div>
-        <div className="absolute left-0 right-0 top-1/3 h-4 bg-white border-y border-gray-300"></div>
-        <div className="absolute left-0 right-0 bottom-1/4 h-6 bg-[#fbbf24]/30 border-y border-[#fbbf24] transform -rotate-6"></div>
-
-        {/* Parks */}
-        <div className="absolute top-10 right-10 w-32 h-32 bg-green-100 rounded-full border border-green-200 opacity-50"></div>
-        <div className="absolute bottom-20 left-[-20px] w-40 h-40 bg-green-100 rounded-full border border-green-200 opacity-50"></div>
-
-        {/* Labels */}
-        <div className="absolute top-12 right-16 text-[10px] font-bold text-green-800 opacity-70 bg-white/50 px-1 rounded">City Park</div>
-        <div className="absolute bottom-32 left-6 text-[10px] font-bold text-green-800 opacity-70 bg-white/50 px-1 rounded">Garden</div>
-    </div>
 );
 
 // --- Constants for Music ---
@@ -286,11 +260,24 @@ const MapNode: React.FC<{ x: number; y: number; name: string; delay?: number; ph
     );
 };
 
+const Lightbox = ({ url, onClose, caption }: { url: string, onClose: () => void, caption?: string }) => (
+    <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center animate-in fade-in duration-300" style={{ touchAction: 'none' }}>
+        <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white p-2"><X size={32} /></button>
+        <div className="max-w-4xl max-h-[80vh] w-full px-4 flex items-center justify-center">
+            <img src={url} alt="Full view" className="max-w-full max-h-full object-contain rounded-md shadow-2xl" />
+        </div>
+        {caption && <p className="mt-4 text-gold-100 font-serif text-lg text-center">{caption}</p>}
+        <button className="mt-6 bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-full flex items-center gap-2 transition-colors">
+             <Download size={18} /> Save Memory
+        </button>
+    </div>
+);
+
 // --- Photo Gallery View ---
 const PhotoGalleryView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
-
     const [photos, setPhotos] = useState<MediaItem[]>([]);
+    const [selectedPhoto, setSelectedPhoto] = useState<MediaItem | null>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -300,14 +287,12 @@ const PhotoGalleryView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
                     setPhotos(JSON.parse(saved));
                 } catch (e) {
                     console.error(e);
-                    // Fallback defaults
                 }
             }
         }
     }, [isOpen]);
 
     const handleUpload = () => {
-        // Simulation of upload
         const newPhoto: MediaItem = {
              id: Date.now().toString(),
              url: "https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?q=80&w=2070&auto=format&fit=crop",
@@ -321,7 +306,9 @@ const PhotoGalleryView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
     }
 
     return (
-        <div className="fixed inset-0 z-[70] bg-[#1a0405] overflow-y-auto animate-in slide-in-from-bottom duration-700">
+        <div className="fixed inset-0 z-[70] bg-[#1a0405] overflow-y-auto animate-in slide-in-from-bottom duration-700 overscroll-contain">
+            {selectedPhoto && <Lightbox url={selectedPhoto.url} caption={selectedPhoto.caption} onClose={() => setSelectedPhoto(null)} />}
+
              <div className="sticky top-0 bg-[#1a0405]/90 backdrop-blur-md p-4 flex justify-between items-center border-b border-gold-500/30 z-50 shadow-lg">
                 <h2 className="text-gold-100 font-heading text-xl tracking-widest">Family Memories</h2>
                 <button onClick={onClose} className="text-gold-400 hover:text-gold-100 bg-black/20 rounded-full p-2"><X size={24}/></button>
@@ -337,18 +324,9 @@ const PhotoGalleryView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
                             key={i} 
                             className={`relative rounded-2xl overflow-hidden shadow-lg border-2 border-gold-500/20 group cursor-pointer animate-in zoom-in fade-in duration-700 fill-mode-backwards ${i % 3 === 0 ? 'col-span-2 aspect-video' : 'col-span-1 aspect-square'}`}
                             style={{ animationDelay: `${i * 50}ms` }}
+                            onClick={() => setSelectedPhoto(photo)}
                         >
-                             {photo.type === 'video' ? (
-                                 <div className="w-full h-full flex items-center justify-center bg-black relative">
-                                     <img src={photo.url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 opacity-80" alt={`Memory ${i}`}/>
-                                     <div className="absolute inset-0 flex items-center justify-center">
-                                         <Film className="text-white/80 drop-shadow-lg w-12 h-12" />
-                                     </div>
-                                 </div>
-                             ) : (
-                                 <img src={photo.url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={`Memory ${i}`}/>
-                             )}
-
+                             <img src={photo.url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={`Memory ${i}`}/>
                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
                                  <span className="text-white text-sm font-serif tracking-wider">{photo.caption || 'View Memory'}</span>
                              </div>
@@ -473,7 +451,7 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
                  </div>
              </div>
              
-             <div className="flex-grow overflow-hidden relative bg-[#1a0507]">
+             <div className="flex-grow overflow-hidden relative bg-[#1a0507]" style={{ touchAction: 'none' }}>
                   <div className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden" {...handlers} style={style}>
                       <div 
                         className="absolute inset-0 w-full h-full origin-top-left transition-transform duration-75 ease-out"
@@ -502,7 +480,34 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
                                     <MapElephant className="absolute bottom-[20%] right-[10%] w-32 h-20 opacity-60" flip />
                                   </>
                               ) : (
-                                  <CityMapBackground />
+                                 // Google Maps Simulation
+                                <div className="absolute inset-0 bg-[#e8eaed] overflow-hidden pointer-events-none">
+                                    {/* Map Layers */}
+                                    <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(#dadce0 1px, transparent 1px), linear-gradient(90deg, #dadce0 1px, transparent 1px)', backgroundSize: '100px 100px' }}></div>
+                                    
+                                    {/* Roads */}
+                                    <div className="absolute top-0 bottom-0 left-1/3 w-8 bg-white border-x border-gray-300 shadow-sm"></div>
+                                    <div className="absolute left-0 right-0 top-1/3 h-8 bg-white border-y border-gray-300 shadow-sm"></div>
+                                    <div className="absolute left-0 right-0 bottom-1/4 h-12 bg-[#fce8b2] border-y border-[#f9d06e] transform -rotate-6 border-2"></div>
+
+                                    {/* Water */}
+                                    <div className="absolute right-0 bottom-0 w-1/3 h-1/3 bg-[#aadaff] rounded-tl-[100px] border-l-4 border-t-4 border-[#9acbf9]"></div>
+
+                                    {/* Parks */}
+                                    <div className="absolute top-20 right-10 w-40 h-40 bg-[#cbf0d1] rounded-full border border-[#b0e3b8]"></div>
+                                    <div className="absolute bottom-32 left-[-30px] w-48 h-48 bg-[#cbf0d1] rounded-full border border-[#b0e3b8]"></div>
+
+                                    {/* Labels */}
+                                    <div className="absolute top-24 right-16 text-[10px] font-bold text-[#137333] bg-white/70 px-1.5 py-0.5 rounded shadow-sm border border-white">City Park</div>
+                                    <div className="absolute bottom-40 left-10 text-[10px] font-bold text-[#137333] bg-white/70 px-1.5 py-0.5 rounded shadow-sm border border-white">Rose Garden</div>
+                                    <div className="absolute top-[35%] left-[40%] text-[10px] font-bold text-slate-600 bg-white/80 px-1.5 py-0.5 rounded border border-slate-200">Main St</div>
+                                    
+                                    <div className="absolute bottom-10 right-10 pointer-events-auto">
+                                        <button className="bg-blue-600 text-white px-4 py-3 rounded-full shadow-xl font-bold text-sm flex items-center gap-2 animate-pulse hover:scale-105 transition-transform">
+                                            <Navigation size={18} fill="currentColor" /> Navigate
+                                        </button>
+                                    </div>
+                                </div>
                               )}
                               
                               {/* Render Users */}
@@ -536,7 +541,7 @@ const AdoreMeter = ({ count }: { count: number }) => {
     };
 
     return (
-        <div className="absolute right-2 bottom-32 z-50 flex flex-col items-center pointer-events-auto" onClick={handleClick}>
+        <div className="absolute right-2 bottom-[6rem] z-40 flex flex-col items-center pointer-events-auto" onClick={handleClick}>
             <div className="absolute bottom-full w-24 h-40 pointer-events-none overflow-hidden -z-10 left-1/2 -translate-x-1/2">
                  {hearts.map(h => (
                      <div key={h.id} className="absolute bottom-0 left-1/2 animate-sidebar-float text-rose-500 drop-shadow-lg" style={{ '--x': `${h.x}px` } as React.CSSProperties}>
@@ -549,6 +554,12 @@ const AdoreMeter = ({ count }: { count: number }) => {
 
             <div className="relative w-14 h-48 cursor-pointer group transition-transform active:scale-95">
                 <svg viewBox="0 0 60 200" className="absolute inset-0 w-full h-full drop-shadow-2xl">
+                    <defs>
+                        <filter id="glow-couple" x="-20%" y="-20%" width="140%" height="140%">
+                           <feGaussianBlur stdDeviation="2" result="blur" />
+                           <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                        </filter>
+                    </defs>
                     <path d="M30,190 C45,190 55,180 55,165 L55,35 C55,15 45,5 30,5 C15,5 5,15 5,35 L5,165 C5,180 15,190 30,190 Z" fill="#fffbf5" stroke="#b45309" strokeWidth="2"/>
                     {Array.from({ length: 8 }).map((_, i) => (
                         <line key={i} x1="20" y1={35 + i * 18} x2="40" y2={35 + i * 18} stroke="#d6d3d1" strokeWidth="1" />
@@ -566,12 +577,12 @@ const AdoreMeter = ({ count }: { count: number }) => {
                          <div className="absolute bottom-6 right-3 w-1.5 h-1.5 bg-white/40 rounded-full animate-ping delay-300"></div>
                     </div>
                 </div>
-                <div className="absolute bottom-[7px] left-[12px] w-[32px] h-[32px] rounded-full bg-gradient-to-br from-rose-500 to-rose-700 z-20 shadow-inner flex items-center justify-center">
+                <div className="absolute bottom-[7px] left-[12px] w-[32px] h-[32px] rounded-full bg-gradient-to-br from-rose-500 to-rose-700 z-20 shadow-inner flex items-center justify-center border border-rose-300">
                     <Heart size={16} fill="#fcd34d" className="text-gold-300 animate-pulse" />
                 </div>
                 <div className="absolute inset-0 z-30 rounded-full bg-gradient-to-r from-white/40 to-transparent opacity-30 pointer-events-none w-[80%] mx-auto"></div>
             </div>
-            <div className="mt-2 px-2 py-1 bg-black/40 backdrop-blur-sm rounded-full text-[10px] font-bold text-gold-200 tracking-widest uppercase shadow-sm border border-gold-500/30">
+            <div className="mt-2 px-2 py-1 bg-black/60 backdrop-blur-sm rounded-full text-[10px] font-bold text-gold-200 tracking-widest uppercase shadow-sm border border-gold-500/30">
                 Adore Meter
             </div>
         </div>
@@ -684,7 +695,7 @@ const MessageBoard: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 bg-[#fff9f0] flex flex-col animate-in slide-in-from-bottom duration-500">
+        <div className="fixed inset-0 z-50 bg-[#fff9f0] flex flex-col animate-in slide-in-from-bottom duration-500 overscroll-contain">
             <div className="bg-[#4a0e11] p-4 pt-8 flex items-center gap-4 shadow-md relative shrink-0 z-20">
                  <button onClick={onClose} className="text-gold-200 hover:text-white transition-colors"><ChevronLeft size={28} /></button>
                  <div className="flex-grow text-center mr-8">
@@ -693,35 +704,33 @@ const MessageBoard: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
                  </div>
             </div>
             <div className="flex-grow relative overflow-hidden bg-[#fff9f0]">
-                <div ref={scrollRef} className="absolute inset-0 overflow-y-auto p-4 space-y-8 pb-32 pr-4 z-10">
+                <div ref={scrollRef} className="absolute inset-0 overflow-y-auto p-4 space-y-4 pb-32 pr-4 z-10">
                     {messages.map((msg) => {
                         const isSelf = msg.sender === userName;
                         return (
                             <div key={msg.id} className={`flex flex-col ${isSelf ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                                 {!isSelf && (
-                                    <div className="flex items-center gap-2 mb-2 ml-1">
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-sm border ${msg.isCouple ? 'bg-rose-50 text-rose-800 border-rose-200' : 'bg-stone-100 text-stone-600 border-stone-200'}`}>
+                                    <div className="flex items-center gap-2 mb-1 ml-1">
+                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm border ${msg.isCouple ? 'bg-rose-50 text-rose-800 border-rose-200' : 'bg-stone-100 text-stone-600 border-stone-200'}`}>
                                             {msg.isCouple ? (msg.sender.includes("Sneha") ? "S" : "A") : msg.sender.charAt(0)}
                                         </div>
-                                        <div className="flex flex-col">
-                                            <span className={`text-sm font-serif font-bold leading-none ${msg.isCouple ? 'text-rose-700' : 'text-stone-600'}`}>{msg.sender}</span>
-                                            {msg.isCouple && <span className="text-[10px] text-rose-500 font-sans uppercase tracking-wide">Couple</span>}
-                                        </div>
+                                        <span className={`text-xs font-bold ${msg.isCouple ? 'text-rose-700' : 'text-stone-600'}`}>{msg.sender}</span>
                                     </div>
                                 )}
-                                <div className={`max-w-[85%] rounded-3xl px-5 py-3 shadow-md relative border ${
+                                <div className={`max-w-[85%] px-4 py-2.5 text-sm font-serif shadow-sm relative ${
                                     msg.type === 'sticker' ? 'bg-transparent shadow-none border-none p-0' :
-                                    isSelf ? 'bg-[#4a0e11] text-gold-100 rounded-tr-sm border-gold-500/20' : 
-                                    msg.isCouple ? 'bg-gradient-to-br from-rose-50 to-white text-rose-900 rounded-tl-sm border-rose-200' : 
-                                    'bg-white text-stone-800 rounded-tl-sm border-stone-100'
+                                    isSelf ? 'bg-[#4a0e11] text-gold-100 rounded-2xl rounded-tr-none' : 
+                                    msg.isCouple ? 'bg-gradient-to-br from-rose-50 to-white text-rose-900 rounded-2xl rounded-tl-none border border-rose-200' : 
+                                    'bg-white text-stone-800 rounded-2xl rounded-tl-none border border-stone-100'
                                 }`}>
                                     {msg.type === 'sticker' && msg.stickerKey && STICKER_MAP[msg.stickerKey] ? (
                                         <div className="w-32 h-32 animate-in zoom-in-50 spring-duration-300">{STICKER_MAP[msg.stickerKey]}</div>
                                     ) : (
-                                        <p className="text-base font-serif leading-relaxed">{msg.text}</p>
+                                        <p className="leading-relaxed">{msg.text}</p>
                                     )}
+                                    {isSelf && msg.type !== 'sticker' && <div className="absolute bottom-0 right-1 text-[8px] opacity-60"><Check size={10} /></div>}
                                 </div>
-                                <span className="text-[10px] text-stone-400 mt-1.5 mx-2 font-medium tracking-wide">{msg.timestamp}</span>
+                                <span className="text-[9px] text-stone-400 mt-1 mx-2 font-medium tracking-wide">{msg.timestamp}</span>
                             </div>
                         );
                     })}
@@ -742,7 +751,7 @@ const MessageBoard: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
                             <button onClick={() => setActiveTab('emoji')} className={`flex-1 py-4 font-serif text-sm font-bold transition-colors ${activeTab === 'emoji' ? 'text-maroon-800 border-b-2 border-maroon-800 bg-maroon-50' : 'text-stone-400'}`}>Emojis</button>
                             <button onClick={() => setActiveTab('sticker')} className={`flex-1 py-4 font-serif text-sm font-bold transition-colors ${activeTab === 'sticker' ? 'text-maroon-800 border-b-2 border-maroon-800 bg-maroon-50' : 'text-stone-400'}`}>Stickers</button>
                         </div>
-                        <div className="flex-grow overflow-y-auto p-6 bg-white/50 relative">
+                        <div className="flex-grow overflow-y-auto p-6 bg-white/50 relative overscroll-contain">
                            {activeTab === 'sticker' ? (
                                <div className="grid grid-cols-3 gap-6 relative z-10">
                                    {Object.keys(STICKER_MAP).map((key, i) => (
@@ -992,7 +1001,7 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
           </div>
       )}
 
-      <div className="flex-grow overflow-y-auto no-scrollbar relative z-10 pb-32">
+      <div className="flex-grow overflow-y-auto no-scrollbar relative z-10 pb-32 overscroll-contain">
         <header className="pt-14 pb-8 text-center relative animate-in fade-in slide-in-from-top-6 duration-1000">
             <div className="relative inline-block">
                 <h1 className="font-cursive text-[3.5rem] text-transparent bg-clip-text bg-gradient-to-r from-[#be123c] via-[#e11d48] to-[#be123c] drop-shadow-sm leading-tight scale-y-110">
@@ -1096,7 +1105,7 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
                                     max={duration} 
                                     value={currentTime} 
                                     onChange={handleSeek}
-                                    className="w-full h-1 bg-rose-200 rounded-lg appearance-none cursor-pointer accent-rose-600"
+                                    className="w-full h-2 bg-rose-200 rounded-lg appearance-none cursor-pointer accent-rose-600"
                                  />
                                  <div className="flex justify-between text-[9px] font-bold text-rose-400 mt-1 font-mono">
                                      <span>{formatTime(currentTime)}</span>
