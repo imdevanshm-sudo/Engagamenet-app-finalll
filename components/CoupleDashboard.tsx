@@ -24,7 +24,7 @@ type BroadcastEvent =
   | { type: 'message'; payload: Message }
   | { type: 'heart_update'; count: number }
   | { type: 'love_explosion'; sender: string }
-  | { type: 'location_update'; id: string; name: string; x: number; y: number; role: 'guest' | 'couple' };
+  | { type: 'location_update'; id: string; name: string; x: number; y: number; role: 'guest' | 'couple'; map?: 'venue' | 'city' };
 
 interface LocationUpdate {
     type: 'location_update';
@@ -33,6 +33,7 @@ interface LocationUpdate {
     x: number;
     y: number;
     role: 'couple' | 'guest';
+    map: 'venue' | 'city';
 }
 
 // --- Shared Assets (Stickers & Map Icons) ---
@@ -89,6 +90,30 @@ const MapElephant = ({ className, flip }: { className?: string, flip?: boolean }
         </pattern>
         </defs>
     </svg>
+);
+
+const CityMapBackground = () => (
+    <div className="absolute inset-0 bg-[#e0f2fe] overflow-hidden pointer-events-none">
+        <div className="absolute right-0 top-0 bottom-0 w-[65%] bg-[#ecfccb] border-l-[6px] border-[#d9f99d] rounded-l-[50px] shadow-xl opacity-80"></div>
+        <div className="absolute left-0 top-0 bottom-0 w-[35%] opacity-20" style={{ backgroundImage: 'radial-gradient(#3b82f6 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+        <svg className="absolute inset-0 w-full h-full">
+            <path d="M 85 5 L 85 30 Q 85 50 60 50 L 50 50" fill="none" stroke="#94a3b8" strokeWidth="16" strokeLinecap="round" />
+            <path d="M 85 5 L 85 30 Q 85 50 60 50 L 50 50" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeDasharray="10 10" />
+            <path d="M 50 50 Q 20 50 20 80 L 20 90" fill="none" stroke="#3b82f6" strokeWidth="14" strokeLinecap="round" />
+            <path d="M 50 50 Q 20 50 20 80 L 20 90" fill="none" stroke="#60a5fa" strokeWidth="10" strokeLinecap="round" />
+        </svg>
+        <div className="absolute top-6 right-[10%] flex flex-col items-center animate-pulse">
+             <Plane className="text-slate-600 rotate-45" size={24} />
+             <span className="text-[9px] font-bold text-slate-700 bg-white/90 px-1 rounded shadow-sm">Airport</span>
+        </div>
+        <div className="absolute bottom-12 left-[15%] flex flex-col items-center">
+             <div className="w-12 h-12 bg-rose-500/30 rounded-full animate-ping absolute"></div>
+             <div className="bg-white p-1.5 rounded-full shadow-lg z-10">
+                <MapPin className="text-rose-600" size={24} fill="#e11d48" />
+             </div>
+             <span className="text-[10px] font-bold text-white bg-rose-600 px-2 py-0.5 rounded shadow-sm mt-1">Taj Lands End</span>
+        </div>
+    </div>
 );
 
 // --- Hooks ---
@@ -342,9 +367,9 @@ const HeartHug = () => (
 
 const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: string }> = ({ isOpen, onClose, userName }) => {
     const { transform, handlers, style } = usePanZoom(1, 0.5, 3);
-    const [activeUsers, setActiveUsers] = useState<Record<string, {x: number, y: number, name: string, role: 'couple'|'guest', timestamp: number}>>({});
+    const [activeUsers, setActiveUsers] = useState<Record<string, {x: number, y: number, name: string, role: 'couple'|'guest', timestamp: number, map?: 'venue' | 'city'}>>({});
     const [myLocation, setMyLocation] = useState<{x: number, y: number} | null>(null);
-    const [viewMode, setViewMode] = useState<'venue' | 'google'>('venue');
+    const [viewMode, setViewMode] = useState<'venue' | 'city'>('venue');
 
     useEffect(() => {
         const channel = new BroadcastChannel('wedding_live_map');
@@ -353,7 +378,7 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
             if (data.type === 'location_update') {
                 setActiveUsers(prev => ({
                     ...prev,
-                    [data.id]: { x: data.x, y: data.y, name: data.name, role: data.role, timestamp: Date.now() }
+                    [data.id]: { x: data.x, y: data.y, name: data.name, role: data.role, timestamp: Date.now(), map: data.map }
                 }));
             }
         };
@@ -362,7 +387,6 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
 
     // Couple can update location by clicking too
     const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (viewMode !== 'venue') return;
         if (!isOpen) return;
         const rect = e.currentTarget.getBoundingClientRect();
         const x = ((e.clientX - rect.left) / rect.width) * 100;
@@ -376,9 +400,16 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
             id: userName,
             name: userName,
             x, y,
-            role: 'couple'
+            role: 'couple',
+            map: viewMode
         });
         channel.close();
+        
+        // Self Update
+        setActiveUsers(prev => ({
+             ...prev,
+             [userName]: { x, y, name: userName, role: 'couple', timestamp: Date.now(), map: viewMode }
+        }));
     };
 
     const VENUE_ZONES = [
@@ -394,9 +425,9 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
         <div className="fixed inset-0 z-[60] bg-[#2d0a0d] flex flex-col animate-in fade-in duration-300">
              <div className="absolute top-0 left-0 right-0 z-30 p-4 flex justify-between items-start bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
                  <div className="pointer-events-auto">
-                    <h2 className="text-gold-100 font-heading text-2xl drop-shadow-md">Live Venue Tracker</h2>
+                    <h2 className="text-gold-100 font-heading text-2xl drop-shadow-md">{viewMode === 'venue' ? 'Live Venue Tracker' : 'City Journey Map'}</h2>
                     <p className="text-gold-400 text-xs font-serif opacity-80">
-                        {viewMode === 'venue' ? 'Tap to update your location' : 'View real-time traffic & directions'}
+                        Tap to update your location on the map.
                     </p>
                  </div>
                  <button onClick={onClose} className="text-white bg-white/10 p-2 rounded-full backdrop-blur-sm hover:bg-white/20 transition-colors pointer-events-auto"><X size={24}/></button>
@@ -412,68 +443,57 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
                          Venue Tracker
                      </button>
                      <button 
-                        onClick={() => setViewMode('google')}
-                        className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${viewMode === 'google' ? 'bg-gold-500 text-[#2d0a0d] shadow-sm' : 'text-gold-300 hover:text-gold-100'}`}
+                        onClick={() => setViewMode('city')}
+                        className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${viewMode === 'city' ? 'bg-gold-500 text-[#2d0a0d] shadow-sm' : 'text-gold-300 hover:text-gold-100'}`}
                      >
-                         Google Location
+                         City Journey
                      </button>
                  </div>
              </div>
              
              <div className="flex-grow overflow-hidden relative bg-[#1a0507]">
-                  {viewMode === 'venue' ? (
-                      <div className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden" {...handlers} style={style}>
-                          <div 
-                            className="absolute inset-0 w-full h-full origin-top-left transition-transform duration-75 ease-out"
-                            style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
-                          >
-                              <div className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 bg-[#f5f5f4] border-[20px] border-[#4a0e11] shadow-2xl overflow-hidden" onClick={handleMapClick}>
-                                  <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#4a0e11 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
-                                  
-                                  {VENUE_ZONES.map((zone, i) => (
-                                      <div key={i} className="absolute border-2 border-dashed flex items-center justify-center text-center p-2 opacity-60 hover:opacity-100 transition-opacity" 
-                                          style={{ 
-                                            left: `${zone.x}%`, top: `${zone.y}%`, width: `${zone.w}%`, height: `${zone.h}%`, 
-                                            transform: 'translate(-50%, -50%)',
-                                            borderColor: zone.color, backgroundColor: `${zone.color}10`
-                                          }}>
-                                          <span className="font-serif font-bold text-[10px] uppercase tracking-wider text-[#4a0e11] bg-white/80 px-2 py-1 rounded-full shadow-sm">{zone.name}</span>
-                                      </div>
-                                  ))}
+                  <div className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden" {...handlers} style={style}>
+                      <div 
+                        className="absolute inset-0 w-full h-full origin-top-left transition-transform duration-75 ease-out"
+                        style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
+                      >
+                          <div className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 bg-[#f5f5f4] border-[20px] border-[#4a0e11] shadow-2xl overflow-hidden" onClick={handleMapClick}>
+                              
+                              {viewMode === 'venue' ? (
+                                  <>
+                                    <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#4a0e11 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+                                    
+                                    {VENUE_ZONES.map((zone, i) => (
+                                        <div key={i} className="absolute border-2 border-dashed flex items-center justify-center text-center p-2 opacity-60 hover:opacity-100 transition-opacity" 
+                                            style={{ 
+                                                left: `${zone.x}%`, top: `${zone.y}%`, width: `${zone.w}%`, height: `${zone.h}%`, 
+                                                transform: 'translate(-50%, -50%)',
+                                                borderColor: zone.color, backgroundColor: `${zone.color}10`
+                                            }}>
+                                            <span className="font-serif font-bold text-[10px] uppercase tracking-wider text-[#4a0e11] bg-white/80 px-2 py-1 rounded-full shadow-sm">{zone.name}</span>
+                                        </div>
+                                    ))}
 
-                                  <MapTree className="absolute top-[15%] left-[15%] w-24 h-24 opacity-80" />
-                                  <MapTree className="absolute top-[15%] right-[15%] w-24 h-24 opacity-80" />
-                                  <MapElephant className="absolute bottom-[20%] left-[10%] w-32 h-20 opacity-60" />
-                                  <MapElephant className="absolute bottom-[20%] right-[10%] w-32 h-20 opacity-60" flip />
-                                  
-                                  {myLocation && (
-                                      <MapNode x={myLocation.x} y={myLocation.y} name="You" type="couple" />
-                                  )}
+                                    <MapTree className="absolute top-[15%] left-[15%] w-24 h-24 opacity-80" />
+                                    <MapTree className="absolute top-[15%] right-[15%] w-24 h-24 opacity-80" />
+                                    <MapElephant className="absolute bottom-[20%] left-[10%] w-32 h-20 opacity-60" />
+                                    <MapElephant className="absolute bottom-[20%] right-[10%] w-32 h-20 opacity-60" flip />
+                                  </>
+                              ) : (
+                                  <CityMapBackground />
+                              )}
+                              
+                              {/* Render Users */}
+                              {Object.values(activeUsers).map((u, i) => {
+                                  // Default to venue if undefined
+                                  const userMap = u.map || 'venue';
+                                  if (userMap !== viewMode) return null;
 
-                                  {Object.values(activeUsers).map((u, i) => (
-                                      <MapNode key={i} x={u.x} y={u.y} name={u.name} type={u.role} delay={i * 100} />
-                                  ))}
-                              </div>
+                                  return <MapNode key={i} x={u.x} y={u.y} name={u.name === userName ? 'You' : u.name} type={u.role} delay={i * 100} />;
+                              })}
                           </div>
                       </div>
-                  ) : (
-                      <div className="w-full h-full relative">
-                          <iframe 
-                              width="100%" 
-                              height="100%" 
-                              style={{ border: 0 }} 
-                              loading="lazy" 
-                              allowFullScreen 
-                              src="https://maps.google.com/maps?q=Taj+Lands+End+Mumbai&t=&z=17&ie=UTF8&iwloc=&output=embed"
-                              className="grayscale-[20%] contrast-125"
-                          ></iframe>
-                           <div className="absolute bottom-12 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur px-4 py-2 rounded-full shadow-lg border border-gold-200 flex items-center gap-2 z-10">
-                                <a href="https://www.google.com/maps/search/?api=1&query=Taj+Lands+End+Mumbai" target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-700 flex items-center gap-1">
-                                    <Navigation size={12}/> Open in Google Maps App
-                                </a>
-                          </div>
-                      </div>
-                  )}
+                  </div>
              </div>
         </div>
     );
@@ -822,7 +842,8 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
           name: config.coupleName,
           x: x,
           y: y,
-          role: 'couple'
+          role: 'couple',
+          map: 'venue'
       };
       channel.postMessage(update);
       channel.close();

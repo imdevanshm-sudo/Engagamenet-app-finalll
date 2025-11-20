@@ -31,7 +31,7 @@ const App: React.FC = () => {
       setTimeout(() => {
           setCurrentView(view);
           setIsTransitioning(false);
-      }, 300);
+      }, 500); // Slower transition for a more royal feel
   };
 
   const handleLoginSuccess = (type: 'guest' | 'couple' | 'admin', name: string) => {
@@ -52,7 +52,7 @@ const App: React.FC = () => {
 
   return (
     <div className="w-full h-full bg-[#2d0a0d] text-gold-100 font-serif overflow-hidden">
-      <div className={`w-full h-full transition-opacity duration-300 ease-in-out ${isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
+      <div className={`w-full h-full transition-all duration-500 ease-out transform ${isTransitioning ? 'opacity-0 scale-[0.98] blur-sm' : 'opacity-100 scale-100 blur-0'}`}>
         {currentView === 'welcome' && (
             <WelcomeScreen onLoginSuccess={handleLoginSuccess} />
         )}

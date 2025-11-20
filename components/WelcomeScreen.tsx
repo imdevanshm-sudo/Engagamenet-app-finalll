@@ -2,8 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { User, Sparkles, Lock, Image as ImageIcon, X, Save, Check, LogIn, Volume2, VolumeX } from 'lucide-react';
 
 // --- Audio Utilities ---
-
-// Global mute state management
+// (Identical audio utilities as before, preserved for functionality)
 const isAudioMuted = () => localStorage.getItem('wedding_audio_muted') === 'true';
 
 const getAudioContext = () => {
@@ -21,24 +20,21 @@ const playBellSound = () => {
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
 
-  // Manjira / Small Bell sound: High pitch sine with clean decay
   osc.type = 'sine';
   osc.frequency.setValueAtTime(2800, t);
   
-  // Add a subtle overtone for "brass" feel
   const osc2 = ctx.createOscillator();
   const gain2 = ctx.createGain();
   osc2.type = 'sine';
-  osc2.frequency.setValueAtTime(5600, t); // 2nd harmonic
+  osc2.frequency.setValueAtTime(5600, t); 
 
-  // Envelope
   gain.gain.setValueAtTime(0, t);
-  gain.gain.linearRampToValueAtTime(0.15, t + 0.01); // Attack
-  gain.gain.exponentialRampToValueAtTime(0.001, t + 1.5); // Long ringing decay
+  gain.gain.linearRampToValueAtTime(0.15, t + 0.01); 
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 1.5); 
 
   gain2.gain.setValueAtTime(0, t);
   gain2.gain.linearRampToValueAtTime(0.05, t + 0.01);
-  gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.5); // Shorter decay for harmonic
+  gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.5); 
 
   osc.connect(gain);
   osc2.connect(gain2);
@@ -57,25 +53,19 @@ const playStrumSound = () => {
   if (!ctx) return;
 
   const t = ctx.currentTime;
-  
-  // Pentatonic Scale / Raag Bhupali-ish notes (E Major Pentatonic for brightness)
-  // E4, F#4, G#4, B4, C#5, E5
   const notes = [329.63, 369.99, 415.30, 493.88, 554.37, 659.25];
   
   notes.forEach((freq, i) => {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     
-    // Triangle wave sounds more like a plucked string (Sitar/Santoor)
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(freq, t);
-    
-    // Staggered entrance for strum effect
     const start = t + (i * 0.06);
     
     gain.gain.setValueAtTime(0, start);
-    gain.gain.linearRampToValueAtTime(0.08, start + 0.02); // Soft attack
-    gain.gain.exponentialRampToValueAtTime(0.001, start + 3.0); // Long sustain
+    gain.gain.linearRampToValueAtTime(0.08, start + 0.02); 
+    gain.gain.exponentialRampToValueAtTime(0.001, start + 3.0); 
 
     osc.connect(gain);
     gain.connect(ctx.destination);
@@ -85,7 +75,7 @@ const playStrumSound = () => {
   });
 };
 
-// --- Components for Visual Effects ---
+// --- Visual Components ---
 
 const GoldDust = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -97,11 +87,9 @@ const GoldDust = () => {
     if (!ctx) return;
 
     let animationFrameId: number;
-    // Particles: x, y, velocity x, velocity y, size, alpha, oscillation phase
     let particles: Array<{x: number, y: number, vx: number, vy: number, size: number, alpha: number, phase: number}> = [];
 
     const resize = () => {
-      // Size to parent to support parallax container being larger than viewport
       if (canvas.parentElement) {
         canvas.width = canvas.parentElement.clientWidth;
         canvas.height = canvas.parentElement.clientHeight;
@@ -114,14 +102,13 @@ const GoldDust = () => {
 
     const initParticles = () => {
       particles = [];
-      // Density based on area
       const count = Math.floor((canvas.width * canvas.height) / 12000); 
       for (let i = 0; i < count; i++) {
         particles.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
-          vx: (Math.random() - 0.5) * 0.2, // Very slow horizontal drift
-          vy: -Math.random() * 0.4 - 0.05, // Slow upward float
+          vx: (Math.random() - 0.5) * 0.2, 
+          vy: -Math.random() * 0.4 - 0.05, 
           size: Math.random() * 1.5,
           alpha: Math.random() * 0.6 + 0.1,
           phase: Math.random() * Math.PI * 2
@@ -134,17 +121,15 @@ const GoldDust = () => {
       
       particles.forEach((p) => {
         p.y += p.vy;
-        p.x += p.vx + Math.sin(p.phase) * 0.15; // Gentle sine wave wiggle
+        p.x += p.vx + Math.sin(p.phase) * 0.15;
         p.phase += 0.015;
 
-        // Wrap around logic
         if (p.y < -5) p.y = canvas.height + 5;
         if (p.x < -5) p.x = canvas.width + 5;
         if (p.x > canvas.width + 5) p.x = -5;
 
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        // Gold/Warm White Color
         ctx.fillStyle = `rgba(252, 238, 181, ${p.alpha + Math.sin(p.phase) * 0.15})`; 
         ctx.fill();
       });
@@ -170,25 +155,24 @@ const PetalIcon = ({ className, style }: { className?: string, style?: React.CSS
      <path d="M15,0 C5,5 0,15 5,25 C10,30 20,30 25,25 C30,15 25,5 15,0 Z" fill="url(#petal-gradient)" />
      <defs>
         <linearGradient id="petal-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-           <stop offset="0%" stopColor="#be123c" /> {/* Rose 700 */}
+           <stop offset="0%" stopColor="#be123c" /> 
            <stop offset="50%" stopColor="#9f1239" />
-           <stop offset="100%" stopColor="#881337" /> {/* Rose 900 */}
+           <stop offset="100%" stopColor="#881337" /> 
         </linearGradient>
      </defs>
   </svg>
 );
 
 const FallingPetals = () => {
-  // Create a fixed set of petals with random delays
   const petals = Array.from({ length: 12 }).map((_, i) => {
-     const r1 = (i * 37 + 13) % 100; // Pseudo-random position
-     const r2 = (i * 23 + 7) % 100;  // Pseudo-random delay
-     const r3 = (i * 41 + 19) % 100; // Pseudo-random duration
+     const r1 = (i * 37 + 13) % 100; 
+     const r2 = (i * 23 + 7) % 100;  
+     const r3 = (i * 41 + 19) % 100; 
      return {
         id: i,
         left: `${r1}%`,
-        delay: `${r2 * 0.2}s`, // Spread over 20s
-        duration: `${15 + (r3 * 0.1)}s`, // 15-25s duration
+        delay: `${r2 * 0.2}s`, 
+        duration: `${15 + (r3 * 0.1)}s`, 
         scale: 0.6 + (r2 * 0.004)
      };
   });
@@ -213,13 +197,11 @@ const FallingPetals = () => {
   );
 }
 
-// --- Custom Icons for the Buttons ---
+// --- Custom Icons ---
 
 const DiyaIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="none" className={className} xmlns="http://www.w3.org/2000/svg">
-    {/* Flame with realistic flicker */}
     <path d="M12 2C12 2 10 6 10 9C10 11 14 11 14 9C14 6 12 2 12 2Z" fill="#fbbf24" className="animate-flicker origin-bottom" />
-    {/* Lamp Base */}
     <path d="M2 14C2 14 2 20 12 20C22 20 22 14 22 14C22 14 18 16 12 16C6 16 2 14 2 14Z" fill="currentColor" />
     <path d="M4 14.5C4 14.5 7 17 12 17C17 17 20 14.5 20 14.5" stroke="rgba(255,255,255,0.3)" strokeWidth="1" strokeLinecap="round"/>
   </svg>
@@ -244,7 +226,6 @@ const GaneshaIcon = ({ className }: { className?: string }) => (
 const SpinningFlower = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 100 100" className={className}>
     <g className="origin-center animate-spin-slow">
-      {/* Petals */}
       {Array.from({ length: 8 }).map((_, i) => (
         <path 
           key={i}
@@ -256,27 +237,21 @@ const SpinningFlower = ({ className }: { className?: string }) => (
           className="opacity-90"
         />
       ))}
-      {/* Inner circle */}
       <circle cx="50" cy="50" r="12" fill="#701a1f" stroke="#e3c98d" strokeWidth="2" />
       <circle cx="50" cy="50" r="4" fill="#e3c98d" />
     </g>
   </svg>
 );
 
-// --- Peacock Feather Component ---
 const PeacockFeather = ({ className, style }: { className?: string, style?: React.CSSProperties }) => (
   <svg viewBox="0 0 100 300" className={className} style={style}>
-    {/* Stem - Elegant S-curve */}
     <path d="M50,35 C50,100 48,180 50,300" stroke="url(#quillGrad)" strokeWidth="1.5" fill="none" opacity="0.8" />
-
-    {/* Barbs - Dense and flowing */}
     <g strokeWidth="0.5" fill="none">
         {Array.from({ length: 50 }).map((_, i) => {
             const y = 60 + i * 4.5;
-            // Calculating control points for a natural curve
             const spread = 35 + Math.sin(i * 0.1) * 12; 
             const droop = i * 0.6;
-            const color = i < 15 ? '#10b981' : '#15803d'; // Gradient from bright to dark green
+            const color = i < 15 ? '#10b981' : '#15803d'; 
             
             return (
                 <React.Fragment key={i}>
@@ -286,19 +261,10 @@ const PeacockFeather = ({ className, style }: { className?: string, style?: Reac
             );
         })}
     </g>
-    
-    {/* The Eye - Intricate and bold */}
     <g transform="translate(50, 55)">
-        {/* Outer Gold Halo */}
         <path d="M0,-32 C22,-32 38,-8 20,28 C0,42 -20,28 -38,-8 C-38,-32 -22,-32 0,-32" fill="url(#eyeGold)" opacity="0.95" />
-        
-        {/* Inner Turquoise Heart/Drop */}
         <path d="M0,-24 C16,-24 26,-5 14,18 C0,26 -14,18 -26,-5 C-26,-24 -16,-24 0,-24" fill="url(#eyeTurquoise)" />
-        
-        {/* Deep Blue Core */}
         <ellipse cx="0" cy="-5" rx="11" ry="14" fill="url(#eyeDeep)" />
-        
-        {/* Highlight */}
         <ellipse cx="-4" cy="-10" rx="2" ry="4" fill="white" fillOpacity="0.6" transform="rotate(-15)" />
     </g>
   </svg>
@@ -319,9 +285,9 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
   const feathersRef = useRef<HTMLDivElement>(null);
   
   // Parallax Refs
-  const bgBackRef = useRef<HTMLDivElement>(null); // Gradient & Texture
-  const bgMidRef = useRef<HTMLDivElement>(null);  // Gold Dust
-  const bgFrontRef = useRef<HTMLDivElement>(null); // Petals
+  const bgBackRef = useRef<HTMLDivElement>(null); 
+  const bgMidRef = useRef<HTMLDivElement>(null);  
+  const bgFrontRef = useRef<HTMLDivElement>(null); 
 
   const [mounted, setMounted] = useState(false);
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0 });
@@ -330,7 +296,6 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
   const [welcomeMsg, setWelcomeMsg] = useState(DEFAULT_WELCOME);
   const [muted, setMuted] = useState(isAudioMuted());
   
-  // State for Couple Image (Persisted)
   const [coupleImage, setCoupleImage] = useState<string>(() => {
       if (typeof window !== 'undefined') {
           return localStorage.getItem('wedding_couple_image') || DEFAULT_IMAGE;
@@ -338,11 +303,9 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
       return DEFAULT_IMAGE;
   });
 
-  // Admin State
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminPin, setAdminPin] = useState("");
 
-  // User Login State
   const [showUserLogin, setShowUserLogin] = useState(false);
   const [loginType, setLoginType] = useState<'guest' | 'couple'>('guest');
   const [userName, setUserName] = useState("");
@@ -353,7 +316,6 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
       if (savedConfig) {
           setConfig(JSON.parse(savedConfig));
       }
-      // Load dynamic welcome message
       const msg = localStorage.getItem('wedding_welcome_msg');
       if (msg) setWelcomeMsg(msg);
   }, []);
@@ -366,7 +328,6 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
       // Ignore
     }
 
-    // Engagement Date
     const targetDate = new Date(config.date + 'T00:00:00');
 
     const calculateTimeLeft = () => {
@@ -415,13 +376,11 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
       const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
       const maxScroll = scrollHeight - clientHeight;
       
-      // Feather animation logic
       if (feathersRef.current) {
         const progress = maxScroll > 0 ? Math.min(Math.max(scrollTop / maxScroll, 0), 1) : 0;
         feathersRef.current.style.setProperty('--scroll-p', progress.toFixed(3));
       }
 
-      // Parallax Logic: Move background layers at different speeds relative to scroll
       requestAnimationFrame(() => {
          if (bgBackRef.current) bgBackRef.current.style.transform = `translate3d(0, ${-scrollTop * 0.05}px, 0)`;
          if (bgMidRef.current) bgMidRef.current.style.transform = `translate3d(0, ${-scrollTop * 0.15}px, 0)`;
@@ -443,7 +402,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
     { rotate: -45, y: 30, scale: 0.85 },
     { rotate: -30, y: 15, scale: 0.95 },
     { rotate: -15, y: 5, scale: 1.0 },
-    { rotate: 0, y: 0, scale: 1.1 }, // Center
+    { rotate: 0, y: 0, scale: 1.1 }, 
     { rotate: 15, y: 5, scale: 1.0 },
     { rotate: 30, y: 15, scale: 0.95 },
     { rotate: 45, y: 30, scale: 0.85 },
@@ -555,7 +514,6 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
         }
       `}</style>
       
-      {/* Feather Gradients */}
       <svg width="0" height="0" className="absolute pointer-events-none">
         <defs>
             <linearGradient id="quillGrad" x1="50%" y1="0%" x2="50%" y2="100%">
@@ -595,10 +553,9 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
          </div>
       </div>
 
-      {/* Audio Toggle */}
       <button 
           onClick={toggleMute} 
-          className="absolute top-4 right-4 z-50 text-gold-300 p-2 bg-black/20 rounded-full backdrop-blur-sm hover:bg-black/40 transition-all"
+          className="absolute top-4 right-4 z-50 text-gold-300 p-2 bg-black/20 rounded-full backdrop-blur-sm hover:bg-black/40 transition-all animate-fade-in delay-1000"
       >
           {muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
       </button>
@@ -608,11 +565,11 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
         ref={scrollRef}
         className="relative z-10 flex flex-col h-full overflow-y-auto overflow-x-hidden no-scrollbar scroll-smooth"
       >
-        <header className="flex-shrink-0 pt-12 pb-4 px-4 text-center relative animate-in fade-in slide-in-from-top-4 duration-1000">
-           <h1 className="font-cursive text-[3.5rem] sm:text-[4.2rem] leading-none text-gold-100 drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)] filter">
+        <header className="flex-shrink-0 pt-12 pb-4 px-4 text-center relative animate-fade-in-up duration-1000">
+           <h1 className="font-cursive text-[3.5rem] sm:text-[4.2rem] leading-none text-gold-100 drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)] filter animate-fade-in-up delay-100">
              {config.coupleName}
            </h1>
-           <p className="text-gold-300/80 font-serif text-sm tracking-[0.3em] uppercase mt-2 shadow-black drop-shadow-sm">
+           <p className="text-gold-300/80 font-serif text-sm tracking-[0.3em] uppercase mt-2 shadow-black drop-shadow-sm animate-slide-in-right delay-300">
              The Engagement
            </p>
         </header>
@@ -621,8 +578,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
           <div className="relative w-64 h-64 sm:w-72 sm:h-72 my-6 flex-shrink-0 group perspective-1000 opacity-0 animate-bloom" style={{ animationDelay: '200ms' }}>
              <div className="absolute inset-0 bg-gold-400/20 blur-2xl rounded-full transform group-hover:scale-110 transition-transform duration-700"></div>
              
-             <div className="absolute -inset-8 pointer-events-none animate-in fade-in zoom-in duration-1000 delay-700 fill-mode-backwards">
-                <div className="w-full h-full animate-spin-slow [animation-duration:20s]">
+             <div className="absolute -inset-8 pointer-events-none animate-zoom-in delay-700 fill-mode-backwards">
+                <div className="w-full h-full animate-spin-slow">
                   <svg viewBox="0 0 200 200" className="w-full h-full fill-gold-300 opacity-40">
                     <path d="M100,10 C110,30 130,40 100,50 C70,40 90,30 100,10" transform="rotate(0 100 100)" />
                     <path d="M100,10 C110,30 130,40 100,50 C70,40 90,30 100,10" transform="rotate(45 100 100)" />
@@ -636,7 +593,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
                 </div>
              </div>
 
-             <div className="absolute inset-0 rounded-full border-[4px] border-[#e3c98d] shadow-[0_0_15px_rgba(227,201,141,0.4),inset_0_0_10px_rgba(0,0,0,0.5)] z-20 overflow-hidden bg-[#2d0a0d] transition-transform duration-500 ease-out group-hover:rotate-y-12 group-hover:rotate-x-12">
+             <div className="absolute inset-0 rounded-full border-[4px] border-[#e3c98d] shadow-[0_0_15px_rgba(227,201,141,0.4),inset_0_0_10px_rgba(0,0,0,0.5)] z-20 overflow-hidden bg-[#2d0a0d] transition-transform duration-500 ease-out group-hover:rotate-y-12 group-hover:rotate-x-12 group-hover:scale-105">
                 <div className="absolute inset-[3px] rounded-full border-[1px] border-dashed border-gold-200/50 relative z-10"></div>
                 <div className="w-full h-full relative">
                     <img 
@@ -654,61 +611,66 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
              </div>
           </div>
           
-          <div className="relative z-20 mt-2 mb-2 text-center animate-in fade-in slide-in-from-bottom-2 duration-1000 delay-300">
+          <div className="relative z-20 mt-2 mb-2 text-center animate-fade-in-up delay-300">
               <p className="text-gold-300 font-serif text-xl sm:text-2xl tracking-wider opacity-90 drop-shadow-md">स्नेहा और अमन</p>
           </div>
 
-          <div className="w-full max-w-sm relative mt-2 animate-in fade-in duration-1000 delay-500 slide-in-from-bottom-4">
+          <div className="w-full max-w-sm relative mt-2 animate-fade-in-up delay-500">
              <div className="absolute -inset-1 bg-gold-400/20 rounded-t-[50%] blur-md animate-pulse-slow pointer-events-none"></div>
              <div className="absolute inset-0 bg-gradient-to-b from-[#4a0e11] to-[#2d0a0d] rounded-t-[50%] border-t-2 border-x border-gold-400/40 shadow-[0_-5px_20px_rgba(0,0,0,0.5)]"></div>
              <div className="absolute inset-2 bottom-0 border-t border-x border-gold-300/20 rounded-t-[45%] pointer-events-none"></div>
              <div className="relative z-10 pt-12 pb-8 px-6 flex flex-col items-center text-center">
-                <h2 className="text-2xl font-serif text-gold-100 mb-1 drop-shadow-md">
+                <h2 className="text-2xl font-serif text-gold-100 mb-1 drop-shadow-md animate-fade-in delay-700">
                   Welcome to <br/> Our Celebration
                 </h2>
                 <div className="relative w-full mb-8 mt-2 group cursor-default">
                     <div className="absolute -inset-2 bg-gold-400/10 rounded-lg blur opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <p className="text-gold-200/90 italic font-serif text-sm leading-relaxed px-4 py-2 border-y border-gold-500/10 relative z-10">
+                    <p className="text-gold-200/90 italic font-serif text-sm leading-relaxed px-4 py-2 border-y border-gold-500/10 relative z-10 animate-fade-in delay-1000">
                         "{welcomeMsg}"
                     </p>
                 </div>
 
                 <div className="w-full space-y-4">
+                  {/* Guest Login Button */}
                   <button 
                     onClick={() => handleUserLoginOpen('guest')}
-                    className="group relative w-full h-14 rounded-full overflow-hidden transition-all duration-300 hover:shadow-[0_0_20px_rgba(166,24,33,0.4)] hover:-translate-y-0.5 active:translate-y-0 active:scale-95"
+                    className="group relative w-full h-14 rounded-full overflow-hidden transition-all duration-300 hover:shadow-gold-glow hover:-translate-y-1 active:translate-y-0 active:scale-95 animate-fade-in-up delay-700"
                   >
                      <div className="absolute inset-0 bg-gradient-to-r from-[#5e181f] via-[#751e26] to-[#3d0a0e] border border-[#8c2b36]"></div>
-                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1s_infinite]"></div>
+                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-[shimmer_3s_infinite]"></div>
                      <div className="relative flex items-center justify-center px-6 h-full">
-                        <div className="absolute left-6 flex items-center justify-center">
+                        <div className="absolute left-6 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                            <User size={18} className="text-gold-200" />
                         </div>
                         <span className="text-gold-100 font-serif text-lg tracking-wide drop-shadow-sm group-hover:text-white transition-colors">Family & Friends</span>
-                        <div className="absolute right-5 flex items-center justify-center">
+                        <div className="absolute right-5 flex items-center justify-center group-hover:rotate-12 transition-transform duration-300">
                            <DiyaIcon className="w-6 h-6 text-gold-300 group-hover:text-gold-100 transition-colors" />
                         </div>
                      </div>
                   </button>
+                  
+                  {/* Couple Login Button */}
                   <button 
                     onClick={() => handleUserLoginOpen('couple')}
-                    className="group relative w-full h-14 rounded-full overflow-hidden transition-all duration-300 hover:shadow-[0_0_20px_rgba(212,140,140,0.3)] hover:-translate-y-0.5 active:translate-y-0 active:scale-95"
+                    className="group relative w-full h-14 rounded-full overflow-hidden transition-all duration-300 hover:shadow-[0_0_20px_rgba(212,140,140,0.3)] hover:-translate-y-1 active:translate-y-0 active:scale-95 animate-fade-in-up delay-[800ms]"
                   >
                      <div className="absolute inset-0 bg-gradient-to-r from-[#d48c8c] via-[#e09e9e] to-[#b56b6b] border border-[#e8b5b5]"></div>
-                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1s_infinite]"></div>
+                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
                      <div className="relative flex items-center justify-center px-6 h-full">
                         <span className="text-[#2d0a0d] font-serif text-lg tracking-wide font-medium drop-shadow-sm">Couple Login</span>
-                        <div className="absolute right-5 flex items-center justify-center">
+                        <div className="absolute right-5 flex items-center justify-center group-hover:scale-110 transition-transform">
                            <RingsIcon className="w-6 h-6 text-[#5e181f] group-hover:text-[#2d0a0d] transition-colors" />
                         </div>
                      </div>
                   </button>
+                  
+                  {/* Admin Login Button */}
                   <button 
                     onClick={handleAdminClick}
-                    className="group relative w-full h-14 rounded-full overflow-hidden transition-all duration-300 hover:shadow-[0_0_20px_rgba(197,157,95,0.3)] hover:-translate-y-0.5 active:translate-y-0 active:scale-95"
+                    className="group relative w-full h-14 rounded-full overflow-hidden transition-all duration-300 hover:shadow-[0_0_20px_rgba(197,157,95,0.3)] hover:-translate-y-1 active:translate-y-0 active:scale-95 animate-fade-in-up delay-[900ms]"
                   >
                      <div className="absolute inset-0 bg-gradient-to-r from-[#c59d5f] via-[#d4af37] to-[#9c7836] border border-[#e6cf9c]"></div>
-                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1s_infinite]"></div>
+                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
                      <div className="relative flex items-center justify-center px-4 h-full">
                         <span className="text-[#2d0a0d] font-serif text-lg tracking-wide font-medium drop-shadow-sm">Organisers/Admin Login</span>
                         <div className="absolute right-5 flex items-center justify-center">
@@ -718,20 +680,20 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
                   </button>
                 </div>
                 
-                 <div className="mt-10 mb-4 relative z-20 flex flex-col items-center w-full">
+                 <div className="mt-10 mb-4 relative z-20 flex flex-col items-center w-full animate-fade-in delay-1000">
                      <div className="flex items-center justify-center gap-6 text-gold-200 font-heading relative">
-                         <div className="flex flex-col items-center group cursor-default">
-                             <span className="text-3xl font-bold text-gold-100 drop-shadow-lg transition-transform group-hover:-translate-y-1">{timeLeft.days}</span>
+                         <div className="flex flex-col items-center group cursor-default transition-transform hover:-translate-y-1">
+                             <span className="text-3xl font-bold text-gold-100 drop-shadow-lg">{timeLeft.days}</span>
                              <span className="text-[9px] uppercase opacity-60 font-serif tracking-widest mt-1">Days</span>
                          </div>
                          <span className="text-gold-500/60 mb-4 text-xl animate-pulse">:</span>
-                         <div className="flex flex-col items-center group cursor-default">
-                             <span className="text-3xl font-bold text-gold-100 drop-shadow-lg transition-transform group-hover:-translate-y-1">{timeLeft.hours}</span>
+                         <div className="flex flex-col items-center group cursor-default transition-transform hover:-translate-y-1">
+                             <span className="text-3xl font-bold text-gold-100 drop-shadow-lg">{timeLeft.hours}</span>
                              <span className="text-[9px] uppercase opacity-60 font-serif tracking-widest mt-1">Hours</span>
                          </div>
                          <span className="text-gold-500/60 mb-4 text-xl animate-pulse">:</span>
-                         <div className="flex flex-col items-center group cursor-default">
-                             <span className="text-3xl font-bold text-gold-100 drop-shadow-lg transition-transform group-hover:-translate-y-1">{timeLeft.minutes}</span>
+                         <div className="flex flex-col items-center group cursor-default transition-transform hover:-translate-y-1">
+                             <span className="text-3xl font-bold text-gold-100 drop-shadow-lg">{timeLeft.minutes}</span>
                              <span className="text-[9px] uppercase opacity-60 font-serif tracking-widest mt-1">Mins</span>
                          </div>
                      </div>
@@ -744,7 +706,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
              </div>
           </div>
 
-          <div className="mt-8 mb-2 px-4 relative z-20 w-full max-w-xs animate-in fade-in duration-1000 delay-500 text-center">
+          <div className="mt-8 mb-2 px-4 relative z-20 w-full max-w-xs animate-fade-in delay-[1200ms] text-center">
              <p className="font-cursive text-2xl sm:text-3xl text-gold-300 leading-relaxed drop-shadow-md opacity-90">
                "Two souls with but a single thought, <br/> two hearts that beat as one."
              </p>
@@ -784,7 +746,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
               ))}
            </div>
 
-           <div className="relative z-30 bg-[#1a0507] border-t border-gold-600/30 pt-4 pb-6 shadow-[0_-10px_40px_rgba(0,0,0,0.8)]">
+           <div className="relative z-30 bg-[#1a0507] border-t border-gold-600/30 pt-4 pb-6 shadow-[0_-10px_40px_rgba(0,0,0,0.8)] animate-slide-up delay-1000">
               <div className="flex justify-center items-center gap-6 text-gold-500/50 text-[10px] sm:text-xs font-serif tracking-[0.2em] pointer-events-auto">
                   <span className="hover:text-gold-300 transition-colors cursor-pointer flex items-center gap-1">
                      Exclusively for Family & Loved Ones
@@ -802,8 +764,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
       {/* --- Modals --- */}
       
       {showAdminLogin && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-[#2d0a0d] border border-gold-400/30 w-full max-w-xs rounded-xl shadow-2xl overflow-hidden relative animate-in zoom-in-95 duration-200">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+            <div className="bg-[#2d0a0d] border border-gold-400/30 w-full max-w-xs rounded-xl shadow-2xl overflow-hidden relative animate-zoom-in">
                 <div className="bg-[#4a0e11] px-4 py-3 flex justify-between items-center border-b border-gold-400/20">
                     <h3 className="text-gold-100 font-serif tracking-wide flex items-center gap-2"><Lock size={14}/> Admin Access</h3>
                     <button onClick={() => setShowAdminLogin(false)} className="text-gold-400 hover:text-gold-100"><X size={18}/></button>
@@ -821,7 +783,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
                             placeholder="••••"
                         />
                     </div>
-                    <button type="submit" className="bg-gold-500 hover:bg-gold-400 text-[#2d0a0d] py-2 rounded font-serif font-bold flex items-center justify-center gap-2 transition-colors mt-2">
+                    <button type="submit" className="bg-gold-500 hover:bg-gold-400 text-[#2d0a0d] py-2 rounded font-serif font-bold flex items-center justify-center gap-2 transition-colors mt-2 hover:shadow-[0_0_15px_rgba(227,201,141,0.4)] active:scale-95 transform">
                         <LogIn size={16} /> Login
                     </button>
                 </form>
@@ -830,8 +792,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
       )}
 
       {showUserLogin && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-[#2d0a0d] border border-gold-400/30 w-full max-w-xs rounded-xl shadow-2xl overflow-hidden relative animate-in zoom-in-95 duration-200">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+            <div className="bg-[#2d0a0d] border border-gold-400/30 w-full max-w-xs rounded-xl shadow-2xl overflow-hidden relative animate-zoom-in">
                 <div className="bg-[#4a0e11] px-4 py-3 flex justify-between items-center border-b border-gold-400/20">
                     <h3 className="text-gold-100 font-serif tracking-wide flex items-center gap-2">
                         {loginType === 'guest' ? <User size={14}/> : <RingsIcon className="w-4 h-4"/>} 
@@ -863,7 +825,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
                             required
                         />
                     </div>
-                    <button type="submit" className="bg-gold-500 hover:bg-gold-400 text-[#2d0a0d] py-2 rounded font-serif font-bold flex items-center justify-center gap-2 transition-colors mt-4 relative overflow-hidden group">
+                    <button type="submit" className="bg-gold-500 hover:bg-gold-400 text-[#2d0a0d] py-2 rounded font-serif font-bold flex items-center justify-center gap-2 transition-colors mt-4 relative overflow-hidden group hover:shadow-[0_0_15px_rgba(227,201,141,0.4)] active:scale-95 transform">
                         <span className="absolute inset-0 w-full h-full bg-white/30 transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300"></span>
                         <Check size={16} /> Enter Celebration
                     </button>
