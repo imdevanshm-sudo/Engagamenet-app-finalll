@@ -1,6 +1,5 @@
 {
   "hosting": {
-    "site": "engagement-26th-nov2025-032sj4",
     "public": "dist",
     "ignore": [
       "firebase.json",
