@@ -15,7 +15,7 @@
     "express": "^4.18.2",
     "@google/genai": "^0.1.2"
   },
-  "devDependencies": {
+  "Dependencies": {
     "@types/react": "^18.2.15",
     "@types/react-dom": "^18.2.7",
     "@vitejs/plugin-react": "^4.0.3",
