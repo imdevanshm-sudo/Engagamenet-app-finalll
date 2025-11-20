@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { Home, MessageSquare, Heart, Camera, X, Sparkles, Music, Gift, Smile, Send, Play, Pause, SkipForward, SkipBack, ExternalLink, LogOut, ChevronRight, Radio, Map, Navigation, Phone, Search, Compass, Globe, Plane, Hand, Plus, Minus, Users, Utensils, PhoneCall, MapPin, Lock, User, Film, Upload, Mic, ChevronLeft, LocateFixed } from 'lucide-react';
+import { Home, MessageSquare, Heart, Camera, X, Sparkles, Music, Gift, Smile, Send, Play, Pause, SkipForward, SkipBack, ExternalLink, LogOut, ChevronRight, Radio, Map, Navigation, Phone, Search, Compass, Globe, Plane, Hand, Plus, Minus, Users, Utensils, PhoneCall, MapPin, Lock, User, Film, Upload, Mic, ChevronLeft, LocateFixed, Volume2, VolumeX, ListMusic } from 'lucide-react';
 
 // --- Types ---
 interface Message {
@@ -20,11 +21,20 @@ interface MediaItem {
     timestamp: number;
 }
 
+interface Song {
+    id: string;
+    title: string;
+    artist: string;
+    url: string;
+    cover: string;
+    isCustom?: boolean;
+}
+
 type BroadcastEvent = 
   | { type: 'message'; payload: Message }
   | { type: 'heart_update'; count: number }
   | { type: 'love_explosion'; sender: string }
-  | { type: 'location_update'; id: string; name: string; x: number; y: number; role: 'guest' | 'couple'; map?: 'venue' | 'city' };
+  | { type: 'location_update'; id: string; name: string; x: number; y: number; role: 'guest' | 'couple'; map?: 'venue' | 'google' };
 
 interface LocationUpdate {
     type: 'location_update';
@@ -33,19 +43,16 @@ interface LocationUpdate {
     x: number;
     y: number;
     role: 'couple' | 'guest';
-    map: 'venue' | 'city';
+    map: 'venue' | 'google';
 }
 
 // --- Shared Assets (Stickers & Map Icons) ---
-// ... (Keep existing sticker SVG components same as before to avoid huge diff, they are fine) ...
-
 const StickerKalash = () => (
   <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md">
     <path d="M30,80 Q30,95 50,95 Q70,95 70,80 L75,40 Q80,30 50,30 Q20,30 25,40 Z" fill="#b45309" stroke="#78350f" strokeWidth="2"/>
     <path d="M30,40 Q50,50 70,40" stroke="#fcd34d" strokeWidth="3" fill="none"/>
     <circle cx="50" cy="60" r="10" fill="#fcd34d" />
-    <path d="M50,30 L50,20 M40,30 L35,15 M60,30 L65,15" stroke="#15803d" strokeWidth="3"/>
-    <circle cx="50" cy="15" r="8" fill="#fbbf24"/>
+    <path d="M50,30 L50,20 M40,30 L35,15 M60,30 L65,15" stroke="#15803d" strokeWidth="3"/><circle cx="50" cy="15" r="8" fill="#fbbf24"/>
   </svg>
 );
 
@@ -93,28 +100,54 @@ const MapElephant = ({ className, flip }: { className?: string, flip?: boolean }
 );
 
 const CityMapBackground = () => (
-    <div className="absolute inset-0 bg-[#e0f2fe] overflow-hidden pointer-events-none">
-        <div className="absolute right-0 top-0 bottom-0 w-[65%] bg-[#ecfccb] border-l-[6px] border-[#d9f99d] rounded-l-[50px] shadow-xl opacity-80"></div>
-        <div className="absolute left-0 top-0 bottom-0 w-[35%] opacity-20" style={{ backgroundImage: 'radial-gradient(#3b82f6 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
-        <svg className="absolute inset-0 w-full h-full">
-            <path d="M 85 5 L 85 30 Q 85 50 60 50 L 50 50" fill="none" stroke="#94a3b8" strokeWidth="16" strokeLinecap="round" />
-            <path d="M 85 5 L 85 30 Q 85 50 60 50 L 50 50" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeDasharray="10 10" />
-            <path d="M 50 50 Q 20 50 20 80 L 20 90" fill="none" stroke="#3b82f6" strokeWidth="14" strokeLinecap="round" />
-            <path d="M 50 50 Q 20 50 20 80 L 20 90" fill="none" stroke="#60a5fa" strokeWidth="10" strokeLinecap="round" />
-        </svg>
-        <div className="absolute top-6 right-[10%] flex flex-col items-center animate-pulse">
-             <Plane className="text-slate-600 rotate-45" size={24} />
-             <span className="text-[9px] font-bold text-slate-700 bg-white/90 px-1 rounded shadow-sm">Airport</span>
-        </div>
-        <div className="absolute bottom-12 left-[15%] flex flex-col items-center">
-             <div className="w-12 h-12 bg-rose-500/30 rounded-full animate-ping absolute"></div>
-             <div className="bg-white p-1.5 rounded-full shadow-lg z-10">
-                <MapPin className="text-rose-600" size={24} fill="#e11d48" />
-             </div>
-             <span className="text-[10px] font-bold text-white bg-rose-600 px-2 py-0.5 rounded shadow-sm mt-1">Taj Lands End</span>
-        </div>
+    <div className="absolute inset-0 bg-[#f3f4f6] overflow-hidden pointer-events-none">
+        {/* Roads */}
+        <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(90deg, transparent 95%, #fff 95%), linear-gradient(transparent 95%, #fff 95%)', backgroundSize: '50px 50px' }}></div>
+        <div className="absolute top-0 bottom-0 left-1/3 w-4 bg-white border-x border-gray-300"></div>
+        <div className="absolute left-0 right-0 top-1/3 h-4 bg-white border-y border-gray-300"></div>
+        <div className="absolute left-0 right-0 bottom-1/4 h-6 bg-[#fbbf24]/30 border-y border-[#fbbf24] transform -rotate-6"></div>
+
+        {/* Parks */}
+        <div className="absolute top-10 right-10 w-32 h-32 bg-green-100 rounded-full border border-green-200 opacity-50"></div>
+        <div className="absolute bottom-20 left-[-20px] w-40 h-40 bg-green-100 rounded-full border border-green-200 opacity-50"></div>
+
+        {/* Labels */}
+        <div className="absolute top-12 right-16 text-[10px] font-bold text-green-800 opacity-70 bg-white/50 px-1 rounded">City Park</div>
+        <div className="absolute bottom-32 left-6 text-[10px] font-bold text-green-800 opacity-70 bg-white/50 px-1 rounded">Garden</div>
     </div>
 );
+
+// --- Constants for Music ---
+const DEFAULT_PLAYLIST: Song[] = [
+    {
+        id: '1',
+        title: 'Raabta (Kehte Hain)',
+        artist: 'Arijit Singh',
+        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', // Sample URL
+        cover: 'https://images.unsplash.com/photo-1514525253440-b393452e3726?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3'
+    },
+    {
+        id: '2',
+        title: 'Din Shagna Da',
+        artist: 'Jasleen Royal',
+        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', // Sample URL
+        cover: 'https://images.unsplash.com/photo-1595981267035-7b04ca84a82d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3'
+    },
+    {
+        id: '3',
+        title: 'Kabira (Encore)',
+        artist: 'Harshdeep Kaur',
+        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', // Sample URL
+        cover: 'https://images.unsplash.com/photo-1546707012-c46675f12716?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3'
+    },
+    {
+        id: '4',
+        title: 'Mangalyam',
+        artist: 'Saathiya',
+        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3', // Sample URL
+        cover: 'https://images.unsplash.com/photo-1605296867304-6fbb535db434?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3'
+    }
+];
 
 // --- Hooks ---
 
@@ -207,17 +240,6 @@ const usePanZoom = (initialScale = 1, minScale = 0.5, maxScale = 3) => {
       setPinchCenter(null);
   };
 
-  const zoom = (delta: number) => {
-     setTransform(prev => ({
-         ...prev,
-         scale: Math.min(maxScale, Math.max(minScale, prev.scale + delta))
-     }));
-  };
-
-  const setRotation = (deg: number) => {
-      setTransform(prev => ({ ...prev, rotate: deg }));
-  };
-
   const handlers = {
       onMouseDown: handleMouseDown,
       onTouchStart: handleMouseDown,
@@ -230,7 +252,7 @@ const usePanZoom = (initialScale = 1, minScale = 0.5, maxScale = 3) => {
   
   const style: React.CSSProperties = { touchAction: 'none' };
 
-  return { transform, isDragging, handlers, zoom, setRotation, style };
+  return { transform, isDragging, handlers, style };
 };
 
 // --- Map Components ---
@@ -367,9 +389,9 @@ const HeartHug = () => (
 
 const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: string }> = ({ isOpen, onClose, userName }) => {
     const { transform, handlers, style } = usePanZoom(1, 0.5, 3);
-    const [activeUsers, setActiveUsers] = useState<Record<string, {x: number, y: number, name: string, role: 'couple'|'guest', timestamp: number, map?: 'venue' | 'city'}>>({});
+    const [activeUsers, setActiveUsers] = useState<Record<string, {x: number, y: number, name: string, role: 'couple'|'guest', timestamp: number, map?: 'venue' | 'google'}>>({});
     const [myLocation, setMyLocation] = useState<{x: number, y: number} | null>(null);
-    const [viewMode, setViewMode] = useState<'venue' | 'city'>('venue');
+    const [viewMode, setViewMode] = useState<'venue' | 'google'>('venue');
 
     useEffect(() => {
         const channel = new BroadcastChannel('wedding_live_map');
@@ -425,7 +447,7 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
         <div className="fixed inset-0 z-[60] bg-[#2d0a0d] flex flex-col animate-in fade-in duration-300">
              <div className="absolute top-0 left-0 right-0 z-30 p-4 flex justify-between items-start bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
                  <div className="pointer-events-auto">
-                    <h2 className="text-gold-100 font-heading text-2xl drop-shadow-md">{viewMode === 'venue' ? 'Live Venue Tracker' : 'City Journey Map'}</h2>
+                    <h2 className="text-gold-100 font-heading text-2xl drop-shadow-md">{viewMode === 'venue' ? 'Live Venue Tracker' : 'Realtime Google Maps'}</h2>
                     <p className="text-gold-400 text-xs font-serif opacity-80">
                         Tap to update your location on the map.
                     </p>
@@ -443,10 +465,10 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
                          Venue Tracker
                      </button>
                      <button 
-                        onClick={() => setViewMode('city')}
-                        className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${viewMode === 'city' ? 'bg-gold-500 text-[#2d0a0d] shadow-sm' : 'text-gold-300 hover:text-gold-100'}`}
+                        onClick={() => setViewMode('google')}
+                        className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${viewMode === 'google' ? 'bg-gold-500 text-[#2d0a0d] shadow-sm' : 'text-gold-300 hover:text-gold-100'}`}
                      >
-                         City Journey
+                         Google Maps
                      </button>
                  </div>
              </div>
@@ -499,8 +521,8 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
     );
 };
 
-// --- Love Thermometer Component ---
-const LoveThermometer = ({ count }: { count: number }) => {
+// --- Adore Meter Component ---
+const AdoreMeter = ({ count }: { count: number }) => {
     const fillPercent = Math.min(100, Math.max(10, (count * 5) % 110)); 
     const [hearts, setHearts] = useState<Array<{id: number, type: 'heart'|'ring'|'diamond', x: number}>>([]);
 
@@ -550,7 +572,7 @@ const LoveThermometer = ({ count }: { count: number }) => {
                 <div className="absolute inset-0 z-30 rounded-full bg-gradient-to-r from-white/40 to-transparent opacity-30 pointer-events-none w-[80%] mx-auto"></div>
             </div>
             <div className="mt-2 px-2 py-1 bg-black/40 backdrop-blur-sm rounded-full text-[10px] font-bold text-gold-200 tracking-widest uppercase shadow-sm border border-gold-500/30">
-                Love Meter
+                Adore Meter
             </div>
         </div>
     );
@@ -704,7 +726,10 @@ const MessageBoard: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
                         );
                     })}
                 </div>
-                <div onClick={triggerHeart}><LoveThermometer count={globalHeartCount} /></div>
+                
+                {/* Adore Meter in Message Board */}
+                <div onClick={triggerHeart}><AdoreMeter count={globalHeartCount} /></div>
+
                 {floatingHearts.map((h) => (
                     <div key={h.id} className="absolute bottom-20 text-rose-500 animate-float-up pointer-events-none z-30" style={{ left: `${h.left}%` }}><Heart size={32} fill="currentColor" /></div>
                 ))}
@@ -771,12 +796,89 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
   const [isTimeUp, setIsTimeUp] = useState(false);
   const [manualHugTrigger, setManualHugTrigger] = useState(false);
 
+  // Music Player State
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentSongIndex, setCurrentSongIndex] = useState(0);
+  const [volume, setVolume] = useState(0.5);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [showPlaylist, setShowPlaylist] = useState(false);
+  const [playlist, setPlaylist] = useState<Song[]>(DEFAULT_PLAYLIST);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
   useEffect(() => {
       const savedConfig = localStorage.getItem('wedding_global_config');
       if (savedConfig) {
           setConfig(JSON.parse(savedConfig));
       }
   }, []);
+
+  useEffect(() => {
+    if (audioRef.current) {
+        audioRef.current.volume = volume;
+    }
+  }, [volume]);
+
+  useEffect(() => {
+    if (isPlaying) {
+        audioRef.current?.play().catch(e => console.log("Playback prevented:", e));
+    } else {
+        audioRef.current?.pause();
+    }
+  }, [isPlaying, currentSongIndex]);
+
+  const togglePlay = () => setIsPlaying(!isPlaying);
+  
+  const nextSong = () => {
+      setCurrentSongIndex(prev => (prev + 1) % playlist.length);
+  };
+
+  const prevSong = () => {
+      setCurrentSongIndex(prev => (prev - 1 + playlist.length) % playlist.length);
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setVolume(parseFloat(e.target.value));
+  };
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current) setCurrentTime(audioRef.current.currentTime);
+  };
+  
+  const handleLoadedMetadata = () => {
+    if (audioRef.current) setDuration(audioRef.current.duration);
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const time = parseFloat(e.target.value);
+    setCurrentTime(time);
+    if (audioRef.current) audioRef.current.currentTime = time;
+  };
+
+  const formatTime = (time: number) => {
+    if (isNaN(time)) return "0:00";
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+          const url = URL.createObjectURL(file);
+          const newSong: Song = {
+              id: Date.now().toString(),
+              title: file.name.replace(/\.[^/.]+$/, ""),
+              artist: "Custom Upload",
+              url: url,
+              cover: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
+              isCustom: true
+          };
+          setPlaylist(prev => [newSong, ...prev]);
+          setCurrentSongIndex(0);
+          setIsPlaying(true);
+      }
+  };
 
   useEffect(() => {
     const targetDate = new Date(config.date + 'T00:00:00');
@@ -867,6 +969,18 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
         }
         .animate-blob { animation: blob 10s infinite; }
         .animate-pulse-glow { animation: pulse-glow 2s infinite; }
+        @keyframes spin-slow-vinyl { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .animate-spin-vinyl { animation: spin-slow-vinyl 6s linear infinite; }
+        
+        /* Pulse Ring for Audio Visualizer */
+        @keyframes pulse-ring {
+          0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.7); }
+          70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(225, 29, 72, 0); }
+          100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(225, 29, 72, 0); }
+        }
+        .animate-pulse-ring {
+           animation: pulse-ring 2s cubic-bezier(0.24, 0, 0.38, 1) infinite;
+        }
       `}</style>
 
       {showExplosion && (
@@ -937,11 +1051,109 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
                 <div className="flex items-center justify-between px-2 mb-3">
                     <h3 className="font-serif text-rose-900 font-bold text-lg flex items-center gap-2"><Radio size={18} className="text-rose-500"/> Live Music</h3>
+                    <button onClick={() => setShowPlaylist(!showPlaylist)} className="text-xs font-bold bg-white/40 hover:bg-white/60 px-3 py-1 rounded-full transition-colors flex items-center gap-1 text-rose-800">
+                        <ListMusic size={14} /> {showPlaylist ? 'Hide List' : 'Playlist'}
+                    </button>
                 </div>
-                {/* Placeholder for Spotify Player */}
-                <div className="bg-white/60 backdrop-blur-xl rounded-[2rem] p-5 shadow-lg h-32 flex items-center justify-center border border-white/50">
-                    <Music className="animate-bounce text-rose-400" />
-                    <span className="ml-2 text-rose-800 font-serif italic">Playing "Raabta"...</span>
+                
+                <div className="bg-white/60 backdrop-blur-xl rounded-[2rem] p-5 shadow-lg border border-white/50 relative overflow-hidden">
+                    <audio 
+                       ref={audioRef} 
+                       src={playlist[currentSongIndex].url} 
+                       onEnded={nextSong}
+                       onTimeUpdate={handleTimeUpdate}
+                       onLoadedMetadata={handleLoadedMetadata} 
+                    />
+                    
+                    <div className="flex items-center gap-4 relative z-10">
+                         {/* Album Art / Visualizer */}
+                         <div className={`w-20 h-20 rounded-full border-4 border-white/80 shadow-md overflow-hidden flex-shrink-0 relative ${isPlaying ? 'animate-spin-vinyl animate-pulse-ring' : ''}`}>
+                             <img src={playlist[currentSongIndex].cover} alt="Cover" className="w-full h-full object-cover" />
+                             <div className="absolute inset-0 flex items-center justify-center">
+                                 <div className="w-4 h-4 bg-white rounded-full border border-stone-300"></div>
+                             </div>
+                         </div>
+
+                         {/* Info & Controls */}
+                         <div className="flex-grow overflow-hidden">
+                             <div className="flex justify-between items-start mb-1">
+                                 <div>
+                                     <h4 className="font-bold text-rose-900 text-lg leading-tight truncate pr-2">{playlist[currentSongIndex].title}</h4>
+                                     <p className="text-xs text-rose-700/70 truncate">{playlist[currentSongIndex].artist}</p>
+                                 </div>
+                                 {isPlaying && (
+                                     <div className="flex gap-0.5 h-3 items-end">
+                                         {[1,2,3,4].map(i => <div key={i} className="w-1 bg-rose-500 animate-pulse rounded-t" style={{ height: `${Math.random() * 100}%`, animationDuration: `${0.5 + Math.random()}s` }}></div>)}
+                                     </div>
+                                 )}
+                             </div>
+                             
+                             {/* Progress Bar */}
+                             <div className="w-full px-1 mt-2 mb-1">
+                                 <input 
+                                    type="range" 
+                                    min="0" 
+                                    max={duration} 
+                                    value={currentTime} 
+                                    onChange={handleSeek}
+                                    className="w-full h-1 bg-rose-200 rounded-lg appearance-none cursor-pointer accent-rose-600"
+                                 />
+                                 <div className="flex justify-between text-[9px] font-bold text-rose-400 mt-1 font-mono">
+                                     <span>{formatTime(currentTime)}</span>
+                                     <span>{formatTime(duration)}</span>
+                                 </div>
+                             </div>
+
+                             <div className="flex items-center justify-between mt-1">
+                                 <div className="flex items-center gap-3">
+                                     <button onClick={prevSong} className="text-rose-400 hover:text-rose-600 transition-colors"><SkipBack size={20} fill="currentColor" /></button>
+                                     <button onClick={togglePlay} className="w-10 h-10 bg-rose-500 rounded-full flex items-center justify-center text-white shadow-lg hover:scale-105 active:scale-95 transition-transform">
+                                         {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
+                                     </button>
+                                     <button onClick={nextSong} className="text-rose-400 hover:text-rose-600 transition-colors"><SkipForward size={20} fill="currentColor" /></button>
+                                 </div>
+                                 
+                                 <div className="flex items-center gap-2 w-20">
+                                     {volume === 0 ? <VolumeX size={14} className="text-rose-400"/> : <Volume2 size={14} className="text-rose-400"/>}
+                                     <input 
+                                         type="range" min="0" max="1" step="0.1" value={volume} onChange={handleVolumeChange}
+                                         className="w-full h-1 bg-rose-200 rounded-lg appearance-none cursor-pointer accent-rose-500"
+                                     />
+                                 </div>
+                             </div>
+                         </div>
+                    </div>
+
+                    {/* Playlist Drawer */}
+                    {showPlaylist && (
+                        <div className="mt-4 pt-4 border-t border-rose-100 animate-in slide-in-from-top-2">
+                            <div className="mb-3">
+                                <label className="flex items-center gap-2 w-full p-2 rounded-lg border-2 border-dashed border-rose-300 hover:bg-rose-50 cursor-pointer transition-colors group justify-center">
+                                    <Upload size={16} className="text-rose-400 group-hover:text-rose-600" />
+                                    <span className="text-xs font-bold text-rose-500 group-hover:text-rose-700">Upload MP3</span>
+                                    <input type="file" accept="audio/mp3,audio/*" className="hidden" onChange={handleFileUpload} />
+                                </label>
+                            </div>
+                            <div className="max-h-40 overflow-y-auto pr-1 space-y-2 no-scrollbar">
+                                {playlist.map((song, index) => (
+                                    <button 
+                                        key={song.id}
+                                        onClick={() => { setCurrentSongIndex(index); setIsPlaying(true); }}
+                                        className={`w-full flex items-center gap-3 p-2 rounded-lg text-left transition-colors ${currentSongIndex === index ? 'bg-rose-100' : 'hover:bg-white/40'}`}
+                                    >
+                                        <div className="w-8 h-8 rounded bg-stone-200 overflow-hidden flex-shrink-0">
+                                            <img src={song.cover} className="w-full h-full object-cover" />
+                                        </div>
+                                        <div className="flex-grow min-w-0">
+                                            <p className={`text-xs font-bold truncate ${currentSongIndex === index ? 'text-rose-800' : 'text-stone-700'}`}>{song.title}</p>
+                                            <p className="text-[10px] text-stone-500 truncate">{song.artist}</p>
+                                        </div>
+                                        {currentSongIndex === index && isPlaying && <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></div>}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
