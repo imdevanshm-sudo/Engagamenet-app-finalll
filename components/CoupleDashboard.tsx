@@ -42,6 +42,8 @@ interface LocationUpdate {
     name: string;
     x: number;
     y: number;
+    lat?: number;
+    lng?: number;
     role: 'couple' | 'guest';
     map: 'all';
 }
@@ -400,19 +402,19 @@ const HeartHug = () => (
     </div>
 );
 
-const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: string; activeUsers: Record<string, any> }> = ({ isOpen, onClose, userName, activeUsers }) => {
+const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: string; activeUsers: Record<string, LocationUpdate> }> = ({ isOpen, onClose, userName, activeUsers }) => {
     const { transform, handlers, style } = usePanZoom(1, 0.5, 3);
-    const [myLocation, setMyLocation] = useState<{x: number, y: number} | null>(null);
     const [viewMode, setViewMode] = useState<'venue' | 'google'>('venue');
+    const mapRef = useRef<HTMLDivElement>(null);
+    const mapInstance = useRef<any>(null);
+    const venuePos = [19.0436, 72.8193];
 
-    // Couple can update location by clicking too
-    const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (!isOpen) return;
+    // Couple can update location by clicking too on Venue View
+    const handleVenueMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (viewMode !== 'venue') return;
         const rect = e.currentTarget.getBoundingClientRect();
         const x = ((e.clientX - rect.left) / rect.width) * 100;
         const y = ((e.clientY - rect.top) / rect.height) * 100;
-        
-        setMyLocation({ x, y });
         
         const channel = new BroadcastChannel('wedding_live_map');
         channel.postMessage({
@@ -425,6 +427,77 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
         });
         channel.close();
     };
+
+    // Leaflet Effect
+    useEffect(() => {
+        if (viewMode === 'google' && isOpen && mapRef.current && !mapInstance.current) {
+             const L = (window as any).L;
+             if (!L) return;
+             
+             mapInstance.current = L.map(mapRef.current).setView(venuePos, 13);
+             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+             }).addTo(mapInstance.current);
+
+             const venueIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div style="background-color: #be123c; color: #fff; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-size: 20px;">🏰</div>`,
+                iconSize: [40, 40],
+                iconAnchor: [20, 40]
+            });
+            L.marker(venuePos, { icon: venueIcon }).addTo(mapInstance.current).bindPopup("Taj Lands End");
+        }
+        
+        if (viewMode !== 'google' && mapInstance.current) {
+             mapInstance.current.remove();
+             mapInstance.current = null;
+        }
+    }, [viewMode, isOpen]);
+
+    // Update Markers on Google Map
+    useEffect(() => {
+        if (!mapInstance.current || viewMode !== 'google') return;
+        const L = (window as any).L;
+        
+        // Clear existing user markers (not efficient but simple for now)
+        mapInstance.current.eachLayer((layer: any) => {
+            if (layer instanceof L.Marker && !layer.getPopup()?.getContent()?.toString().includes("Taj")) {
+                mapInstance.current.removeLayer(layer);
+            }
+            if (layer instanceof L.Polyline) {
+                mapInstance.current.removeLayer(layer);
+            }
+        });
+
+        Object.values(activeUsers).forEach(user => {
+            if (user.lat && user.lng) {
+                const isMe = user.name === userName;
+                const isCouple = user.role === 'couple';
+                
+                const iconHtml = isCouple 
+                    ? `<div style="background-color: #be123c; width: 32px; height: 32px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">❤️</div>`
+                    : `<div style="background-color: #b45309; width: 30px; height: 30px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 12px;">${user.name.charAt(0)}</div>`;
+
+                const icon = L.divIcon({
+                    className: 'custom-user-icon',
+                    html: iconHtml,
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 32]
+                });
+
+                L.marker([user.lat, user.lng], { icon }).addTo(mapInstance.current)
+                 .bindPopup(isMe ? "You" : user.name);
+
+                // Draw line to venue
+                L.polyline([[user.lat, user.lng], venuePos], {
+                    color: isCouple ? '#be123c' : '#15803d',
+                    weight: 3,
+                    dashArray: '10, 10', 
+                    opacity: 0.6
+                }).addTo(mapInstance.current);
+            }
+        });
+    }, [activeUsers, viewMode]);
 
     const VENUE_ZONES = [
         { name: "Grand Stage", x: 50, y: 20, w: 30, h: 15, color: "#be123c" },
@@ -441,7 +514,7 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
                  <div className="pointer-events-auto">
                     <h2 className="text-gold-100 font-heading text-2xl drop-shadow-md">{viewMode === 'venue' ? 'Live Venue Tracker' : 'Realtime Google Maps'}</h2>
                     <p className="text-gold-400 text-xs font-serif opacity-80">
-                        Tap to update your location on the map.
+                        {viewMode === 'venue' ? 'Tap to update your location on the map.' : 'Tracking all guests live.'}
                     </p>
                  </div>
                  <button onClick={onClose} className="text-white bg-white/10 p-2 rounded-full backdrop-blur-sm hover:bg-white/20 transition-colors pointer-events-auto"><X size={24}/></button>
@@ -460,20 +533,19 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
                         onClick={() => setViewMode('google')}
                         className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${viewMode === 'google' ? 'bg-gold-500 text-[#2d0a0d] shadow-sm' : 'text-gold-300 hover:text-gold-100'}`}
                      >
-                         Google Maps
+                         Map View
                      </button>
                  </div>
              </div>
              
              <div className="flex-grow overflow-hidden relative bg-[#1a0507]" style={{ touchAction: 'none' }}>
+                 {viewMode === 'venue' ? (
                   <div className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden" {...handlers} style={style}>
                       <div 
                         className="absolute inset-0 w-full h-full origin-top-left transition-transform duration-75 ease-out"
                         style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
                       >
-                          <div className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 bg-[#f5f5f4] border-[20px] border-[#4a0e11] shadow-2xl overflow-hidden" onClick={handleMapClick}>
-                              
-                              {viewMode === 'venue' ? (
+                          <div className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 bg-[#f5f5f4] border-[20px] border-[#4a0e11] shadow-2xl overflow-hidden" onClick={handleVenueMapClick}>
                                   <>
                                     <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#4a0e11 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
                                     
@@ -493,36 +565,6 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
                                     <MapElephant className="absolute bottom-[20%] left-[10%] w-32 h-20 opacity-60" />
                                     <MapElephant className="absolute bottom-[20%] right-[10%] w-32 h-20 opacity-60" flip />
                                   </>
-                              ) : (
-                                 // Google Maps Simulation
-                                <div className="absolute inset-0 bg-[#e8eaed] overflow-hidden pointer-events-none">
-                                    {/* Map Layers */}
-                                    <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(#dadce0 1px, transparent 1px), linear-gradient(90deg, #dadce0 1px, transparent 1px)', backgroundSize: '100px 100px' }}></div>
-                                    
-                                    {/* Roads */}
-                                    <div className="absolute top-0 bottom-0 left-1/3 w-8 bg-white border-x border-gray-300 shadow-sm"></div>
-                                    <div className="absolute left-0 right-0 top-1/3 h-8 bg-white border-y border-gray-300 shadow-sm"></div>
-                                    <div className="absolute left-0 right-0 bottom-1/4 h-12 bg-[#fce8b2] border-y border-[#f9d06e] transform -rotate-6 border-2"></div>
-
-                                    {/* Water */}
-                                    <div className="absolute right-0 bottom-0 w-1/3 h-1/3 bg-[#aadaff] rounded-tl-[100px] border-l-4 border-t-4 border-[#9acbf9]"></div>
-
-                                    {/* Parks */}
-                                    <div className="absolute top-20 right-10 w-40 h-40 bg-[#cbf0d1] rounded-full border border-[#b0e3b8]"></div>
-                                    <div className="absolute bottom-32 left-[-30px] w-48 h-48 bg-[#cbf0d1] rounded-full border border-[#b0e3b8]"></div>
-
-                                    {/* Labels */}
-                                    <div className="absolute top-24 right-16 text-[10px] font-bold text-[#137333] bg-white/70 px-1.5 py-0.5 rounded shadow-sm border border-white">City Park</div>
-                                    <div className="absolute bottom-40 left-10 text-[10px] font-bold text-[#137333] bg-white/70 px-1.5 py-0.5 rounded shadow-sm border border-white">Rose Garden</div>
-                                    <div className="absolute top-[35%] left-[40%] text-[10px] font-bold text-slate-600 bg-white/80 px-1.5 py-0.5 rounded border border-slate-200">Main St</div>
-                                    
-                                    <div className="absolute bottom-10 right-10 pointer-events-auto">
-                                        <button className="bg-blue-600 text-white px-4 py-3 rounded-full shadow-xl font-bold text-sm flex items-center gap-2 animate-pulse hover:scale-105 transition-transform">
-                                            <Navigation size={18} fill="currentColor" /> Navigate
-                                        </button>
-                                    </div>
-                                </div>
-                              )}
                               
                               {/* Render Users */}
                               {Object.values(activeUsers).map((u, i) => {
@@ -531,6 +573,9 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
                           </div>
                       </div>
                   </div>
+                 ) : (
+                     <div id="admin-map" ref={mapRef} className="w-full h-full bg-stone-200"></div>
+                 )}
              </div>
         </div>
     );
@@ -809,7 +854,7 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [showExplosion, setShowExplosion] = useState(false);
   const [config, setConfig] = useState({ coupleName: "Sneha & Aman", date: "2025-11-26" });
-  const [activeUsers, setActiveUsers] = useState<Record<string, any>>({});
+  const [activeUsers, setActiveUsers] = useState<Record<string, LocationUpdate>>({});
   
   // Countdown state
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0 });
@@ -836,7 +881,7 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
   useEffect(() => {
       const channel = new BroadcastChannel('wedding_live_map');
       channel.onmessage = (event) => {
-          const data = event.data;
+          const data = event.data as LocationUpdate;
           if (data.type === 'location_update') {
               setActiveUsers(prev => ({ ...prev, [data.id]: data }));
           }
@@ -847,17 +892,18 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
           watchId = navigator.geolocation.watchPosition(
               (position) => {
                    const { latitude, longitude } = position.coords;
-                   // Consistent hashing for simulation map 0-100%
                    const pseudoX = (Math.abs(longitude * 10000) % 80) + 10; 
                    const pseudoY = (Math.abs(latitude * 10000) % 80) + 10;
                    
-                   const update = { 
+                   const update: LocationUpdate = { 
                       type: 'location_update', 
                       id: userName, 
                       name: userName, 
-                      x: pseudoX, y: pseudoY, 
+                      x: pseudoX, y: pseudoY,
+                      lat: latitude,
+                      lng: longitude,
                       role: 'couple',
-                      map: 'all' // Visible everywhere
+                      map: 'all' 
                    };
                    channel.postMessage(update);
                    setActiveUsers(prev => ({ ...prev, [userName]: update }));

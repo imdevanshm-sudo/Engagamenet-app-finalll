@@ -36,30 +36,6 @@ const MapElephant = ({ className, flip }: { className?: string, flip?: boolean }
   </svg>
 );
 
-const CityMapBackground = () => (
-    <div className="absolute inset-0 bg-[#e8eaed] overflow-hidden pointer-events-none">
-        {/* Map Layers */}
-        <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(#dadce0 1px, transparent 1px), linear-gradient(90deg, #dadce0 1px, transparent 1px)', backgroundSize: '100px 100px' }}></div>
-        
-        {/* Roads */}
-        <div className="absolute top-0 bottom-0 left-1/3 w-8 bg-white border-x border-gray-300 shadow-sm"></div>
-        <div className="absolute left-0 right-0 top-1/3 h-8 bg-white border-y border-gray-300 shadow-sm"></div>
-        <div className="absolute left-0 right-0 bottom-1/4 h-12 bg-[#fce8b2] border-y border-[#f9d06e] transform -rotate-6 border-2"></div>
-
-        {/* Water */}
-        <div className="absolute right-0 bottom-0 w-1/3 h-1/3 bg-[#aadaff] rounded-tl-[100px] border-l-4 border-t-4 border-[#9acbf9]"></div>
-
-        {/* Parks */}
-        <div className="absolute top-20 right-10 w-40 h-40 bg-[#cbf0d1] rounded-full border border-[#b0e3b8]"></div>
-        <div className="absolute bottom-32 left-[-30px] w-48 h-48 bg-[#cbf0d1] rounded-full border border-[#b0e3b8]"></div>
-
-        {/* Labels */}
-        <div className="absolute top-24 right-16 text-[10px] font-bold text-[#137333] bg-white/70 px-1.5 py-0.5 rounded shadow-sm border border-white">City Park</div>
-        <div className="absolute bottom-40 left-10 text-[10px] font-bold text-[#137333] bg-white/70 px-1.5 py-0.5 rounded shadow-sm border border-white">Rose Garden</div>
-        <div className="absolute top-[35%] left-[40%] text-[10px] font-bold text-slate-600 bg-white/80 px-1.5 py-0.5 rounded border border-slate-200">Main St</div>
-    </div>
-);
-
 const MapNode: React.FC<{ x: number; y: number; name: string; delay?: number; phone?: string; type?: 'guest' | 'couple' }> = ({ x, y, name, delay = 0, phone, type = 'guest' }) => {
     return (
         <div 
@@ -187,8 +163,12 @@ const usePanZoom = (initialScale = 1, minScale = 0.5, maxScale = 3) => {
 
 const AdminLiveMap: React.FC = () => {
     const { transform, handlers, style } = usePanZoom(1, 0.5, 3);
-    const [activeUsers, setActiveUsers] = useState<Record<string, {x: number, y: number, name: string, role: 'couple'|'guest', timestamp: number, map?: 'venue'|'google'}>>({});
+    const [activeUsers, setActiveUsers] = useState<Record<string, {x: number, y: number, lat?: number, lng?: number, name: string, role: 'couple'|'guest', timestamp: number, map?: 'venue'|'google'}>>({});
     const [viewMode, setViewMode] = useState<'venue' | 'google'>('venue');
+    
+    const mapRef = useRef<HTMLDivElement>(null);
+    const mapInstance = useRef<any>(null);
+    const venuePos = [19.0436, 72.8193];
 
     useEffect(() => {
         const channel = new BroadcastChannel('wedding_live_map');
@@ -197,12 +177,80 @@ const AdminLiveMap: React.FC = () => {
             if (data.type === 'location_update') {
                 setActiveUsers(prev => ({
                     ...prev,
-                    [data.id]: { x: data.x, y: data.y, name: data.name, role: data.role, timestamp: Date.now(), map: data.map }
+                    [data.id]: { x: data.x, y: data.y, lat: data.lat, lng: data.lng, name: data.name, role: data.role, timestamp: Date.now(), map: data.map }
                 }));
             }
         };
         return () => channel.close();
     }, []);
+
+    // Leaflet Logic
+    useEffect(() => {
+        if (viewMode === 'google' && mapRef.current && !mapInstance.current) {
+             const L = (window as any).L;
+             if (!L) return;
+             
+             mapInstance.current = L.map(mapRef.current).setView(venuePos, 12);
+             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+             }).addTo(mapInstance.current);
+
+             const venueIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div style="background-color: #be123c; color: #fff; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-size: 20px;">🏰</div>`,
+                iconSize: [40, 40],
+                iconAnchor: [20, 40]
+            });
+            L.marker(venuePos, { icon: venueIcon }).addTo(mapInstance.current).bindPopup("Taj Lands End");
+        }
+        
+        if (viewMode !== 'google' && mapInstance.current) {
+             mapInstance.current.remove();
+             mapInstance.current = null;
+        }
+    }, [viewMode]);
+
+     // Update Markers on Google Map
+     useEffect(() => {
+        if (!mapInstance.current || viewMode !== 'google') return;
+        const L = (window as any).L;
+        
+        mapInstance.current.eachLayer((layer: any) => {
+            if (layer instanceof L.Marker && !layer.getPopup()?.getContent()?.toString().includes("Taj")) {
+                mapInstance.current.removeLayer(layer);
+            }
+            if (layer instanceof L.Polyline) {
+                mapInstance.current.removeLayer(layer);
+            }
+        });
+
+        Object.values(activeUsers).forEach(user => {
+            if (user.lat && user.lng) {
+                const isCouple = user.role === 'couple';
+                
+                const iconHtml = isCouple 
+                    ? `<div style="background-color: #be123c; width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">❤️</div>`
+                    : `<div style="background-color: #b45309; width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 10px;">${user.name.charAt(0)}</div>`;
+
+                const icon = L.divIcon({
+                    className: 'custom-user-icon',
+                    html: iconHtml,
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 24]
+                });
+
+                L.marker([user.lat, user.lng], { icon }).addTo(mapInstance.current).bindPopup(user.name);
+                
+                // Draw lines
+                L.polyline([[user.lat, user.lng], venuePos], {
+                    color: isCouple ? '#be123c' : '#15803d',
+                    weight: 1,
+                    dashArray: '5, 5', 
+                    opacity: 0.4
+                }).addTo(mapInstance.current);
+            }
+        });
+    }, [activeUsers, viewMode]);
 
     const VENUE_ZONES = [
         { name: "Grand Stage", x: 50, y: 20, w: 30, h: 15, color: "#be123c" },
@@ -231,13 +279,12 @@ const AdminLiveMap: React.FC = () => {
                  </div>
             </div>
 
-            <div className="flex-grow relative overflow-hidden cursor-move bg-[#f5f5f4]" {...handlers} style={style}>
-                    <div className="absolute inset-0 w-full h-full origin-top-left transition-transform duration-75 ease-out"
-                        style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}>
-                        <div className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 bg-[#f5f5f4] border-[20px] border-[#4a0e11] shadow-2xl">
-                            
-                            {viewMode === 'venue' ? (
-                                <>
+            <div className="flex-grow relative overflow-hidden bg-[#f5f5f4]">
+                {viewMode === 'venue' ? (
+                    <div className="w-full h-full cursor-move" {...handlers} style={style}>
+                        <div className="absolute inset-0 w-full h-full origin-top-left transition-transform duration-75 ease-out"
+                            style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}>
+                            <div className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 bg-[#f5f5f4] border-[20px] border-[#4a0e11] shadow-2xl">
                                     <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#4a0e11 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
                                     {VENUE_ZONES.map((zone, i) => (
                                             <div key={i} className="absolute border-2 border-dashed flex items-center justify-center text-center p-2 opacity-60" 
@@ -253,16 +300,16 @@ const AdminLiveMap: React.FC = () => {
                                     <MapTree className="absolute top-[15%] right-[15%] w-24 h-24 opacity-80" />
                                     <MapElephant className="absolute bottom-[20%] left-[10%] w-32 h-20 opacity-60" />
                                     <MapElephant className="absolute bottom-[20%] right-[10%] w-32 h-20 opacity-60" flip />
-                                </>
-                            ) : (
-                                <CityMapBackground />
-                            )}
-                            
-                            {Object.values(activeUsers).map((u, i) => {
-                                return <MapNode key={i} x={u.x} y={u.y} name={u.name} type={u.role} delay={0} />;
-                            })}
+                                
+                                {Object.values(activeUsers).map((u, i) => {
+                                    return <MapNode key={i} x={u.x} y={u.y} name={u.name} type={u.role} delay={0} />;
+                                })}
+                            </div>
                         </div>
                     </div>
+                ) : (
+                    <div id="admin-map-full" ref={mapRef} className="w-full h-full bg-stone-200"></div>
+                )}
             </div>
             
             <div className="p-3 bg-white border-t border-gold-200 flex justify-between items-center text-xs font-bold text-stone-600">

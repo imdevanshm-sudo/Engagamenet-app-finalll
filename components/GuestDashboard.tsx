@@ -4,7 +4,7 @@ import {
   Home, Calendar, MessageSquare, Heart, Camera, MapPin, Clock, 
   ChevronRight, LogOut, Sparkles, Map, Send, 
   Smile, Upload, Phone, Download, Lock, Search, ExternalLink, Contact,
-  User, Music, Info, MailCheck, X, Navigation, Share2, Check
+  User, Music, Info, MailCheck, X, Navigation, Share2, Check, LocateFixed, Compass
 } from 'lucide-react';
 
 // --- Types ---
@@ -31,6 +31,15 @@ interface GuestContact {
     name: string;
     phone: string;
     role: 'Guest' | 'Family' | 'Couple';
+}
+
+interface LocationUpdate {
+    type: 'location_update';
+    id: string;
+    name: string;
+    lat: number;
+    lng: number;
+    role: 'guest' | 'couple';
 }
 
 // --- Assets & Stickers ---
@@ -192,7 +201,7 @@ const AdoreMeter = ({ count, onTrigger }: { count: number, onTrigger: () => void
 
 // --- Views ---
 
-const GuestBookView = ({ userName }: { userName: string }) => {
+const GuestBookView = ({ userName, setViewMode }: { userName: string, setViewMode: (mode: 'directory' | 'wishes') => void }) => {
     const [view, setView] = useState<'directory' | 'wishes'>('directory');
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState("");
@@ -412,221 +421,216 @@ const GuestBookView = ({ userName }: { userName: string }) => {
     );
 };
 
+// --- Map Component using Leaflet ---
+const MapView = ({ userName }: { userName: string }) => {
+    const mapRef = useRef<HTMLDivElement>(null);
+    const mapInstance = useRef<any>(null); // Use 'any' because standard Leaflet typings are not imported in this environment
+    const [activeUsers, setActiveUsers] = useState<Record<string, LocationUpdate>>({});
+    const markersRef = useRef<Record<string, any>>({});
+    const venuePos = [19.0436, 72.8193]; // Taj Lands End, Mumbai
+
+    // Setup Live Location
+    useEffect(() => {
+        const channel = new BroadcastChannel('wedding_live_map');
+        
+        channel.onmessage = (event) => {
+            const data = event.data as LocationUpdate;
+            if (data.type === 'location_update') {
+                setActiveUsers(prev => ({ ...prev, [data.id]: data }));
+            }
+        };
+
+        const watchId = navigator.geolocation.watchPosition(
+            (pos) => {
+                const update: LocationUpdate = {
+                    type: 'location_update',
+                    id: userName,
+                    name: userName,
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude,
+                    role: 'guest'
+                };
+                channel.postMessage(update);
+                setActiveUsers(prev => ({ ...prev, [userName]: update }));
+            },
+            (err) => console.error(err),
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 10000 }
+        );
+
+        return () => {
+            channel.close();
+            navigator.geolocation.clearWatch(watchId);
+        };
+    }, [userName]);
+
+    // Initialize Leaflet Map
+    useEffect(() => {
+        if (!mapRef.current || mapInstance.current) return;
+
+        const L = (window as any).L;
+        if (!L) return;
+
+        mapInstance.current = L.map(mapRef.current).setView(venuePos, 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(mapInstance.current);
+
+        // Add Venue Marker
+        const venueIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: `<div style="background-color: #be123c; color: #fff; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-size: 20px;">🏰</div>`,
+            iconSize: [40, 40],
+            iconAnchor: [20, 40]
+        });
+
+        const venueMarker = L.marker(venuePos, { icon: venueIcon }).addTo(mapInstance.current);
+        venueMarker.bindPopup("<b>Taj Lands End</b><br>The Royal Wedding Venue").openPopup();
+
+        return () => {
+            if (mapInstance.current) {
+                mapInstance.current.remove();
+                mapInstance.current = null;
+            }
+        };
+    }, []);
+
+    // Update Markers
+    useEffect(() => {
+        if (!mapInstance.current) return;
+        const L = (window as any).L;
+        
+        Object.values(activeUsers).forEach(user => {
+            // Skip if marker already exists and didn't move (optimization could be added here)
+            if (markersRef.current[user.id]) {
+                markersRef.current[user.id].setLatLng([user.lat, user.lng]);
+            } else {
+                const isMe = user.name === userName;
+                const isCouple = user.role === 'couple';
+                
+                const iconHtml = isCouple 
+                    ? `<div style="background-color: #be123c; width: 32px; height: 32px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">❤️</div>`
+                    : `<div style="background-color: ${isMe ? '#15803d' : '#b45309'}; width: 30px; height: 30px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 12px;">${user.name.charAt(0)}</div>`;
+
+                const icon = L.divIcon({
+                    className: 'custom-user-icon',
+                    html: iconHtml,
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 32]
+                });
+
+                const marker = L.marker([user.lat, user.lng], { icon }).addTo(mapInstance.current);
+                marker.bindPopup(isMe ? "You are here" : user.name);
+                markersRef.current[user.id] = marker;
+
+                // Draw line to venue if it's me or couple
+                if (isMe || isCouple) {
+                    const line = L.polyline([[user.lat, user.lng], venuePos], {
+                        color: isCouple ? '#be123c' : '#15803d',
+                        weight: 3,
+                        dashArray: '10, 10', 
+                        opacity: 0.6
+                    }).addTo(mapInstance.current);
+                    
+                    // Store line to remove later if needed, for now simplified
+                }
+            }
+        });
+
+    }, [activeUsers]);
+
+    return (
+        <div className="flex flex-col h-full bg-[#fffbf5]">
+            <div className="bg-[#4a0e11] p-4 text-white shadow-md z-20 shrink-0 flex justify-between items-center">
+                <h2 className="font-serif font-bold text-xl flex items-center gap-2"><Map size={20} className="text-gold-400"/> Live Map</h2>
+                <div className="text-[10px] bg-white/10 px-2 py-1 rounded border border-white/20">
+                    Updates Live
+                </div>
+            </div>
+            <div className="flex-grow relative z-10">
+                <div id="map" ref={mapRef} className="w-full h-full z-0"></div>
+                
+                {/* Overlay Info */}
+                <div className="absolute bottom-24 left-4 right-4 bg-white/90 backdrop-blur p-4 rounded-xl shadow-lg z-[1000] border border-stone-200 pointer-events-none">
+                     <div className="flex items-start gap-3">
+                         <div className="bg-green-100 p-2 rounded-full text-green-700"><Navigation size={20} /></div>
+                         <div>
+                             <h3 className="font-bold text-[#4a0e11] text-sm">Traveling to Taj Lands End</h3>
+                             <p className="text-xs text-stone-500">Your location is being shared with other guests. Follow the dashed line to the venue.</p>
+                         </div>
+                     </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 const Lightbox = ({ url, onClose, caption }: { url: string, onClose: () => void, caption?: string }) => (
     <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center animate-in fade-in duration-300" style={{ touchAction: 'none' }}>
-        <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white p-2 bg-black/20 rounded-full"><X size={32} /></button>
-        <div className="max-w-4xl max-h-[80vh] w-full px-4 flex items-center justify-center relative">
+        <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white p-2"><X size={32} /></button>
+        <div className="max-w-4xl max-h-[80vh] w-full px-4 flex items-center justify-center">
             <img src={url} alt="Full view" className="max-w-full max-h-full object-contain rounded-md shadow-2xl" />
         </div>
-        {caption && <p className="mt-4 text-gold-100 font-serif text-lg text-center px-4">{caption}</p>}
-        <button className="mt-6 bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-full flex items-center gap-2 transition-colors border border-white/20">
+        {caption && <p className="mt-4 text-gold-100 font-serif text-lg text-center">{caption}</p>}
+        <button className="mt-6 bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-full flex items-center gap-2 transition-colors">
              <Download size={18} /> Save Memory
         </button>
     </div>
 );
 
-const MemoriesView = () => {
+const MemoriesView = ({ userName }: { userName: string }) => {
     const [photos, setPhotos] = useState<MediaItem[]>([]);
     const [selectedPhoto, setSelectedPhoto] = useState<MediaItem | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    
+
     useEffect(() => {
         const saved = localStorage.getItem('wedding_gallery_media');
         if (saved) setPhotos(JSON.parse(saved));
     }, []);
 
-    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
         if (file) {
-            // Size Limit Check (approx 3MB)
-            if (file.size > 3 * 1024 * 1024) {
-                alert("Please select an image smaller than 3MB.");
-                return;
-            }
-
             const reader = new FileReader();
             reader.onloadend = () => {
-                const result = reader.result as string;
                 const newPhoto: MediaItem = {
-                     id: Date.now().toString(),
-                     url: result,
-                     type: file.type.startsWith('video') ? 'video' : 'image',
-                     caption: 'Shared Memory',
-                     timestamp: Date.now()
-                }
-                
-                try {
-                    const updated = [newPhoto, ...photos];
-                    setPhotos(updated);
-                    localStorage.setItem('wedding_gallery_media', JSON.stringify(updated));
-                } catch (e) {
-                    alert("Storage full! Cannot save more photos.");
-                }
+                    id: Date.now().toString(),
+                    url: reader.result as string,
+                    type: 'image',
+                    caption: `Uploaded by ${userName}`,
+                    timestamp: Date.now()
+                };
+                const updated = [newPhoto, ...photos];
+                setPhotos(updated);
+                localStorage.setItem('wedding_gallery_media', JSON.stringify(updated));
             };
             reader.readAsDataURL(file);
-            // Reset input
-            event.target.value = '';
         }
     };
 
-    const triggerUpload = () => {
-        fileInputRef.current?.click();
-    };
-
     return (
-        <div className="h-full flex flex-col bg-[#1a0507] animate-fade-in relative">
-            {selectedPhoto && <Lightbox url={selectedPhoto.url} caption={selectedPhoto.caption} onClose={() => setSelectedPhoto(null)} />}
-            
-            {/* Hidden File Input */}
-            <input 
-                type="file" 
-                ref={fileInputRef} 
-                className="hidden" 
-                accept="image/*"
-                onChange={handleFileSelect}
-            />
-
-            <div className="p-6 pb-4 border-b border-white/10 flex justify-between items-end bg-gradient-to-b from-black/40 to-transparent sticky top-0 z-20 backdrop-blur-sm">
-                <div>
-                    <h2 className="text-gold-100 font-heading text-2xl animate-fade-in-up">Memories</h2>
-                    <p className="text-gold-400 text-xs animate-fade-in-up delay-100">Shared moments from everyone</p>
-                </div>
-                <button onClick={triggerUpload} className="bg-gold-500 text-[#2d0a0d] text-xs font-bold px-4 py-2 rounded-full flex items-center gap-1 hover:bg-gold-400 active:scale-95 transition-transform shadow-lg shadow-gold-500/20">
-                    <Upload size={14}/> Upload
+        <div className="flex flex-col h-full bg-[#fffbf5] animate-fade-in">
+             <div className="bg-[#4a0e11] p-4 text-white shadow-md z-20 shrink-0 flex justify-between items-center">
+                <h2 className="font-serif font-bold text-xl flex items-center gap-2"><Camera size={20} className="text-gold-400"/> Memories</h2>
+                <button onClick={() => fileInputRef.current?.click()} className="text-xs bg-gold-500 text-[#4a0e11] px-3 py-1.5 rounded-full font-bold flex items-center gap-1">
+                    <Upload size={12}/> Upload
                 </button>
+                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileSelect} />
             </div>
-            <div className="flex-grow overflow-y-auto p-4 grid grid-cols-2 gap-3 pb-24 content-start overscroll-contain">
-                {photos.length === 0 && (
-                    <div className="col-span-2 text-center text-gold-400/50 mt-10 italic text-sm">No memories shared yet. Be the first!</div>
-                )}
+            <div className="flex-grow overflow-y-auto p-4 pb-32 grid grid-cols-2 gap-4 content-start">
                 {photos.map((photo, i) => (
-                    <div 
-                        key={i} 
-                        className="aspect-square rounded-xl overflow-hidden relative group animate-zoom-in shadow-lg cursor-pointer" 
-                        style={{ animationDelay: `${i*50}ms` }}
-                        onClick={() => setSelectedPhoto(photo)}
-                    >
-                        <img src={photo.url} alt="Memory" className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700" />
-                        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors"></div>
+                    <div key={i} onClick={() => setSelectedPhoto(photo)} className={`bg-stone-200 rounded-xl overflow-hidden shadow-sm aspect-square relative group cursor-pointer animate-in zoom-in fill-mode-backwards duration-500`} style={{ animationDelay: `${i * 50}ms` }}>
+                        <img src={photo.url} className="w-full h-full object-cover" alt="Memory"/>
                     </div>
                 ))}
-            </div>
-        </div>
-    );
-};
-
-const MapView = ({ userName, activeUsers }: { userName: string, activeUsers: Record<string, any> }) => {
-    const [viewMode, setViewMode] = useState<'venue' | 'google'>('venue');
-    
-    const VENUE_ZONES = [
-        { name: "Grand Stage", x: 50, y: 20, w: 30, h: 15, color: "#be123c" },
-        { name: "Mandap", x: 80, y: 50, w: 20, h: 20, color: "#b45309" },
-        { name: "Royal Dining", x: 20, y: 50, w: 25, h: 25, color: "#15803d" },
-        { name: "Entrance", x: 50, y: 90, w: 20, h: 10, color: "#4a0e11" },
-        { name: "Bar", x: 80, y: 80, w: 15, h: 15, color: "#1d4ed8" },
-    ];
-    
-    const openGoogleMaps = () => {
-        window.open("https://www.google.com/maps/search/?api=1&query=Taj+Lands+End+Mumbai", "_blank");
-    };
-
-    return (
-        <div className="h-full bg-[#f5f5f4] relative overflow-hidden flex flex-col animate-fade-in">
-             <div className="absolute top-4 left-4 right-4 z-20 flex flex-col gap-3 animate-slide-up pointer-events-none">
-                 <div className="bg-white/90 backdrop-blur p-3 rounded-xl shadow-lg border border-stone-200 flex justify-between items-center pointer-events-auto">
-                     <div>
-                         <h3 className="font-bold text-[#4a0e11] text-sm flex items-center gap-2"><MapPin size={16} className="text-rose-500"/> Live Location</h3>
-                         <p className="text-[10px] text-stone-500">Showing real-time position.</p>
-                     </div>
-                     <button onClick={openGoogleMaps} className="bg-blue-50 border border-blue-200 p-2 rounded-full text-blue-600 hover:bg-blue-100 active:scale-95 transition-transform flex items-center gap-2 px-3">
-                         <ExternalLink size={14}/> <span className="text-xs font-bold">Open App</span>
-                     </button>
-                 </div>
-                 
-                 <div className="bg-black/60 backdrop-blur-md rounded-full p-1 flex border border-gold-500/30 self-center shadow-lg pointer-events-auto">
-                     <button 
-                        onClick={() => setViewMode('venue')}
-                        className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${viewMode === 'venue' ? 'bg-gold-500 text-[#2d0a0d] shadow-sm' : 'text-gold-300 hover:text-gold-100'}`}
-                     >
-                         Venue
-                     </button>
-                     <button 
-                        onClick={() => setViewMode('google')}
-                        className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${viewMode === 'google' ? 'bg-gold-500 text-[#2d0a0d] shadow-sm' : 'text-gold-300 hover:text-gold-100'}`}
-                     >
-                         Google Maps
-                     </button>
-                 </div>
-             </div>
-             
-             <div className="flex-grow relative map-container bg-[#f5f5f4] overflow-hidden" style={{ touchAction: 'none' }}>
-                 {viewMode === 'venue' ? (
-                     <>
-                         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#4a0e11 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
-                         <div className="absolute inset-0 w-[100%] h-[100%] border-[10px] border-[#4a0e11]/10 pointer-events-none"></div>
-                         {VENUE_ZONES.map((zone, i) => (
-                              <div key={i} className="absolute border-2 border-dashed flex items-center justify-center text-center p-2 opacity-60 pointer-events-none transition-opacity hover:opacity-100" 
-                                  style={{ 
-                                    left: `${zone.x}%`, top: `${zone.y}%`, width: `${zone.w}%`, height: `${zone.h}%`, 
-                                    transform: 'translate(-50%, -50%)',
-                                    borderColor: zone.color, backgroundColor: `${zone.color}08`
-                                  }}>
-                                  <span className="font-serif font-bold text-[10px] uppercase tracking-wider text-[#4a0e11] bg-white/80 px-2 py-1 rounded-full shadow-sm animate-fade-in delay-500">{zone.name}</span>
-                              </div>
-                         ))}
-                     </>
-                 ) : (
-                     // Refined Google Maps Simulation
-                     <div className="absolute inset-0 bg-[#e8eaed] overflow-hidden pointer-events-none">
-                        {/* Map Layers */}
-                        <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(#dadce0 1px, transparent 1px), linear-gradient(90deg, #dadce0 1px, transparent 1px)', backgroundSize: '100px 100px' }}></div>
-                        
-                        {/* Roads */}
-                        <div className="absolute top-0 bottom-0 left-1/3 w-8 bg-white border-x border-gray-300 shadow-sm"></div>
-                        <div className="absolute left-0 right-0 top-1/3 h-8 bg-white border-y border-gray-300 shadow-sm"></div>
-                        <div className="absolute left-0 right-0 bottom-1/4 h-12 bg-[#fce8b2] border-y border-[#f9d06e] transform -rotate-6 border-2"></div>
-
-                        {/* Water */}
-                        <div className="absolute right-0 bottom-0 w-1/3 h-1/3 bg-[#aadaff] rounded-tl-[100px] border-l-4 border-t-4 border-[#9acbf9]"></div>
-
-                        {/* Parks */}
-                        <div className="absolute top-20 right-10 w-40 h-40 bg-[#cbf0d1] rounded-full border border-[#b0e3b8]"></div>
-                        <div className="absolute bottom-32 left-[-30px] w-48 h-48 bg-[#cbf0d1] rounded-full border border-[#b0e3b8]"></div>
-
-                        {/* Labels */}
-                        <div className="absolute top-24 right-16 text-[10px] font-bold text-[#137333] bg-white/70 px-1.5 py-0.5 rounded shadow-sm border border-white">City Park</div>
-                        <div className="absolute bottom-40 left-10 text-[10px] font-bold text-[#137333] bg-white/70 px-1.5 py-0.5 rounded shadow-sm border border-white">Rose Garden</div>
-                        <div className="absolute top-[35%] left-[40%] text-[10px] font-bold text-slate-600 bg-white/80 px-1.5 py-0.5 rounded border border-slate-200">Main St</div>
-                        
-                        <div className="absolute bottom-10 right-10 pointer-events-auto">
-                            <button onClick={openGoogleMaps} className="bg-blue-600 text-white px-4 py-3 rounded-full shadow-xl font-bold text-sm flex items-center gap-2 animate-pulse hover:scale-105 transition-transform">
-                                <Navigation size={18} fill="currentColor" /> Navigate
-                            </button>
-                        </div>
+                {photos.length === 0 && (
+                    <div className="col-span-2 flex flex-col items-center justify-center h-64 text-stone-400">
+                        <Camera size={48} className="mb-2 opacity-20" />
+                        <p className="text-sm">No memories shared yet.</p>
                     </div>
-                 )}
-                 
-                 {Object.values(activeUsers).map((u: any, i) => {
-                     return (
-                        <div 
-                            key={i}
-                            className="absolute flex flex-col items-center z-20 group animate-zoom-in transition-all duration-500"
-                            style={{ left: `${u.x}%`, top: `${u.y}%`, transform: 'translate(-50%, -50%)' }}
-                        >
-                            <div 
-                            className={`relative rounded-full shadow-lg transition-all duration-300 w-12 h-12 p-[2px] ${u.role === 'couple' ? 'bg-rose-950' : 'bg-[#1a0405]'}`}
-                            >
-                                <div className={`w-full h-full rounded-full border ${u.role === 'couple' ? 'border-rose-400' : 'border-gold-500/30'} overflow-hidden relative bg-[#2d0a0d] flex items-center justify-center`}>
-                                    <Sparkles size={18} className="text-gold-300 opacity-80" />
-                                </div>
-                            </div>
-                            <div className="mt-2 px-2 py-0.5 bg-black/70 backdrop-blur-md rounded text-[9px] text-gold-100 font-bold shadow-md whitespace-nowrap">
-                                {u.name === userName ? 'You' : u.name}
-                            </div>
-                        </div>
-                     );
-                 })}
-             </div>
+                )}
+            </div>
+            {selectedPhoto && <Lightbox url={selectedPhoto.url} caption={selectedPhoto.caption} onClose={() => setSelectedPhoto(null)} />}
         </div>
     );
 };
@@ -639,234 +643,175 @@ interface GuestDashboardProps {
 }
 
 const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'map' | 'guest-book' | 'memories'>('home');
-  const [rsvpConfirmed, setRsvpConfirmed] = useState(false);
+  const [activeView, setActiveView] = useState<'home' | 'schedule' | 'chat' | 'gallery' | 'map'>('home');
   const [showCelebration, setShowCelebration] = useState(false);
-  const [activeUsers, setActiveUsers] = useState<Record<string, any>>({});
-  
-  // Timer Logic (Target: Nov 26, 2025)
-  const targetDate = new Date("2025-11-26T00:00:00");
-  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-  const [isTimeUp, setIsTimeUp] = useState(false);
+  const [rsvpStatus, setRsvpStatus] = useState<'yes' | 'no' | null>(null);
 
   useEffect(() => {
-      const savedRsvp = localStorage.getItem('wedding_global_rsvp');
-      if(savedRsvp === 'true') setRsvpConfirmed(true);
-
-      // Timer Update
-      const timer = setInterval(() => {
-          const now = new Date();
-          const diff = targetDate.getTime() - now.getTime();
-          
-          if (diff <= 0) {
-              setIsTimeUp(true);
-              setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-              clearInterval(timer);
-          } else {
-              const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-              const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-              const minutes = Math.floor((diff / 1000 / 60) % 60);
-              const seconds = Math.floor((diff / 1000) % 60);
-              setTimeLeft({ days, hours, minutes, seconds });
-          }
-      }, 1000);
-
-      return () => {
-          clearInterval(timer);
-      };
+      // Simulate welcome celebration on first load
+      const hasSeen = sessionStorage.getItem('wedding_seen_celebration');
+      if (!hasSeen) {
+          setShowCelebration(true);
+          sessionStorage.setItem('wedding_seen_celebration', 'true');
+      }
   }, []);
 
-  useEffect(() => {
-      const channel = new BroadcastChannel('wedding_live_map');
-      channel.onmessage = (event) => {
-          const data = event.data;
-          if (data.type === 'location_update') {
-              setActiveUsers(prev => ({ ...prev, [data.id]: data }));
-          }
-      };
-
-      let watchId: number;
-      if (navigator.geolocation) {
-          watchId = navigator.geolocation.watchPosition(
-              (position) => {
-                   const { latitude, longitude } = position.coords;
-                   // Consistent hashing for simulation map 0-100%
-                   const pseudoX = (Math.abs(longitude * 10000) % 80) + 10; 
-                   const pseudoY = (Math.abs(latitude * 10000) % 80) + 10;
-                   
-                   const update = { 
-                      type: 'location_update', 
-                      id: userName, 
-                      name: userName, 
-                      x: pseudoX, y: pseudoY, 
-                      role: 'guest',
-                      map: 'all' // Visible everywhere
-                   };
-                   channel.postMessage(update);
-                   setActiveUsers(prev => ({ ...prev, [userName]: update }));
-              },
-              (error) => console.warn(error),
-              { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
-          );
-      }
-
-      return () => {
-          channel.close();
-          if(watchId) navigator.geolocation.clearWatch(watchId);
-      };
-  }, [userName]);
-
-  const handleRSVP = () => {
-      if (!isTimeUp || rsvpConfirmed) return;
-      setRsvpConfirmed(true);
-      localStorage.setItem('wedding_global_rsvp', 'true');
-      setShowCelebration(true);
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+  const handleRSVP = (status: 'yes' | 'no') => {
+      setRsvpStatus(status);
+      // In a real app, sending to backend
+      if (status === 'yes') setShowCelebration(true);
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#fffbf5] relative font-serif overflow-hidden text-[#4a0e11]">
+    <div className="w-full h-full bg-[#fffbf5] flex flex-col relative font-serif text-[#4a0e11] overflow-hidden">
       {showCelebration && <CelebrationOverlay onClose={() => setShowCelebration(false)} />}
       
-      {/* Dynamic Background */}
-      <FloralPattern className="text-[#4a0e11] opacity-[0.03] z-0" />
-      
+      {/* Top Bar (only for Home) */}
+      {activeView === 'home' && (
+          <header className="p-6 pb-2 animate-slide-down">
+              <div className="flex justify-between items-start">
+                  <div>
+                      <p className="text-stone-500 text-xs font-bold uppercase tracking-widest mb-1">Namaste,</p>
+                      <h1 className="text-3xl font-heading text-[#4a0e11] leading-none">{userName.split(' ')[0]}</h1>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-[#4a0e11] flex items-center justify-center text-gold-200 shadow-lg">
+                      <User size={20} />
+                  </div>
+              </div>
+          </header>
+      )}
+
       {/* Main Content Area */}
-      <div className="flex-grow overflow-y-auto no-scrollbar relative z-10 pb-20 overscroll-contain">
-        
-        {/* Header */}
-        <header className="pt-8 pb-4 px-6 flex justify-between items-center bg-gradient-to-b from-[#fffbf5] via-[#fffbf5] to-transparent sticky top-0 z-30 backdrop-blur-[2px]">
-            <div>
-                <h1 className="font-cursive text-3xl text-[#4a0e11]">Sneha & Aman</h1>
-                <p className="text-[10px] tracking-[0.3em] text-[#b45309] font-serif mt-1 normal-case">The Engagement</p>
-            </div>
-            <div className="text-center">
-                 <div className="bg-[#4a0e11] text-gold-100 px-3 py-1 rounded-lg shadow-md flex gap-2 text-xs font-mono border border-gold-500/30">
-                     <span className="flex flex-col leading-none items-center"><span>{timeLeft.days}</span><span className="text-[6px] opacity-60">D</span></span>:
-                     <span className="flex flex-col leading-none items-center"><span>{timeLeft.hours}</span><span className="text-[6px] opacity-60">H</span></span>:
-                     <span className="flex flex-col leading-none items-center"><span>{timeLeft.minutes}</span><span className="text-[6px] opacity-60">M</span></span>
-                 </div>
-            </div>
-        </header>
+      <main className="flex-grow overflow-hidden relative z-10">
+          {activeView === 'home' && (
+              <div className="h-full overflow-y-auto p-6 pb-32 space-y-6 overscroll-contain">
+                  {/* Welcome Card */}
+                  <div className="bg-[#4a0e11] rounded-3xl p-6 text-gold-100 relative overflow-hidden shadow-xl group">
+                      <FloralPattern className="opacity-10" />
+                      <div className="relative z-10">
+                          <div className="flex justify-between items-start mb-4">
+                              <span className="bg-gold-500/20 text-gold-300 text-[10px] font-bold px-2 py-1 rounded-full border border-gold-500/30">42 Days To Go</span>
+                              <Heart className="text-rose-500 fill-rose-500 animate-pulse" size={20} />
+                          </div>
+                          <h2 className="font-heading text-2xl mb-2">Sneha & Aman</h2>
+                          <p className="text-gold-200/80 text-sm leading-relaxed mb-6 font-serif">
+                              We are delighted to have you join us in celebrating our union.
+                          </p>
+                          
+                          {rsvpStatus === null ? (
+                              <div className="flex gap-3">
+                                  <button onClick={() => handleRSVP('yes')} className="flex-1 bg-gold-500 text-[#4a0e11] py-2.5 rounded-xl font-bold text-sm shadow-lg hover:bg-gold-400 transition-colors">I'm Attending</button>
+                                  <button onClick={() => handleRSVP('no')} className="px-4 py-2.5 rounded-xl border border-gold-500/30 text-gold-300 text-sm font-bold hover:bg-white/5">Sorry, can't</button>
+                              </div>
+                          ) : (
+                              <div className="bg-white/10 rounded-xl p-3 flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-[#4a0e11]"><Check size={16}/></div>
+                                  <div>
+                                      <p className="text-sm font-bold text-gold-200">RSVP Sent</p>
+                                      <p className="text-[10px] text-gold-400">Thank you for your response!</p>
+                                  </div>
+                              </div>
+                          )}
+                      </div>
+                  </div>
 
-        {activeTab === 'home' && (
-            <div className="px-6 space-y-8 animate-fade-in pb-24">
-                {/* Welcome Card */}
-                <div className="relative bg-[#2d0a0d] rounded-3xl p-8 text-center text-gold-100 shadow-2xl overflow-hidden group perspective-1000 border border-gold-500/30">
-                    <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]"></div>
-                    <FloralCorner className="absolute top-0 left-0 w-20 h-20 -translate-x-4 -translate-y-4 opacity-20" />
-                    <FloralCorner className="absolute bottom-0 right-0 w-20 h-20 translate-x-4 translate-y-4 rotate-180 opacity-20" />
-                    
-                    <div className="relative z-10">
-                        <h2 className="font-heading text-2xl mb-2">Namaste, {userName}</h2>
-                        <p className="font-serif italic opacity-80 text-sm leading-relaxed mb-6">
-                            "We are delighted to have you join us in celebrating our union. Your blessings mean the world to us."
-                        </p>
-                        
-                        {/* Grand RSVP Button */}
-                        <div className="relative inline-block w-full max-w-xs">
-                             <button 
-                                onClick={handleRSVP}
-                                disabled={!isTimeUp || rsvpConfirmed}
-                                className={`w-full py-4 rounded-xl font-heading tracking-widest text-sm transition-all duration-500 shadow-lg relative overflow-hidden group
-                                    ${rsvpConfirmed 
-                                        ? 'bg-green-800 text-green-100 cursor-default border border-green-600' 
-                                        : isTimeUp 
-                                            ? 'bg-gradient-to-r from-gold-600 via-gold-500 to-gold-600 text-[#2d0a0d] hover:scale-105 active:scale-95' 
-                                            : 'bg-stone-800/50 text-stone-500 cursor-not-allowed border border-stone-700 backdrop-blur-sm'
-                                    }`}
-                             >
-                                {rsvpConfirmed ? (
-                                    <span className="flex items-center justify-center gap-2"><Sparkles size={16}/> Attendance Confirmed</span>
-                                ) : !isTimeUp ? (
-                                    <span className="flex items-center justify-center gap-2"><Lock size={14}/> RSVP Locked</span>
-                                ) : (
-                                    <span className="flex items-center justify-center gap-2"><MailCheck size={16}/> Click to RSVP</span>
-                                )}
-                             </button>
-                             {!isTimeUp && !rsvpConfirmed && (
-                                 <p className="text-[10px] text-gold-500/60 mt-3 uppercase tracking-wider flex items-center justify-center gap-1">
-                                     <Clock size={10}/> Unlocks Nov 26
-                                 </p>
-                             )}
-                        </div>
-                    </div>
-                </div>
+                  {/* Quick Actions Grid */}
+                  <div className="grid grid-cols-2 gap-4">
+                      <button onClick={() => setActiveView('schedule')} className="bg-white p-5 rounded-2xl shadow-sm border border-stone-100 flex flex-col items-center gap-3 hover:shadow-md transition-shadow active:scale-95">
+                          <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center"><Calendar size={24}/></div>
+                          <span className="text-sm font-bold text-stone-700">Events</span>
+                      </button>
+                      <button onClick={() => setActiveView('map')} className="bg-white p-5 rounded-2xl shadow-sm border border-stone-100 flex flex-col items-center gap-3 hover:shadow-md transition-shadow active:scale-95">
+                          <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center"><MapPin size={24}/></div>
+                          <span className="text-sm font-bold text-stone-700">Location</span>
+                      </button>
+                      <button onClick={() => setActiveView('gallery')} className="bg-white p-5 rounded-2xl shadow-sm border border-stone-100 flex flex-col items-center gap-3 hover:shadow-md transition-shadow active:scale-95">
+                          <div className="w-12 h-12 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center"><Camera size={24}/></div>
+                          <span className="text-sm font-bold text-stone-700">Photos</span>
+                      </button>
+                      <button onClick={() => setActiveView('chat')} className="bg-white p-5 rounded-2xl shadow-sm border border-stone-100 flex flex-col items-center gap-3 hover:shadow-md transition-shadow active:scale-95">
+                          <div className="w-12 h-12 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center"><MessageSquare size={24}/></div>
+                          <span className="text-sm font-bold text-stone-700">Guest Book</span>
+                      </button>
+                  </div>
 
-                {/* Quick Links */}
-                <div className="grid grid-cols-2 gap-4">
-                    <button onClick={() => setActiveTab('memories')} className="bg-white p-6 rounded-2xl shadow-sm border border-gold-100 flex flex-col items-center gap-3 hover:shadow-md transition-all group active:scale-95">
-                        <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center text-rose-600 group-hover:scale-110 transition-transform shadow-sm">
-                            <Camera size={24} />
-                        </div>
-                        <span className="font-serif font-bold text-[#4a0e11] text-sm">Memories</span>
-                    </button>
-                    <button onClick={() => setActiveTab('map')} className="bg-white p-6 rounded-2xl shadow-sm border border-gold-100 flex flex-col items-center gap-3 hover:shadow-md transition-all group active:scale-95">
-                        <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform shadow-sm">
-                            <Map size={24} />
-                        </div>
-                        <span className="font-serif font-bold text-[#4a0e11] text-sm">Live Map</span>
-                    </button>
-                </div>
-            </div>
-        )}
+                  {/* Story Teaser */}
+                  <div className="bg-white rounded-2xl p-5 shadow-sm border border-stone-100 flex items-center gap-4">
+                      <div className="w-16 h-16 rounded-xl bg-stone-200 overflow-hidden flex-shrink-0">
+                          <img src="https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?w=400" className="w-full h-full object-cover" />
+                      </div>
+                      <div>
+                          <h3 className="font-bold text-[#4a0e11] text-sm">Our Story</h3>
+                          <p className="text-xs text-stone-500 mt-1 line-clamp-2">From a chance meeting at a coffee shop to a lifetime together...</p>
+                          <button className="text-[10px] font-bold text-rose-600 mt-2 uppercase tracking-wider flex items-center gap-1">Read More <ChevronRight size={10}/></button>
+                      </div>
+                  </div>
+              </div>
+          )}
 
-        {activeTab === 'schedule' && (
-            <div className="px-6 pb-24 space-y-6 animate-slide-up">
-                <h2 className="font-heading text-2xl text-[#4a0e11] mb-4 pl-2 border-l-4 border-gold-500">Wedding Events</h2>
-                {[
-                    { time: "Dec 20 • 6:00 PM", title: "Mehndi & Sangeet", loc: "Grand Ballroom", icon: Music },
-                    { time: "Dec 21 • 10:00 AM", title: "Haldi Ceremony", loc: "Poolside Deck", icon: Sparkles },
-                    { time: "Dec 21 • 7:00 PM", title: "The Wedding", loc: "Shanti Gardens", icon: Heart },
-                    { time: "Dec 21 • 9:00 PM", title: "Royal Dinner", loc: "Banquet Hall", icon: User }
-                ].map((event, i) => (
-                    <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-stone-100 flex gap-4 items-start relative overflow-hidden hover:shadow-md transition-shadow">
-                        <div className="w-12 h-12 rounded-full bg-[#fffbf5] border border-gold-200 flex items-center justify-center text-[#b45309] flex-shrink-0 z-10">
-                            <event.icon size={20} />
-                        </div>
-                        <div className="z-10">
-                            <p className="text-xs font-bold text-gold-600 uppercase tracking-wider mb-1">{event.time}</p>
-                            <h3 className="font-serif font-bold text-lg text-[#2d0a0d] mb-1">{event.title}</h3>
-                            <p className="text-sm text-stone-500 flex items-center gap-1"><MapPin size={12}/> {event.loc}</p>
-                        </div>
-                        <div className="absolute -right-4 -bottom-4 opacity-5 text-[#4a0e11]">
-                            <FloralCorner className="w-24 h-24" />
-                        </div>
-                    </div>
-                ))}
-            </div>
-        )}
+          {activeView === 'chat' && <GuestBookView userName={userName} setViewMode={() => {}} />}
+          {activeView === 'gallery' && <MemoriesView userName={userName} />}
+          {activeView === 'map' && <MapView userName={userName} />}
+          
+          {activeView === 'schedule' && (
+              <div className="h-full overflow-y-auto p-6 pb-32 bg-[#fffbf5] animate-fade-in">
+                  <div className="bg-[#4a0e11] -mx-6 -mt-6 p-6 pb-8 mb-6 text-white relative overflow-hidden">
+                      <FloralPattern className="opacity-10" />
+                      <h2 className="text-2xl font-heading relative z-10">Wedding Events</h2>
+                      <p className="text-gold-400 text-sm font-serif relative z-10">Dec 20 - Dec 22, 2025</p>
+                  </div>
+                  
+                  <div className="space-y-8 relative pl-4">
+                      {/* Timeline Line */}
+                      <div className="absolute left-4 top-2 bottom-0 w-0.5 bg-stone-200"></div>
 
-        {activeTab === 'guest-book' && <GuestBookView userName={userName} />}
-        {activeTab === 'memories' && <MemoriesView />}
-        {activeTab === 'map' && <MapView userName={userName} activeUsers={activeUsers} />}
-
-      </div>
+                      {[
+                          { title: "Mehndi Ceremony", time: "Dec 20, 4:00 PM", loc: "Poolside Gardens", icon: "🌿" },
+                          { title: "Sangeet Night", time: "Dec 20, 7:30 PM", loc: "Grand Ballroom", icon: "💃" },
+                          { title: "Haldi", time: "Dec 21, 10:00 AM", loc: "Courtyard", icon: "✨" },
+                          { title: "The Wedding", time: "Dec 21, 6:00 PM", loc: "Taj Lands End", icon: "💍" }
+                      ].map((event, i) => (
+                          <div key={i} className="relative pl-8 animate-slide-up" style={{ animationDelay: `${i * 100}ms` }}>
+                              <div className="absolute left-0 top-1 w-8 h-8 -ml-4 bg-white border-4 border-[#fffbf5] rounded-full shadow-md flex items-center justify-center text-lg z-10">
+                                  {event.icon}
+                              </div>
+                              <div className="bg-white p-5 rounded-xl shadow-sm border border-stone-100">
+                                  <h3 className="font-heading text-lg text-[#4a0e11] mb-1">{event.title}</h3>
+                                  <div className="flex flex-col gap-1 text-xs text-stone-500 font-bold uppercase tracking-wider">
+                                      <span className="flex items-center gap-1"><Clock size={12}/> {event.time}</span>
+                                      <span className="flex items-center gap-1 text-rose-700"><MapPin size={12}/> {event.loc}</span>
+                                  </div>
+                                  <button onClick={() => setActiveView('map')} className="mt-3 text-[10px] bg-stone-100 hover:bg-stone-200 text-stone-600 px-3 py-1.5 rounded-full font-bold transition-colors">View Location</button>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          )}
+      </main>
 
       {/* Bottom Navigation */}
-      <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gold-200 px-6 py-3 flex justify-between items-center z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
-          <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'home' ? 'text-[#4a0e11]' : 'text-stone-400'}`}>
-              <Home size={20} strokeWidth={activeTab === 'home' ? 2.5 : 2} />
-              <span className="text-[9px] font-bold uppercase tracking-wider">Home</span>
-          </button>
-          <button onClick={() => setActiveTab('schedule')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'schedule' ? 'text-[#4a0e11]' : 'text-stone-400'}`}>
-              <Calendar size={20} strokeWidth={activeTab === 'schedule' ? 2.5 : 2} />
-              <span className="text-[9px] font-bold uppercase tracking-wider">Events</span>
-          </button>
-          <button onClick={() => setActiveTab('map')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'map' ? 'text-[#4a0e11]' : 'text-stone-400'}`}>
-              <Map size={20} strokeWidth={activeTab === 'map' ? 2.5 : 2} />
-              <span className="text-[9px] font-bold uppercase tracking-wider">Map</span>
-          </button>
-          <button onClick={() => setActiveTab('guest-book')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'guest-book' ? 'text-[#4a0e11]' : 'text-stone-400'}`}>
-              <Contact size={20} strokeWidth={activeTab === 'guest-book' ? 2.5 : 2} />
-              <span className="text-[9px] font-bold uppercase tracking-wider">Guests</span>
-          </button>
-          <button onClick={onLogout} className="flex flex-col items-center gap-1 text-stone-400 hover:text-rose-500 transition-colors">
-              <LogOut size={20} />
-              <span className="text-[9px] font-bold uppercase tracking-wider">Exit</span>
-          </button>
-      </div>
-
+      <nav className="absolute bottom-6 left-6 right-6 bg-black/80 backdrop-blur-md rounded-2xl p-2 shadow-2xl border border-white/10 z-40 flex justify-between items-center">
+           {[
+              { id: 'home', icon: Home, label: 'Home' },
+              { id: 'schedule', icon: Calendar, label: 'Events' },
+              { id: 'map', icon: Map, label: 'Map' },
+              { id: 'chat', icon: MessageSquare, label: 'Guestbook' },
+           ].map((item) => (
+               <button 
+                  key={item.id}
+                  onClick={() => setActiveView(item.id as any)}
+                  className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-xl transition-all ${activeView === item.id ? 'text-gold-400 bg-white/10' : 'text-stone-400 hover:text-white'}`}
+               >
+                   <item.icon size={20} strokeWidth={activeView === item.id ? 2.5 : 2} />
+                   <span className="text-[9px] font-medium">{item.label}</span>
+               </button>
+           ))}
+           <button onClick={onLogout} className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl text-rose-400 hover:bg-rose-900/20 transition-colors">
+               <LogOut size={20} />
+               <span className="text-[9px] font-medium">Exit</span>
+           </button>
+      </nav>
     </div>
   );
 };
