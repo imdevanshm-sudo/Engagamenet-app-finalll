@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { Home, MessageSquare, Heart, Camera, X, Sparkles, Music, Gift, Smile, Send, Play, Pause, SkipForward, SkipBack, ExternalLink, LogOut, ChevronRight, Radio, Map, Navigation, Phone, Search, Compass, Globe, Plane, Hand, Plus, Minus, Users, Utensils, PhoneCall, MapPin, Lock, User, Film, Upload, Mic, ChevronLeft, LocateFixed, Volume2, VolumeX, ListMusic, Download, Check } from 'lucide-react';
+import { Home, MessageSquare, Heart, Camera, X, Sparkles, Music, Gift, Smile, Send, Play, Pause, SkipForward, SkipBack, ExternalLink, LogOut, ChevronRight, Radio, Map, Navigation, Phone, Search, Compass, Globe, Plane, Hand, Plus, Minus, Users, Utensils, PhoneCall, MapPin, Lock, User, Film, Upload, Mic, ChevronLeft, LocateFixed, Volume2, VolumeX, ListMusic, Download, Check, Flower } from 'lucide-react';
 
 // --- Types ---
 interface Message {
@@ -34,7 +33,8 @@ type BroadcastEvent =
   | { type: 'message'; payload: Message }
   | { type: 'heart_update'; count: number }
   | { type: 'love_explosion'; sender: string }
-  | { type: 'location_update'; id: string; name: string; x: number; y: number; role: 'guest' | 'couple'; map?: 'venue' | 'google' };
+  | { type: 'location_update'; id: string; name: string; x: number; y: number; lat?: number; lng?: number; role: 'guest' | 'couple'; map?: 'venue' | 'google' }
+  | { type: 'theme_update'; mode: 'default' | 'romantic' };
 
 interface LocationUpdate {
     type: 'location_update';
@@ -45,8 +45,80 @@ interface LocationUpdate {
     lat?: number;
     lng?: number;
     role: 'couple' | 'guest';
-    map: 'all';
+    map: 'all' | 'venue' | 'google';
 }
+
+// --- Live Background Component ---
+const GoldDust = ({ opacity = 0.4 }: { opacity?: number }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let particles: Array<{
+        x: number, y: number, vx: number, vy: number, 
+        size: number, alpha: number 
+    }> = [];
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      initParticles();
+    };
+
+    const initParticles = () => {
+      particles = [];
+      const count = Math.floor((canvas.width * canvas.height) / 20000); 
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          vx: (Math.random() - 0.5) * 0.15,
+          vy: (Math.random() - 0.5) * 0.15,
+          size: Math.random() * 2 + 0.5,
+          alpha: Math.random() * 0.5 + 0.1
+        });
+      }
+    };
+
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#fbbf24'; // Gold
+      
+      particles.forEach((p) => {
+        p.x += p.vx;
+        p.y += p.vy;
+
+        if (p.x < 0) p.x = canvas.width;
+        if (p.x > canvas.width) p.x = 0;
+        if (p.y < 0) p.y = canvas.height;
+        if (p.y > canvas.height) p.y = 0;
+
+        ctx.globalAlpha = p.alpha * opacity;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      animationFrameId = requestAnimationFrame(draw);
+    };
+
+    window.addEventListener('resize', resize);
+    resize();
+    draw();
+
+    return () => {
+      window.removeEventListener('resize', resize);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [opacity]);
+
+  return <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none z-0 mix-blend-screen" />;
+};
 
 // --- Shared Assets (Stickers & Map Icons) ---
 const StickerKalash = () => (<svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md"><path d="M30,80 Q30,95 50,95 Q70,95 70,80 L75,40 Q80,30 50,30 Q20,30 25,40 Z" fill="#b45309" stroke="#78350f" strokeWidth="2"/><path d="M30,40 Q50,50 70,40" stroke="#fcd34d" strokeWidth="3" fill="none"/><circle cx="50" cy="60" r="10" fill="#fcd34d" /><path d="M50,30 L50,20 M40,30 L35,15 M60,30 L65,15" stroke="#15803d" strokeWidth="3"/><circle cx="50" cy="15" r="8" fill="#fbbf24"/></svg>);
@@ -407,6 +479,8 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
     const [viewMode, setViewMode] = useState<'venue' | 'google'>('venue');
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstance = useRef<any>(null);
+    const markersRef = useRef<Record<string, any>>({});
+    const linesRef = useRef<Record<string, any>>({});
     const venuePos = [19.0436, 72.8193];
 
     // Couple can update location by clicking too on Venue View
@@ -454,47 +528,49 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
         }
     }, [viewMode, isOpen]);
 
-    // Update Markers on Google Map
+    // Update Markers & Lines
     useEffect(() => {
         if (!mapInstance.current || viewMode !== 'google') return;
         const L = (window as any).L;
         
-        // Clear existing user markers (not efficient but simple for now)
-        mapInstance.current.eachLayer((layer: any) => {
-            if (layer instanceof L.Marker && !layer.getPopup()?.getContent()?.toString().includes("Taj")) {
-                mapInstance.current.removeLayer(layer);
-            }
-            if (layer instanceof L.Polyline) {
-                mapInstance.current.removeLayer(layer);
-            }
-        });
-
         Object.values(activeUsers).forEach(user => {
             if (user.lat && user.lng) {
-                const isMe = user.name === userName;
-                const isCouple = user.role === 'couple';
-                
-                const iconHtml = isCouple 
-                    ? `<div style="background-color: #be123c; width: 32px; height: 32px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">❤️</div>`
-                    : `<div style="background-color: #b45309; width: 30px; height: 30px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 12px;">${user.name.charAt(0)}</div>`;
+                // Marker
+                if (markersRef.current[user.id]) {
+                    markersRef.current[user.id].setLatLng([user.lat, user.lng]);
+                } else {
+                    const isMe = user.name === userName;
+                    const isCouple = user.role === 'couple';
+                    
+                    const iconHtml = isCouple 
+                        ? `<div style="background-color: #be123c; width: 32px; height: 32px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">❤️</div>`
+                        : `<div style="background-color: #b45309; width: 30px; height: 30px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 12px;">${user.name.charAt(0)}</div>`;
 
-                const icon = L.divIcon({
-                    className: 'custom-user-icon',
-                    html: iconHtml,
-                    iconSize: [32, 32],
-                    iconAnchor: [16, 32]
-                });
+                    const icon = L.divIcon({
+                        className: 'custom-user-icon',
+                        html: iconHtml,
+                        iconSize: [32, 32],
+                        iconAnchor: [16, 32]
+                    });
 
-                L.marker([user.lat, user.lng], { icon }).addTo(mapInstance.current)
-                 .bindPopup(isMe ? "You" : user.name);
+                    const marker = L.marker([user.lat, user.lng], { icon }).addTo(mapInstance.current)
+                     .bindPopup(isMe ? "You" : user.name);
+                    markersRef.current[user.id] = marker;
+                }
 
-                // Draw line to venue
-                L.polyline([[user.lat, user.lng], venuePos], {
-                    color: isCouple ? '#be123c' : '#15803d',
-                    weight: 3,
-                    dashArray: '10, 10', 
-                    opacity: 0.6
-                }).addTo(mapInstance.current);
+                // Line to Venue
+                if (linesRef.current[user.id]) {
+                    linesRef.current[user.id].setLatLngs([[user.lat, user.lng], venuePos]);
+                } else {
+                    const isCouple = user.role === 'couple';
+                    const line = L.polyline([[user.lat, user.lng], venuePos], {
+                        color: isCouple ? '#be123c' : '#15803d',
+                        weight: 2,
+                        dashArray: '10, 10', 
+                        opacity: 0.5
+                    }).addTo(mapInstance.current);
+                    linesRef.current[user.id] = line;
+                }
             }
         });
     }, [activeUsers, viewMode]);
@@ -645,106 +721,44 @@ const AdoreMeter = ({ count }: { count: number }) => {
 };
 
 // --- Message Board Component ---
-const MessageBoard: React.FC<{ isOpen: boolean; onClose: () => void; userName: string }> = ({ isOpen, onClose, userName }) => {
-    const [messages, setMessages] = useState<Message[]>(() => {
-        if (typeof window === 'undefined') return [];
-        const saved = localStorage.getItem('wedding_chat_messages');
-        if (saved) {
-            try { return JSON.parse(saved); } catch (e) { console.error(e); }
-        }
-        return [
-            { id: '1', text: "So excited to see you all! Let the celebrations begin! 🎉", sender: "Sneha Gupta", isCouple: true, timestamp: "10:30 AM", type: 'text' },
-            { id: '2', text: "The excitement is real! Looking forward to celebrating with everyone.", sender: "Ravi Sharma", isCouple: false, timestamp: "10:35 AM", type: 'text' },
-            { id: '3', text: "So happy you all could make it. Your presence is the greatest gift.", sender: "Aman Gupta", isCouple: true, timestamp: "10:38 AM", type: 'text' },
-        ];
-    });
+const MessageBoard: React.FC<{ 
+    isOpen: boolean; 
+    onClose: () => void; 
+    userName: string;
+    messages: Message[];
+    onSendMessage: (text: string, type: 'text' | 'sticker') => void;
+    globalHeartCount: number;
+    triggerHeart: () => void;
+}> = ({ isOpen, onClose, userName, messages, onSendMessage, globalHeartCount, triggerHeart }) => {
     const [inputText, setInputText] = useState("");
     const [activeTab, setActiveTab] = useState<'emoji' | 'sticker' | null>(null);
     const [floatingHearts, setFloatingHearts] = useState<Array<{id: number, left: number}>>([]);
-    const [globalHeartCount, setGlobalHeartCount] = useState<number>(() => {
-        if (typeof window === 'undefined') return 0;
-        const saved = localStorage.getItem('wedding_heart_count');
-        return saved ? parseInt(saved) : 42; 
-    });
     const scrollRef = useRef<HTMLDivElement>(null);
     useLockBodyScroll(isOpen);
 
     useEffect(() => {
-        const channel = new BroadcastChannel('wedding_portal_chat');
-        channel.onmessage = (event) => {
-            const data = event.data as BroadcastEvent;
-            if (data.type === 'message') {
-                setMessages((prev) => {
-                    if (prev.some(m => m.id === data.payload.id)) return prev;
-                    return [...prev, data.payload];
-                });
-            } else if (data.type === 'heart_update') {
-                setGlobalHeartCount(data.count);
-            }
-        };
-        return () => channel.close();
-    }, []);
-
-    useEffect(() => {
-        localStorage.setItem('wedding_chat_messages', JSON.stringify(messages));
-        if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }, [messages]);
-
-    useEffect(() => {
-        localStorage.setItem('wedding_heart_count', globalHeartCount.toString());
-    }, [globalHeartCount]);
-
-    const broadcastMessage = (msg: Message) => {
-        const channel = new BroadcastChannel('wedding_portal_chat');
-        channel.postMessage({ type: 'message', payload: msg });
-        channel.close();
-    };
-
-    const broadcastHeartUpdate = (count: number) => {
-        const channel = new BroadcastChannel('wedding_portal_chat');
-        channel.postMessage({ type: 'heart_update', count });
-        channel.close();
-    };
+        if (isOpen && scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+    }, [messages, isOpen]);
 
     const handleSendMessage = () => {
         if (!inputText.trim()) return;
-        const isCoupleUser = true; // Since this is CoupleDashboard
-        const newMessage: Message = {
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-            text: inputText,
-            sender: userName,
-            isCouple: isCoupleUser,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            type: 'text'
-        };
-        setMessages(prev => [...prev, newMessage]);
-        broadcastMessage(newMessage);
+        onSendMessage(inputText, 'text');
         setInputText("");
     };
 
     const handleSendSticker = (stickerKey: string) => {
-        const isCoupleUser = true;
-        const newMessage: Message = {
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-            stickerKey: stickerKey,
-            sender: userName,
-            isCouple: isCoupleUser,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            type: 'sticker'
-        };
-        setMessages(prev => [...prev, newMessage]);
-        broadcastMessage(newMessage);
+        onSendMessage(stickerKey, 'sticker');
         setActiveTab(null);
     };
 
-    const triggerHeart = () => {
+    const handleHeartClick = () => {
         const id = Date.now();
         const left = Math.random() * 60 + 10;
         setFloatingHearts(prev => [...prev, { id, left }]);
         setTimeout(() => setFloatingHearts(prev => prev.filter(h => h.id !== id)), 2000);
-        const newCount = globalHeartCount + 1;
-        setGlobalHeartCount(newCount);
-        broadcastHeartUpdate(newCount);
+        triggerHeart();
     };
 
     if (!isOpen) return null;
@@ -792,7 +806,7 @@ const MessageBoard: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
                 </div>
                 
                 {/* Adore Meter in Message Board */}
-                <div onClick={triggerHeart}><AdoreMeter count={globalHeartCount} /></div>
+                <div onClick={handleHeartClick}><AdoreMeter count={globalHeartCount} /></div>
 
                 {floatingHearts.map((h) => (
                     <div key={h.id} className="absolute bottom-20 text-rose-500 animate-float-up pointer-events-none z-30" style={{ left: `${h.left}%` }}><Heart size={32} fill="currentColor" /></div>
@@ -833,7 +847,7 @@ const MessageBoard: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
                     {inputText.trim() ? (
                         <button onClick={handleSendMessage} className="p-3 bg-maroon-800 text-white rounded-full hover:bg-maroon-700 transition-colors active:scale-95 shadow-lg"><Send size={24} /></button>
                     ) : (
-                        <button onClick={triggerHeart} className="p-3 bg-rose-50 text-rose-500 rounded-full hover:bg-rose-100 transition-colors active:scale-95 border border-rose-200 shadow-md"><Heart size={24} fill="currentColor" /></button>
+                        <button onClick={handleHeartClick} className="p-3 bg-rose-50 text-rose-500 rounded-full hover:bg-rose-100 transition-colors active:scale-95 border border-rose-200 shadow-md"><Heart size={24} fill="currentColor" /></button>
                     )}
                 </div>
             </div>
@@ -855,7 +869,28 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
   const [showExplosion, setShowExplosion] = useState(false);
   const [config, setConfig] = useState({ coupleName: "Sneha & Aman", date: "2025-11-26" });
   const [activeUsers, setActiveUsers] = useState<Record<string, LocationUpdate>>({});
+  const [isRomanticMode, setIsRomanticMode] = useState(false);
   
+  // Message & Heart State Lifted to Parent
+  const [messages, setMessages] = useState<Message[]>(() => {
+      if (typeof window === 'undefined') return [];
+      const saved = localStorage.getItem('wedding_chat_messages');
+      if (saved) {
+          try { return JSON.parse(saved); } catch (e) { console.error(e); }
+      }
+      return [
+          { id: '1', text: "So excited to see you all! Let the celebrations begin! 🎉", sender: "Sneha Gupta", isCouple: true, timestamp: "10:30 AM", type: 'text' },
+          { id: '2', text: "The excitement is real! Looking forward to celebrating with everyone.", sender: "Ravi Sharma", isCouple: false, timestamp: "10:35 AM", type: 'text' },
+          { id: '3', text: "So happy you all could make it. Your presence is the greatest gift.", sender: "Aman Gupta", isCouple: true, timestamp: "10:38 AM", type: 'text' },
+      ];
+  });
+  const [globalHeartCount, setGlobalHeartCount] = useState<number>(() => {
+      if (typeof window === 'undefined') return 0;
+      const saved = localStorage.getItem('wedding_heart_count');
+      return saved ? parseInt(saved) : 42; 
+  });
+  const [unreadCount, setUnreadCount] = useState(0);
+
   // Countdown state
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0 });
   const [isTimeUp, setIsTimeUp] = useState(false);
@@ -870,6 +905,90 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
   const [showPlaylist, setShowPlaylist] = useState(false);
   const [playlist, setPlaylist] = useState<Song[]>(DEFAULT_PLAYLIST);
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  // --- Broadcast Channel Listener ---
+  useEffect(() => {
+      // Initial Theme Check
+      const savedTheme = localStorage.getItem('wedding_theme_mode');
+      if (savedTheme === 'romantic') setIsRomanticMode(true);
+
+      const channel = new BroadcastChannel('wedding_portal_chat');
+      channel.onmessage = (event) => {
+          const data = event.data as BroadcastEvent;
+          if (data.type === 'message') {
+              setMessages((prev) => {
+                  if (prev.some(m => m.id === data.payload.id)) return prev;
+                  return [...prev, data.payload];
+              });
+              if (!isChatOpen) {
+                  setUnreadCount(c => c + 1);
+              }
+          } else if (data.type === 'heart_update') {
+              setGlobalHeartCount(data.count);
+          } else if (data.type === 'love_explosion') {
+              setShowExplosion(true);
+              setTimeout(() => setShowExplosion(false), 3000);
+          } else if (data.type === 'theme_update') {
+              setIsRomanticMode(data.mode === 'romantic');
+          }
+      };
+      return () => channel.close();
+  }, [isChatOpen]);
+
+  useEffect(() => {
+      localStorage.setItem('wedding_chat_messages', JSON.stringify(messages));
+  }, [messages]);
+
+  useEffect(() => {
+      localStorage.setItem('wedding_heart_count', globalHeartCount.toString());
+  }, [globalHeartCount]);
+
+  useEffect(() => {
+      if (isChatOpen) setUnreadCount(0);
+  }, [isChatOpen]);
+
+  const broadcastMessage = (msg: Message) => {
+      const channel = new BroadcastChannel('wedding_portal_chat');
+      channel.postMessage({ type: 'message', payload: msg });
+      channel.close();
+  };
+
+  const broadcastHeartUpdate = (count: number) => {
+      const channel = new BroadcastChannel('wedding_portal_chat');
+      channel.postMessage({ type: 'heart_update', count });
+      channel.close();
+  };
+
+  const toggleTheme = () => {
+      const newMode = !isRomanticMode;
+      setIsRomanticMode(newMode);
+      localStorage.setItem('wedding_theme_mode', newMode ? 'romantic' : 'default');
+      
+      const channel = new BroadcastChannel('wedding_portal_chat');
+      channel.postMessage({ type: 'theme_update', mode: newMode ? 'romantic' : 'default' });
+      channel.close();
+  };
+
+  const handleSendMessage = (text: string, type: 'text' | 'sticker') => {
+      const isCoupleUser = true;
+      const newMessage: Message = {
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+          text: type === 'text' ? text : undefined,
+          stickerKey: type === 'sticker' ? text : undefined,
+          sender: userName,
+          isCouple: isCoupleUser,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          type: type
+      };
+      setMessages(prev => [...prev, newMessage]);
+      broadcastMessage(newMessage);
+  };
+
+  const triggerHeart = () => {
+      const newCount = globalHeartCount + 1;
+      setGlobalHeartCount(newCount);
+      broadcastHeartUpdate(newCount);
+  };
 
   useEffect(() => {
       const savedConfig = localStorage.getItem('wedding_global_config');
@@ -1011,7 +1130,6 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
 
   // This button now only sends to private chat
   const handlePrivateLoveSignal = () => {
-      // Send private message to simulate button action
       const channel = new BroadcastChannel('wedding_couple_private');
       const loveMsg: Message = {
           id: Date.now().toString(),
@@ -1036,7 +1154,8 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
       setTimeout(() => setShowExplosion(false), 3000);
 
       const channel = new BroadcastChannel('wedding_portal_chat');
-      const newCount = Math.floor(Math.random() * 50) + 100;
+      const newCount = globalHeartCount + Math.floor(Math.random() * 50) + 50;
+      setGlobalHeartCount(newCount);
       channel.postMessage({ type: 'love_explosion', sender: userName });
       channel.postMessage({ type: 'heart_update', count: newCount });
       channel.close();
@@ -1064,7 +1183,7 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
   }
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#fff0f5] relative font-serif overflow-hidden text-[#4a0e11]">
+    <div className={`w-full h-full flex flex-col relative font-serif overflow-hidden transition-all duration-1000 ${isRomanticMode ? 'bg-[radial-gradient(ellipse_at_center,_#881337_0%,_#2d0a0d_100%)] text-gold-100' : 'bg-[#fff0f5] text-[#4a0e11]'}`}>
       {/* ... [Styles remain same] ... */}
       <style>{`
         @keyframes blob {
@@ -1089,6 +1208,28 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
         }
       `}</style>
 
+      {isRomanticMode ? (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 animate-pulse"></div>
+            {/* Floating Petals */}
+            {Array.from({ length: 20 }).map((_, i) => (
+                 <div key={i} className="absolute -top-10 text-rose-500/30 animate-petal-fall" style={{ 
+                     left: `${Math.random()*100}%`, 
+                     animationDuration: `${6 + Math.random()*8}s`, 
+                     animationDelay: `${Math.random()*5}s`,
+                     fontSize: `${12 + Math.random() * 24}px`
+                 }}>
+                     <Flower size={24} fill="currentColor" />
+                 </div>
+            ))}
+            <div className="absolute inset-0 bg-gradient-to-t from-rose-900/60 to-transparent"></div>
+        </div>
+      ) : (
+          <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+             <GoldDust opacity={0.4} />
+          </div>
+      )}
+
       {showExplosion && (
           <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
               {Array.from({ length: 50 }).map((_, i) => (
@@ -1098,18 +1239,26 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
           </div>
       )}
 
+      {/* Theme Toggle */}
+      <button 
+         onClick={toggleTheme}
+         className={`absolute top-6 right-6 z-50 p-2 rounded-full shadow-xl transition-all duration-500 ${isRomanticMode ? 'bg-gold-500 text-[#4a0e11] shadow-gold-500/50' : 'bg-white text-rose-500 shadow-stone-300'}`}
+      >
+          <Flower size={20} className={isRomanticMode ? 'animate-spin-slow' : ''} />
+      </button>
+
       <div className="flex-grow overflow-y-auto no-scrollbar relative z-10 pb-32 overscroll-contain">
         <header className="pt-14 pb-8 text-center relative animate-in fade-in slide-in-from-top-6 duration-1000">
             <div className="relative inline-block">
-                <h1 className="font-cursive text-[3.5rem] text-transparent bg-clip-text bg-gradient-to-r from-[#be123c] via-[#e11d48] to-[#be123c] drop-shadow-sm leading-tight scale-y-110">
+                <h1 className={`font-cursive text-[3.5rem] drop-shadow-sm leading-tight scale-y-110 ${isRomanticMode ? 'text-transparent bg-clip-text bg-gradient-to-b from-gold-200 to-gold-500' : 'text-transparent bg-clip-text bg-gradient-to-r from-[#be123c] via-[#e11d48] to-[#be123c]'}`}>
                     {config.coupleName}
                 </h1>
                 <div className="absolute -top-6 -right-6 text-gold-400 animate-spin-slow opacity-60"><Sparkles size={24} fill="currentColor" /></div>
             </div>
             <div className="flex items-center justify-center gap-3 mt-2">
-                <div className="h-[1px] w-12 bg-gradient-to-r from-transparent to-rose-300"></div>
-                <p className="font-serif text-sm text-[#9f1239] tracking-[0.3em] uppercase font-light">Forever Begins Now</p>
-                <div className="h-[1px] w-12 bg-gradient-to-l from-transparent to-rose-300"></div>
+                <div className={`h-[1px] w-12 bg-gradient-to-r from-transparent ${isRomanticMode ? 'to-gold-300' : 'to-rose-300'}`}></div>
+                <p className={`font-serif text-sm tracking-[0.3em] uppercase font-light ${isRomanticMode ? 'text-gold-200' : 'text-[#9f1239]'}`}>Forever Begins Now</p>
+                <div className={`h-[1px] w-12 bg-gradient-to-l from-transparent ${isRomanticMode ? 'to-gold-300' : 'to-rose-300'}`}></div>
             </div>
         </header>
 
@@ -1122,11 +1271,11 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
                  </div>
             </div>
             <div className="relative z-20 transform -translate-y-1 animate-in zoom-in duration-700 delay-300">
-                 <button onClick={handlePrivateLoveSignal} className="w-24 h-24 bg-white/80 backdrop-blur-md rounded-full shadow-[0_0_30px_rgba(225,29,72,0.3)] flex items-center justify-center border border-rose-100 relative group active:scale-90 transition-transform">
+                 <button onClick={handlePrivateLoveSignal} className={`w-24 h-24 rounded-full shadow-[0_0_30px_rgba(225,29,72,0.3)] flex items-center justify-center border relative group active:scale-90 transition-transform ${isRomanticMode ? 'bg-white/10 backdrop-blur-md border-white/20' : 'bg-white/80 backdrop-blur-md border-rose-100'}`}>
                      <div className="absolute inset-0 rounded-full border border-rose-200 animate-ping opacity-20 pointer-events-none"></div>
                      <div className="flex flex-col items-center justify-center">
                          <Heart size={36} strokeWidth={0} fill="#e11d48" className="text-rose-600 drop-shadow-md animate-pulse group-hover:scale-125 transition-transform" />
-                         <span className="font-cursive text-rose-800 text-lg leading-none mt-1">Click Me!</span>
+                         <span className={`font-cursive text-lg leading-none mt-1 ${isRomanticMode ? 'text-gold-200' : 'text-rose-800'}`}>Click Me!</span>
                      </div>
                  </button>
             </div>
@@ -1142,7 +1291,7 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
         {/* Quick Status Update for Map */}
         <div className="px-5 mb-6">
             <div className="flex items-center justify-between mb-3">
-                <h3 className="font-serif text-rose-900 font-bold text-sm flex items-center gap-2"><MapPin size={16} /> Quick Status Update</h3>
+                <h3 className={`font-serif font-bold text-sm flex items-center gap-2 ${isRomanticMode ? 'text-gold-200' : 'text-rose-900'}`}><MapPin size={16} /> Quick Status Update</h3>
                 <button onClick={() => setIsMapOpen(true)} className="text-[10px] font-bold text-rose-600 flex items-center gap-1 bg-rose-100 px-2 py-1 rounded-full hover:bg-rose-200 transition-colors"><Map size={12}/> Live Map</button>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
@@ -1156,13 +1305,13 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
         <div className="px-5 space-y-8">
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
                 <div className="flex items-center justify-between px-2 mb-3">
-                    <h3 className="font-serif text-rose-900 font-bold text-lg flex items-center gap-2"><Radio size={18} className="text-rose-500"/> Live Music</h3>
+                    <h3 className={`font-serif font-bold text-lg flex items-center gap-2 ${isRomanticMode ? 'text-gold-100' : 'text-rose-900'}`}><Radio size={18} className="text-rose-500"/> Live Music</h3>
                     <button onClick={() => setShowPlaylist(!showPlaylist)} className="text-xs font-bold bg-white/40 hover:bg-white/60 px-3 py-1 rounded-full transition-colors flex items-center gap-1 text-rose-800">
                         <ListMusic size={14} /> {showPlaylist ? 'Hide List' : 'Playlist'}
                     </button>
                 </div>
                 
-                <div className="bg-white/60 backdrop-blur-xl rounded-[2rem] p-5 shadow-lg border border-white/50 relative overflow-hidden">
+                <div className={`rounded-[2rem] p-5 shadow-lg relative overflow-hidden ${isRomanticMode ? 'bg-white/10 backdrop-blur-xl border border-white/10' : 'bg-white/60 backdrop-blur-xl border border-white/50'}`}>
                     <audio 
                        ref={audioRef} 
                        src={playlist[currentSongIndex].url} 
@@ -1184,8 +1333,8 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
                          <div className="flex-grow overflow-hidden">
                              <div className="flex justify-between items-start mb-1">
                                  <div>
-                                     <h4 className="font-bold text-rose-900 text-lg leading-tight truncate pr-2">{playlist[currentSongIndex].title}</h4>
-                                     <p className="text-xs text-rose-700/70 truncate">{playlist[currentSongIndex].artist}</p>
+                                     <h4 className={`font-bold text-lg leading-tight truncate pr-2 ${isRomanticMode ? 'text-white' : 'text-rose-900'}`}>{playlist[currentSongIndex].title}</h4>
+                                     <p className={`text-xs truncate ${isRomanticMode ? 'text-white/70' : 'text-rose-700/70'}`}>{playlist[currentSongIndex].artist}</p>
                                  </div>
                                  {isPlaying && (
                                      <div className="flex gap-0.5 h-3 items-end">
@@ -1263,16 +1412,21 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
                 </div>
             </div>
 
-            <div className="bg-gradient-to-r from-white to-rose-50 rounded-3xl p-5 shadow-lg border border-rose-100 relative overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
+            <div className={`rounded-3xl p-5 shadow-lg relative overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300 ${isRomanticMode ? 'bg-white/10 backdrop-blur-md border border-white/10 text-white' : 'bg-gradient-to-r from-white to-rose-50 border border-rose-100'}`}>
                  <div className="absolute right-0 top-0 opacity-5"><MessageSquare size={100} /></div>
                  <div className="flex justify-between items-center mb-4 relative z-10">
-                     <h3 className="font-serif text-rose-900 font-bold text-lg">Love Notes</h3>
-                     <span className="bg-rose-100 text-rose-600 text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1"><span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse"></span> Live</span>
+                     <h3 className={`font-serif font-bold text-lg ${isRomanticMode ? 'text-gold-100' : 'text-rose-900'}`}>Love Notes</h3>
+                     <div className="flex gap-2">
+                        {unreadCount > 0 && (
+                             <span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-1 rounded-full animate-bounce shadow-sm">{unreadCount} New</span>
+                        )}
+                        <span className="bg-rose-100 text-rose-600 text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1"><span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse"></span> Live</span>
+                     </div>
                  </div>
                  <button onClick={() => setIsChatOpen(true)} className="w-full mt-4 py-2.5 rounded-xl bg-rose-100 text-rose-700 text-xs font-bold hover:bg-rose-200 transition-colors flex items-center justify-center gap-2">Open Message Board <ChevronRight size={14}/></button>
             </div>
 
-            <div className="bg-[#4a0e11] rounded-3xl p-6 shadow-[0_10px_30px_rgba(74,14,17,0.3)] border border-[#5e181f] relative overflow-hidden text-center animate-in fade-in slide-in-from-bottom-4 duration-700 delay-400 min-h-[180px] flex flex-col justify-center cursor-pointer group" onClick={handleTestAnimation}>
+            <div className={`rounded-3xl p-6 shadow-[0_10px_30px_rgba(74,14,17,0.3)] relative overflow-hidden text-center animate-in fade-in slide-in-from-bottom-4 duration-700 delay-400 min-h-[180px] flex flex-col justify-center cursor-pointer group ${isRomanticMode ? 'bg-gradient-to-br from-rose-950 to-black border border-rose-900' : 'bg-[#4a0e11] border border-[#5e181f]'}`} onClick={handleTestAnimation}>
                  <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20"></div>
                  <div className="relative z-10">
                       <h3 className="text-gold-100 font-heading text-lg tracking-widest mb-6">Countdown to {config.date}</h3>
@@ -1297,7 +1451,7 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
       </div>
 
       {/* Bottom Nav */}
-      <div className="absolute bottom-6 left-4 right-4 bg-black/80 backdrop-blur-xl rounded-2xl p-2 shadow-2xl border border-white/10 z-40 flex justify-between items-center animate-in slide-in-from-bottom-10 duration-1000 delay-500">
+      <div className={`absolute bottom-6 left-4 right-4 rounded-2xl p-2 shadow-2xl border z-40 flex justify-between items-center animate-in slide-in-from-bottom-10 duration-1000 delay-500 ${isRomanticMode ? 'bg-black/50 backdrop-blur-xl border-white/10' : 'bg-black/80 backdrop-blur-xl border-white/10'}`}>
            <button className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl text-rose-400 bg-white/10">
                <Home size={20} strokeWidth={2.5} />
                <span className="text-[9px] font-bold">Home</span>
@@ -1323,7 +1477,15 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
            </button>
       </div>
 
-      <MessageBoard isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} userName={userName} />
+      <MessageBoard 
+        isOpen={isChatOpen} 
+        onClose={() => setIsChatOpen(false)} 
+        userName={userName} 
+        messages={messages} 
+        onSendMessage={handleSendMessage}
+        globalHeartCount={globalHeartCount}
+        triggerHeart={triggerHeart}
+      />
       <PhotoGalleryView isOpen={isGalleryOpen} onClose={() => setIsGalleryOpen(false)} />
       <LiveMapModal isOpen={isMapOpen} onClose={() => setIsMapOpen(false)} userName={userName} activeUsers={activeUsers} />
     </div>

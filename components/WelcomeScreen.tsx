@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { User, Sparkles, Lock, Image as ImageIcon, X, Save, Check, LogIn, Volume2, VolumeX, ChevronRight } from 'lucide-react';
+import { User, Sparkles, Lock, Image as ImageIcon, X, Save, Check, LogIn, Volume2, VolumeX, ChevronRight, Heart } from 'lucide-react';
 
 // --- Audio Utilities ---
 const isAudioMuted = () => localStorage.getItem('wedding_audio_muted') === 'true';
@@ -74,6 +74,42 @@ const playStrumSound = () => {
   });
 };
 
+// --- 3D Tilt Hook ---
+const useTilt = (ref: React.RefObject<HTMLDivElement>) => {
+  const [transform, setTransform] = useState("");
+  
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const handleMove = (e: MouseEvent) => {
+        const { clientX, clientY } = e;
+        const { left, top, width, height } = el.getBoundingClientRect();
+        
+        const x = (clientX - left) / width;
+        const y = (clientY - top) / height;
+        
+        const tiltX = (0.5 - y) * 20; // Rotate X axis based on Y position
+        const tiltY = (x - 0.5) * 20; // Rotate Y axis based on X position
+
+        setTransform(`perspective(1000px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(1.02)`);
+    };
+
+    const handleLeave = () => {
+        setTransform(`perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)`);
+    }
+
+    el.addEventListener('mousemove', handleMove);
+    el.addEventListener('mouseleave', handleLeave);
+    return () => {
+        el.removeEventListener('mousemove', handleMove);
+        el.removeEventListener('mouseleave', handleLeave);
+    }
+  }, []);
+
+  return transform;
+};
+
 // --- Visual Components ---
 
 const GoldDust = () => {
@@ -86,7 +122,10 @@ const GoldDust = () => {
     if (!ctx) return;
 
     let animationFrameId: number;
-    let particles: Array<{x: number, y: number, vx: number, vy: number, size: number, alpha: number, phase: number}> = [];
+    let particles: Array<{
+        x: number, y: number, vx: number, vy: number, 
+        size: number, alpha: number, phase: number, depth: number 
+    }> = [];
 
     const resize = () => {
       if (canvas.parentElement) {
@@ -101,16 +140,19 @@ const GoldDust = () => {
 
     const initParticles = () => {
       particles = [];
-      const count = Math.floor((canvas.width * canvas.height) / 12000); 
+      const count = Math.floor((canvas.width * canvas.height) / 10000); 
       for (let i = 0; i < count; i++) {
+        // Depth: 0 is far (slow, small, blur), 1 is near (fast, big, clear)
+        const depth = Math.random(); 
         particles.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
-          vx: (Math.random() - 0.5) * 0.2, 
-          vy: -Math.random() * 0.4 - 0.05, 
-          size: Math.random() * 1.5,
-          alpha: Math.random() * 0.6 + 0.1,
-          phase: Math.random() * Math.PI * 2
+          vx: (Math.random() - 0.5) * 0.2 * (depth + 0.5), 
+          vy: (-Math.random() * 0.3 - 0.1) * (depth + 0.5), 
+          size: (Math.random() * 2 + 0.5) * (depth + 0.5),
+          alpha: Math.random() * 0.5 + 0.1,
+          phase: Math.random() * Math.PI * 2,
+          depth
         });
       }
     };
@@ -120,8 +162,8 @@ const GoldDust = () => {
       
       particles.forEach((p) => {
         p.y += p.vy;
-        p.x += p.vx + Math.sin(p.phase) * 0.15;
-        p.phase += 0.015;
+        p.x += p.vx + Math.sin(p.phase) * 0.1;
+        p.phase += 0.01;
 
         if (p.y < -5) p.y = canvas.height + 5;
         if (p.x < -5) p.x = canvas.width + 5;
@@ -129,7 +171,16 @@ const GoldDust = () => {
 
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(252, 238, 181, ${p.alpha + Math.sin(p.phase) * 0.15})`; 
+        
+        // Depth of field effect: blur distant particles
+        if (p.depth < 0.3) {
+             ctx.fillStyle = `rgba(252, 238, 181, ${p.alpha * 0.5})`;
+             ctx.shadowBlur = 4;
+             ctx.shadowColor = '#fceeb5';
+        } else {
+             ctx.fillStyle = `rgba(252, 238, 181, ${p.alpha})`;
+             ctx.shadowBlur = 0;
+        }
         ctx.fill();
       });
 
@@ -146,8 +197,15 @@ const GoldDust = () => {
     };
   }, []);
 
-  return <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none z-0 opacity-70 w-full h-full will-change-transform" />;
+  return <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none z-0 opacity-80 w-full h-full will-change-transform" />;
 };
+
+const GodRays = () => (
+    <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+        <div className="absolute top-[-20%] left-[-10%] w-[120%] h-[60%] bg-gradient-to-b from-gold-200/10 to-transparent rotate-12 blur-3xl transform origin-top-left animate-breathe"></div>
+        <div className="absolute top-[-20%] right-[-10%] w-[120%] h-[60%] bg-gradient-to-b from-gold-400/5 to-transparent -rotate-12 blur-3xl transform origin-top-right animate-breathe delay-700"></div>
+    </div>
+);
 
 const PetalIcon = ({ className, style }: { className?: string, style?: React.CSSProperties }) => (
   <svg viewBox="0 0 30 30" className={className} style={style}>
@@ -163,7 +221,7 @@ const PetalIcon = ({ className, style }: { className?: string, style?: React.CSS
 );
 
 const FallingPetals = () => {
-  const petals = Array.from({ length: 12 }).map((_, i) => {
+  const petals = Array.from({ length: 16 }).map((_, i) => {
      const r1 = (i * 37 + 13) % 100; 
      const r2 = (i * 23 + 7) % 100;  
      const r3 = (i * 41 + 19) % 100; 
@@ -172,7 +230,8 @@ const FallingPetals = () => {
         left: `${r1}%`,
         delay: `${r2 * 0.2}s`, 
         duration: `${15 + (r3 * 0.1)}s`, 
-        scale: 0.6 + (r2 * 0.004)
+        scale: 0.6 + (r2 * 0.008),
+        depth: r3 % 3 // 0: back, 1: mid, 2: front
      };
   });
 
@@ -181,73 +240,21 @@ const FallingPetals = () => {
        {petals.map(p => (
           <div 
             key={p.id}
-            className="absolute -top-8 animate-petal-fall opacity-0 will-change-transform"
+            className={`absolute -top-8 animate-petal-fall opacity-0 will-change-transform ${p.depth === 0 ? 'blur-[2px] opacity-60' : ''} ${p.depth === 2 ? 'blur-[0px] drop-shadow-lg' : ''}`}
             style={{
                left: p.left,
                animationDelay: p.delay,
                animationDuration: p.duration,
+               zIndex: p.depth * 10,
                '--scale': p.scale
             } as React.CSSProperties}
           >
-            <PetalIcon className="w-5 h-5 drop-shadow-sm opacity-80" />
+            <PetalIcon className="w-5 h-5" />
           </div>
        ))}
     </div>
   );
 }
-
-// --- Custom Icons ---
-
-const DiyaIcon = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="none" className={className} xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 2C12 2 10 6 10 9C10 11 14 11 14 9C14 6 12 2 12 2Z" fill="#fbbf24" className="animate-flicker origin-bottom" />
-    <path d="M2 14C2 14 2 20 12 20C22 20 22 14 22 14C22 14 18 16 12 16C6 16 2 14 2 14Z" fill="currentColor" />
-    <path d="M4 14.5C4 14.5 7 17 12 17C17 17 20 14.5 20 14.5" stroke="rgba(255,255,255,0.3)" strokeWidth="1" strokeLinecap="round"/>
-  </svg>
-);
-
-const RingsIcon = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="none" className={className} xmlns="http://www.w3.org/2000/svg">
-    <circle cx="8" cy="12" r="6" stroke="currentColor" strokeWidth="2" />
-    <circle cx="16" cy="12" r="6" stroke="currentColor" strokeWidth="2" />
-    <path d="M12 9L12 15" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.5"/>
-  </svg>
-);
-
-const GaneshaIcon = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className} xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 2C9 2 8 4 8 5C8 6 9 6 9 6C7 7 6 9 6 11C6 13 7 14 7 14L6 18H18L17 14C17 14 18 13 18 11C18 9 17 7 15 6C15 6 16 6 16 5C16 4 15 2 12 2Z" opacity="0.9"/>
-    <path d="M10 18L9 21H15L14 18H10Z" />
-    <circle cx="12" cy="21" r="1" fill="#fbbf24" />
-  </svg>
-);
-
-const PeacockFeather = ({ className, style }: { className?: string, style?: React.CSSProperties }) => (
-  <svg viewBox="0 0 100 300" className={className} style={style}>
-    <path d="M50,35 C50,100 48,180 50,300" stroke="url(#quillGrad)" strokeWidth="1.5" fill="none" opacity="0.8" />
-    <g strokeWidth="0.5" fill="none">
-        {Array.from({ length: 50 }).map((_, i) => {
-            const y = 60 + i * 4.5;
-            const spread = 35 + Math.sin(i * 0.1) * 12; 
-            const droop = i * 0.6;
-            const color = i < 15 ? '#10b981' : '#15803d'; 
-            
-            return (
-                <React.Fragment key={i}>
-                   <path d={`M50,${y} C38,${y - 5} 20,${y - 10 + droop} ${50 - spread},${y - 20 + droop}`} stroke={color} opacity={0.5} />
-                   <path d={`M50,${y} C62,${y - 5} 80,${y - 10 + droop} ${50 + spread},${y - 20 + droop}`} stroke={color} opacity={0.5} />
-                </React.Fragment>
-            );
-        })}
-    </g>
-    <g transform="translate(50, 55)">
-        <path d="M0,-32 C22,-32 38,-8 20,28 C0,42 -20,28 -38,-8 C-38,-32 -22,-32 0,-32" fill="url(#eyeGold)" opacity="0.95" />
-        <path d="M0,-24 C16,-24 26,-5 14,18 C0,26 -14,18 -26,-5 C-26,-24 -16,-24 0,-24" fill="url(#eyeTurquoise)" />
-        <ellipse cx="0" cy="-5" rx="11" ry="14" fill="url(#eyeDeep)" />
-        <ellipse cx="-4" cy="-10" rx="2" ry="4" fill="white" fillOpacity="0.6" transform="rotate(-15)" />
-    </g>
-  </svg>
-);
 
 // --- Constants ---
 const DEFAULT_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/Radha_Krishna_by_Raja_Ravi_Varma.jpg/480px-Radha_Krishna_by_Raja_Ravi_Varma.jpg";
@@ -261,6 +268,8 @@ interface WelcomeScreenProps {
 
 const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const cardTransform = useTilt(cardRef);
   
   // Parallax Refs
   const bgBackRef = useRef<HTMLDivElement>(null); 
@@ -269,7 +278,6 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
 
   const [mounted, setMounted] = useState(false);
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0 });
-  const [hasInteracted, setHasInteracted] = useState(false);
   const [config, setConfig] = useState({ coupleName: "Sneha & Aman", date: "2025-11-26" });
   const [welcomeMsg, setWelcomeMsg] = useState(DEFAULT_WELCOME);
   const [muted, setMuted] = useState(isAudioMuted());
@@ -283,7 +291,6 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
 
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminPin, setAdminPin] = useState("");
-
   const [showUserLogin, setShowUserLogin] = useState(false);
   const [loginType, setLoginType] = useState<'guest' | 'couple'>('guest');
   const [userName, setUserName] = useState("");
@@ -325,21 +332,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
 
     calculateTimeLeft();
     const timer = setInterval(calculateTimeLeft, 60000);
-    
-    const handleFirstInteraction = () => {
-      if (!hasInteracted) {
-        setHasInteracted(true);
-      }
-    };
-    window.addEventListener('click', handleFirstInteraction, { once: true });
-    window.addEventListener('touchstart', handleFirstInteraction, { once: true });
-
-    return () => {
-      clearInterval(timer);
-      window.removeEventListener('click', handleFirstInteraction);
-      window.removeEventListener('touchstart', handleFirstInteraction);
-    };
-  }, [hasInteracted, config.date]);
+    return () => clearInterval(timer);
+  }, [config.date]);
 
   const toggleMute = () => {
       const newState = !muted;
@@ -350,9 +344,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
   useEffect(() => {
     const handleScroll = () => {
       if (!scrollRef.current) return;
-      
       const { scrollTop } = scrollRef.current;
-      
       requestAnimationFrame(() => {
          if (bgBackRef.current) bgBackRef.current.style.transform = `translate3d(0, ${-scrollTop * 0.05}px, 0)`;
          if (bgMidRef.current) bgMidRef.current.style.transform = `translate3d(0, ${-scrollTop * 0.15}px, 0)`;
@@ -406,56 +398,16 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
       alert("Please enter both name and phone number.");
       return;
     }
-
-    if (loginType === 'guest') {
-        if (userName.trim().length < 3) {
-             alert("Full Name is required (minimum 3 characters).");
-             return;
-        }
-        if (!/^\d{10}$/.test(userPhone.trim())) {
-             alert("Please enter a valid 10-digit phone number.");
-             return;
-        }
-    } else if (loginType === 'couple') {
-        if (!/^\d{10}$/.test(userPhone.trim())) {
-             alert("Please enter a valid 10-digit phone number.");
-             return;
-        }
-        const lowerName = userName.trim().toLowerCase();
-        if (!lowerName.includes('aman') && !lowerName.includes('sneha')) {
-            alert("Access Denied: Couple login is restricted to Aman or Sneha.");
-            return;
-        }
-    }
-
     localStorage.setItem(`wedding_${loginType}_name`, userName);
     localStorage.setItem(`wedding_${loginType}_phone`, userPhone);
     localStorage.setItem('wedding_current_user_type', loginType);
-    
     setShowUserLogin(false);
     onLoginSuccess(loginType, userName);
   };
 
   return (
-    <div className="w-full h-full flex flex-col relative overflow-hidden bg-[#2d0a0d]">
+    <div className="w-full h-full flex flex-col relative overflow-hidden bg-[#0f0505]">
       <style>{`
-        @keyframes sway {
-          0%, 100% { transform: rotate(-1deg); }
-          50% { transform: rotate(1deg); }
-        }
-        .feather-sway {
-          animation: sway 4s ease-in-out infinite;
-          will-change: transform;
-        }
-        @keyframes flicker {
-           0%, 100% { opacity: 1; transform: scale(1); }
-           25% { opacity: 0.8; transform: scale(0.95); }
-           50% { opacity: 0.95; transform: scale(1.05); }
-           75% { opacity: 0.85; transform: scale(0.98); }
-        }
-        .animate-flicker {
-           animation: flicker 2.5s infinite linear;
-        }
         @keyframes petal-fall {
            0% { transform: translateY(-5vh) translateX(0) rotate(0deg) scale(var(--scale)); opacity: 0; }
            10% { opacity: 1; }
@@ -479,36 +431,11 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
         }
       `}</style>
       
-      <svg width="0" height="0" className="absolute pointer-events-none">
-        <defs>
-            <linearGradient id="quillGrad" x1="50%" y1="0%" x2="50%" y2="100%">
-                <stop offset="0%" stopColor="#fcd34d" stopOpacity="0.9"/>
-                <stop offset="100%" stopColor="#fef3c7" stopOpacity="0.3"/>
-            </linearGradient>
-            <radialGradient id="eyeDeep" cx="50%" cy="40%" r="50%">
-                <stop offset="0%" stopColor="#172554" />
-                <stop offset="100%" stopColor="#020617" />
-            </radialGradient>
-            <radialGradient id="eyeTurquoise" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#2dd4bf" />
-                <stop offset="100%" stopColor="#0f766e" />
-            </radialGradient>
-            <radialGradient id="eyeGold" cx="50%" cy="50%" r="50%">
-                <stop offset="40%" stopColor="#fbbf24" />
-                <stop offset="100%" stopColor="#b45309" />
-            </radialGradient>
-        </defs>
-      </svg>
-
       {/* --- Parallax Background Layers --- */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-gradient-to-b from-[#1a0507] via-[#2d0a0d] to-[#0f0505]">
+         <GodRays />
          <div ref={bgBackRef} className="absolute w-full h-[120%] -top-[10%] left-0 will-change-transform">
-             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#4a0e11_0%,_#2d0a0d_100%)] opacity-100"></div>
-             <div className="absolute inset-0 opacity-[0.05] bg-repeat" 
-                  style={{ 
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-                  }}>
-             </div>
+             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_#4a0e11_0%,_transparent_70%)] opacity-80"></div>
          </div>
          <div ref={bgMidRef} className="absolute w-full h-[120%] -top-[10%] left-0 will-change-transform">
             <GoldDust />
@@ -516,20 +443,22 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
          <div ref={bgFrontRef} className="absolute w-full h-[120%] -top-[10%] left-0 will-change-transform">
              <FallingPetals />
          </div>
+         
+         {/* Cinematic Fog at Bottom */}
+         <div className="absolute bottom-0 left-0 w-full h-1/3 bg-gradient-to-t from-[#000000] to-transparent opacity-60 z-0"></div>
       </div>
 
       <button 
           onClick={toggleMute} 
-          className="absolute top-4 right-4 z-50 text-gold-300 p-2 bg-black/20 rounded-full backdrop-blur-sm hover:bg-black/40 transition-all animate-fade-in delay-1000"
+          className="absolute top-6 right-6 z-50 text-gold-300 p-3 bg-black/30 rounded-full backdrop-blur-md hover:bg-black/50 transition-all animate-fade-in delay-1000 border border-white/10 shadow-lg"
       >
           {muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
       </button>
 
-      {/* Admin Trigger - Moved outside scroll area for visibility */}
+      {/* Admin Trigger */}
       <button 
           onClick={handleAdminClick} 
           className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 text-gold-500/30 hover:text-gold-400 transition-all p-2 flex items-center gap-2 group"
-          aria-label="Admin Login"
       >
           <Lock size={14} className="group-hover:scale-110 transition-transform" />
           <span className="text-[10px] font-serif uppercase tracking-widest">Admin</span>
@@ -540,104 +469,98 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
         ref={scrollRef}
         className="relative z-10 flex flex-col h-full overflow-y-auto overflow-x-hidden no-scrollbar scroll-smooth overscroll-contain"
       >
-        <header className="flex-shrink-0 pt-12 pb-4 px-4 text-center relative animate-fade-in-up duration-1000">
-           <h1 className="font-cursive text-[3.5rem] sm:text-[4.2rem] leading-none text-gold-100 drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)] filter animate-fade-in-up delay-100">
+        <header className="flex-shrink-0 pt-16 pb-6 px-4 text-center relative animate-fade-in-up duration-1000 z-20">
+           <h1 className="font-cursive text-[4rem] sm:text-[5rem] leading-none text-transparent bg-clip-text bg-gradient-to-b from-gold-100 via-gold-300 to-gold-500 drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] filter animate-fade-in-up delay-100">
              {config.coupleName}
            </h1>
-           <p className="text-gold-300/80 font-serif text-sm tracking-[0.3em] uppercase mt-2 shadow-black drop-shadow-sm animate-slide-in-right delay-300">
-             The Engagement
+           <p className="text-gold-200 font-heading text-xs tracking-[0.4em] uppercase mt-4 text-glow animate-slide-in-right delay-300">
+             The Royal Engagement
            </p>
         </header>
 
-        <main className="flex-grow flex flex-col items-center justify-center px-4 pb-32 z-20">
-          <div className="relative w-64 h-64 sm:w-72 sm:h-72 my-6 flex-shrink-0 group perspective-1000 opacity-0 animate-bloom" style={{ animationDelay: '200ms' }}>
-             <div className="absolute inset-0 bg-gold-400/20 blur-2xl rounded-full transform group-hover:scale-110 transition-transform duration-700"></div>
+        <main className="flex-grow flex flex-col items-center justify-center px-4 pb-32 z-20 perspective-[1000px]">
+          
+          {/* 3D Card Container */}
+          <div 
+            ref={cardRef}
+            className="relative w-72 h-72 sm:w-80 sm:h-80 my-8 flex-shrink-0 animate-bloom"
+            style={{ transform: cardTransform, transition: 'transform 0.1s ease-out', transformStyle: 'preserve-3d' }}
+          >
+             {/* Back Glow */}
+             <div className="absolute inset-0 bg-rose-900/40 blur-3xl rounded-full transform translate-z-[-50px]"></div>
              
-             <div className="absolute -inset-8 pointer-events-none animate-zoom-in delay-700 fill-mode-backwards">
-                <div className="w-full h-full animate-spin-slow">
-                  <svg viewBox="0 0 200 200" className="w-full h-full fill-gold-300 opacity-40">
-                    {[0, 45, 90, 135, 180, 225, 270, 315].map(deg => (
-                        <path key={deg} d="M100,10 C110,30 130,40 100,50 C70,40 90,30 100,10" transform={`rotate(${deg} 100 100)`} />
-                    ))}
-                  </svg>
-                </div>
-             </div>
+             {/* Decorative Rings */}
+             <div className="absolute -inset-10 border border-gold-500/20 rounded-full animate-spin-slow pointer-events-none" style={{ transform: 'translateZ(20px)' }}></div>
+             <div className="absolute -inset-4 border border-gold-500/30 rounded-full animate-spin-slow pointer-events-none" style={{ animationDirection: 'reverse', transform: 'translateZ(40px)' }}></div>
 
-             {/* Couple Image */}
-             <div className="relative w-full h-full rounded-full p-1 bg-gradient-to-tr from-gold-300 via-gold-100 to-gold-400 shadow-2xl z-10">
-                <div className="w-full h-full rounded-full overflow-hidden border-4 border-[#4a0e11] relative">
-                    <img src={coupleImage} alt="Couple" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#4a0e11]/60 via-transparent to-transparent"></div>
+             {/* Main Image Container */}
+             <div className="relative w-full h-full rounded-full p-1.5 bg-gradient-to-br from-gold-300 via-gold-100 to-gold-500 shadow-[0_20px_50px_rgba(0,0,0,0.8)] z-10">
+                <div className="w-full h-full rounded-full overflow-hidden border-4 border-[#2d0a0d] relative group">
+                    <img src={coupleImage} alt="Couple" className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110 will-change-transform" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#2d0a0d]/80 via-transparent to-transparent mix-blend-multiply"></div>
+                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
                 </div>
              </div>
-             
-             {/* Floating Elements */}
-             <div className="absolute -right-4 bottom-4 animate-float-slow z-20"><DiyaIcon className="w-12 h-12 drop-shadow-lg" /></div>
-             <div className="absolute -left-4 top-4 animate-float-slow z-20" style={{ animationDelay: '1s' }}><RingsIcon className="w-12 h-12 text-gold-200 drop-shadow-lg" /></div>
           </div>
 
-          {/* Text Content */}
-          <div className="text-center max-w-md mx-auto space-y-6 relative z-10">
-              <p className="font-serif text-gold-100 text-lg leading-relaxed drop-shadow-md animate-fade-in-up delay-500">
+          {/* Glass Panel Content */}
+          <div className="glass-panel max-w-md mx-auto space-y-8 p-8 rounded-2xl relative z-10 animate-fade-in-up delay-500 transform hover:scale-[1.01] transition-transform duration-500">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-1/2 h-[1px] bg-gradient-to-r from-transparent via-gold-400 to-transparent"></div>
+              
+              <p className="font-serif text-gold-100 text-lg leading-relaxed text-center opacity-90">
                   {welcomeMsg}
               </p>
               
               {/* Countdown */}
-              <div className="flex justify-center gap-4 py-4 animate-fade-in-up delay-700">
+              <div className="flex justify-center gap-6 py-2 border-t border-white/5 border-b border-white/5">
                  {Object.entries(timeLeft).map(([unit, val], i) => (
-                     <div key={unit} className="flex flex-col items-center">
-                         <span className="text-2xl font-heading text-gold-200">{val}</span>
-                         <span className="text-[10px] uppercase tracking-widest text-gold-400/70">{unit}</span>
+                     <div key={unit} className="flex flex-col items-center min-w-[60px]">
+                         <span className="text-3xl font-heading text-gradient-gold font-bold">{val}</span>
+                         <span className="text-[10px] uppercase tracking-widest text-stone-400">{unit}</span>
                      </div>
                  ))}
               </div>
 
               {/* Actions */}
-              <div className="flex flex-col gap-3 items-center w-full max-w-xs mx-auto animate-fade-in-up delay-1000">
+              <div className="flex flex-col gap-4 items-center w-full">
                   <button 
                     onClick={() => handleUserLoginOpen('guest')}
-                    className="w-full bg-gradient-to-r from-gold-400 to-gold-600 text-[#4a0e11] py-3.5 rounded-full font-bold tracking-wide shadow-[0_0_20px_rgba(250,204,21,0.3)] hover:shadow-[0_0_30px_rgba(250,204,21,0.5)] hover:scale-105 transition-all active:scale-95 flex items-center justify-center gap-2"
+                    className="w-full bg-gradient-to-r from-gold-500 to-gold-700 text-[#2d0a0d] py-4 rounded-xl font-heading font-bold tracking-widest shadow-[0_0_25px_rgba(234,179,8,0.3)] hover:shadow-[0_0_35px_rgba(234,179,8,0.5)] hover:brightness-110 transition-all active:scale-[0.98] flex items-center justify-center gap-3 group relative overflow-hidden"
                   >
+                      <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:animate-[shimmer_1.5s_infinite] skew-x-12"></div>
                       <Sparkles size={18} /> Enter as Guest
                   </button>
                   
                   <button 
                     onClick={() => handleUserLoginOpen('couple')}
-                    className="text-gold-300 text-xs uppercase tracking-widest hover:text-gold-100 transition-colors py-2 flex items-center gap-1"
+                    className="text-gold-400/60 text-xs uppercase tracking-widest hover:text-gold-200 transition-colors py-2 flex items-center gap-2 hover:gap-3 duration-300"
                   >
-                      <Lock size={12} /> Couple Login
+                      <Heart size={12} fill="currentColor" /> Couple Login
                   </button>
               </div>
           </div>
         </main>
-
-        {/* Decorative Bottom */}
-        <div className="absolute bottom-0 left-0 right-0 h-32 pointer-events-none z-0 flex justify-between items-end opacity-40">
-            <PeacockFeather className="w-24 h-64 -ml-4 -mb-4 transform -rotate-12" />
-            <PeacockFeather className="w-24 h-64 -mr-4 -mb-4 transform rotate-12 scale-x-[-1]" />
-        </div>
-
       </div>
       
-      {/* --- Modals (Moved outside scroll container for proper layering) --- */}
+      {/* --- Modals --- */}
         
       {/* Admin Login Modal */}
       {showAdminLogin && (
-          <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-              <div className="bg-[#2d0a0d] border border-gold-500/30 p-6 rounded-2xl w-full max-w-xs text-center shadow-2xl animate-zoom-in">
-                  <h3 className="text-gold-200 font-heading text-xl mb-4">Admin Access</h3>
+          <div className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+              <div className="glass-deep p-8 rounded-2xl w-full max-w-xs text-center animate-zoom-in border border-gold-500/20">
+                  <h3 className="text-gold-200 font-heading text-xl mb-6">Admin Access</h3>
                   <form onSubmit={handleLoginSubmit} className="space-y-4">
                       <input 
                           type="password" 
                           value={adminPin} 
                           onChange={e => setAdminPin(e.target.value)}
-                          className="w-full bg-black/30 border border-gold-500/20 rounded-lg px-4 py-2 text-center text-gold-100 tracking-[0.5em] focus:outline-none focus:border-gold-400"
+                          className="w-full bg-black/40 border border-gold-500/30 rounded-lg px-4 py-3 text-center text-gold-100 tracking-[0.5em] focus:outline-none focus:border-gold-400 transition-colors"
                           placeholder="PIN"
                           autoFocus
                       />
-                      <div className="flex gap-2">
-                          <button type="button" onClick={() => setShowAdminLogin(false)} className="flex-1 py-2 rounded-lg border border-gold-500/20 text-gold-400 hover:bg-white/5">Cancel</button>
-                          <button type="submit" className="flex-1 py-2 rounded-lg bg-gold-600 text-[#2d0a0d] font-bold hover:bg-gold-500">Unlock</button>
+                      <div className="flex gap-3">
+                          <button type="button" onClick={() => setShowAdminLogin(false)} className="flex-1 py-2.5 rounded-lg border border-white/10 text-stone-400 hover:bg-white/5 hover:text-white transition-colors">Cancel</button>
+                          <button type="submit" className="flex-1 py-2.5 rounded-lg bg-gold-600 text-[#2d0a0d] font-bold hover:bg-gold-500 transition-colors">Unlock</button>
                       </div>
                   </form>
               </div>
@@ -646,41 +569,41 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
 
       {/* User Login Modal */}
       {showUserLogin && (
-          <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-              <div className="bg-[#fffbf5] text-[#4a0e11] p-8 rounded-2xl w-full max-w-sm shadow-2xl relative animate-slide-up border-4 border-[#4a0e11]">
-                  <button onClick={() => setShowUserLogin(false)} className="absolute top-2 right-2 text-stone-400 hover:text-[#4a0e11]"><X size={20} /></button>
+          <div className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 animate-fade-in">
+              <div className="glass-panel p-8 rounded-2xl w-full max-w-sm relative animate-slide-up border border-white/10 shadow-2xl">
+                  <button onClick={() => setShowUserLogin(false)} className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors"><X size={24} /></button>
                   
-                  <div className="text-center mb-6">
-                      <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-3 text-[#4a0e11]">
-                            {loginType === 'couple' ? <GaneshaIcon className="w-10 h-10" /> : <User size={32} />}
+                  <div className="text-center mb-8">
+                      <div className="w-20 h-20 bg-gradient-to-br from-gold-400 to-gold-600 rounded-full flex items-center justify-center mx-auto mb-4 text-[#4a0e11] shadow-[0_0_30px_rgba(234,179,8,0.4)]">
+                            {loginType === 'couple' ? <Heart size={32} fill="currentColor" /> : <User size={32} />}
                       </div>
-                      <h3 className="font-heading text-2xl">{loginType === 'couple' ? 'Couple Login' : 'Guest Entry'}</h3>
-                      <p className="text-xs text-stone-500 font-serif italic mt-1">Please provide your details</p>
+                      <h3 className="font-heading text-3xl text-gold-100 mb-2">{loginType === 'couple' ? 'Couple Login' : 'Guest Entry'}</h3>
+                      <p className="text-xs text-gold-200/60 font-serif tracking-wider uppercase">Please provide your details</p>
                   </div>
 
-                  <form onSubmit={handleUserLoginSubmit} className="space-y-4">
+                  <form onSubmit={handleUserLoginSubmit} className="space-y-5">
                       <div>
-                          <label className="block text-xs font-bold uppercase tracking-wider text-stone-500 mb-1">Full Name</label>
+                          <label className="block text-[10px] font-bold uppercase tracking-widest text-gold-400/80 mb-2 ml-1">Full Name</label>
                           <input 
                               type="text" 
                               value={userName} 
                               onChange={e => setUserName(e.target.value)}
-                              className="w-full bg-white border border-stone-200 rounded-lg px-4 py-3 focus:outline-none focus:border-[#4a0e11] focus:ring-1 focus:ring-[#4a0e11]"
+                              className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-4 text-gold-100 focus:outline-none focus:border-gold-500/50 focus:bg-black/50 transition-all"
                               placeholder="e.g. Rajesh Kumar"
                           />
                       </div>
                       <div>
-                          <label className="block text-xs font-bold uppercase tracking-wider text-stone-500 mb-1">Phone Number</label>
+                          <label className="block text-[10px] font-bold uppercase tracking-widest text-gold-400/80 mb-2 ml-1">Phone Number</label>
                           <input 
                               type="tel" 
                               value={userPhone} 
                               onChange={e => setUserPhone(e.target.value)}
-                              className="w-full bg-white border border-stone-200 rounded-lg px-4 py-3 focus:outline-none focus:border-[#4a0e11] focus:ring-1 focus:ring-[#4a0e11]"
+                              className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-4 text-gold-100 focus:outline-none focus:border-gold-500/50 focus:bg-black/50 transition-all"
                               placeholder="10-digit mobile number"
                           />
                       </div>
-                      <button type="submit" className="w-full bg-[#4a0e11] text-gold-100 py-3 rounded-lg font-bold shadow-lg hover:bg-[#691419] transition-colors active:scale-95 flex items-center justify-center gap-2 mt-2">
-                          <span>Continue</span> <ChevronRight size={16} />
+                      <button type="submit" className="w-full bg-gradient-to-r from-rose-700 to-rose-900 text-white py-4 rounded-xl font-bold shadow-lg hover:brightness-110 transition-all active:scale-95 flex items-center justify-center gap-2 mt-4 group border border-rose-500/30">
+                          <span>Begin Journey</span> <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
                       </button>
                   </form>
               </div>

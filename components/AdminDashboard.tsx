@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  ArrowLeft, Settings, Scroll, Calendar, Megaphone, Plus, 
+  ArrowLeft, Settings, Scroll, Calendar, Megaphone, Plus, Minus,
   FileText, Camera, MessageSquare, Home, Users, Folder, 
   Trash2, Edit2, Check, X, Save, Search, Phone, MapPin, Upload, Image as ImageIcon, Film, ExternalLink, Map, Heart, Navigation, LocateFixed, Music, Clock, PenTool, Plane
 } from 'lucide-react';
@@ -168,7 +168,9 @@ const AdminLiveMap: React.FC = () => {
     
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstance = useRef<any>(null);
-    const venuePos = [19.0436, 72.8193];
+    const markersRef = useRef<Record<string, any>>({});
+    const linesRef = useRef<Record<string, any>>({});
+    const venuePos = [19.0436, 72.8193]; // Taj Lands End
 
     useEffect(() => {
         const channel = new BroadcastChannel('wedding_live_map');
@@ -190,7 +192,9 @@ const AdminLiveMap: React.FC = () => {
              const L = (window as any).L;
              if (!L) return;
              
-             mapInstance.current = L.map(mapRef.current).setView(venuePos, 12);
+             // Initialize with zoomControl: false to use custom controls
+             mapInstance.current = L.map(mapRef.current, { zoomControl: false }).setView(venuePos, 13);
+             
              L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap'
              }).addTo(mapInstance.current);
@@ -204,53 +208,79 @@ const AdminLiveMap: React.FC = () => {
             L.marker(venuePos, { icon: venueIcon }).addTo(mapInstance.current).bindPopup("Taj Lands End");
         }
         
-        if (viewMode !== 'google' && mapInstance.current) {
-             mapInstance.current.remove();
-             mapInstance.current = null;
-        }
+        return () => {
+            if (viewMode !== 'google' && mapInstance.current) {
+                 mapInstance.current.remove();
+                 mapInstance.current = null;
+                 markersRef.current = {};
+                 linesRef.current = {};
+            }
+        };
     }, [viewMode]);
 
      // Update Markers on Google Map
      useEffect(() => {
         if (!mapInstance.current || viewMode !== 'google') return;
         const L = (window as any).L;
-        
-        mapInstance.current.eachLayer((layer: any) => {
-            if (layer instanceof L.Marker && !layer.getPopup()?.getContent()?.toString().includes("Taj")) {
-                mapInstance.current.removeLayer(layer);
-            }
-            if (layer instanceof L.Polyline) {
-                mapInstance.current.removeLayer(layer);
-            }
-        });
 
-        Object.values(activeUsers).forEach(user => {
+        Object.entries(activeUsers).forEach(([id, user]) => {
             if (user.lat && user.lng) {
                 const isCouple = user.role === 'couple';
                 
-                const iconHtml = isCouple 
-                    ? `<div style="background-color: #be123c; width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">❤️</div>`
-                    : `<div style="background-color: #b45309; width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 10px;">${user.name.charAt(0)}</div>`;
+                // Update or Create Marker
+                if (markersRef.current[id]) {
+                    markersRef.current[id].setLatLng([user.lat, user.lng]);
+                } else {
+                    const iconHtml = isCouple 
+                        ? `<div style="background-color: #be123c; width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">❤️</div>`
+                        : `<div style="background-color: #b45309; width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 10px;">${user.name.charAt(0)}</div>`;
 
-                const icon = L.divIcon({
-                    className: 'custom-user-icon',
-                    html: iconHtml,
-                    iconSize: [24, 24],
-                    iconAnchor: [12, 24]
-                });
+                    const icon = L.divIcon({
+                        className: 'custom-user-icon',
+                        html: iconHtml,
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 24]
+                    });
 
-                L.marker([user.lat, user.lng], { icon }).addTo(mapInstance.current).bindPopup(user.name);
-                
-                // Draw lines
-                L.polyline([[user.lat, user.lng], venuePos], {
-                    color: isCouple ? '#be123c' : '#15803d',
-                    weight: 1,
-                    dashArray: '5, 5', 
-                    opacity: 0.4
-                }).addTo(mapInstance.current);
+                    const marker = L.marker([user.lat, user.lng], { icon }).addTo(mapInstance.current).bindPopup(user.name);
+                    markersRef.current[id] = marker;
+                }
+
+                // Update or Create Line to Venue
+                if (linesRef.current[id]) {
+                    linesRef.current[id].setLatLngs([[user.lat, user.lng], venuePos]);
+                } else {
+                    const line = L.polyline([[user.lat, user.lng], venuePos], {
+                        color: isCouple ? '#be123c' : '#15803d',
+                        weight: 2,
+                        dashArray: '5, 8', 
+                        opacity: 0.5
+                    }).addTo(mapInstance.current);
+                    linesRef.current[id] = line;
+                }
             }
         });
     }, [activeUsers, viewMode]);
+
+    const handleZoomIn = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (mapInstance.current) mapInstance.current.zoomIn();
+    };
+    
+    const handleZoomOut = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (mapInstance.current) mapInstance.current.zoomOut();
+    };
+    
+    const handleCenterVenue = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (mapInstance.current) {
+            mapInstance.current.flyTo(venuePos, 15, {
+                animate: true,
+                duration: 1.5
+            });
+        }
+    };
 
     const VENUE_ZONES = [
         { name: "Grand Stage", x: 50, y: 20, w: 30, h: 15, color: "#be123c" },
@@ -308,7 +338,41 @@ const AdminLiveMap: React.FC = () => {
                         </div>
                     </div>
                 ) : (
-                    <div id="admin-map-full" ref={mapRef} className="w-full h-full bg-stone-200"></div>
+                    <div className="relative w-full h-full">
+                         <div id="admin-map-full" ref={mapRef} className="w-full h-full bg-stone-200"></div>
+                         
+                         {/* Custom Controls Overlay */}
+                         <div className="absolute bottom-8 right-6 flex flex-col gap-3 z-[400]">
+                             <button 
+                                 onClick={handleCenterVenue}
+                                 className="bg-white p-3 rounded-full shadow-lg text-rose-600 hover:bg-rose-50 transition-transform hover:scale-105 border border-rose-100"
+                                 title="Go to Venue"
+                             >
+                                 <MapPin size={20} />
+                             </button>
+                             <div className="flex flex-col bg-white rounded-full shadow-lg border border-stone-100 overflow-hidden">
+                                 <button 
+                                     onClick={handleZoomIn}
+                                     className="p-3 hover:bg-stone-50 text-stone-600 border-b border-stone-100"
+                                     title="Zoom In"
+                                 >
+                                     <Plus size={20} />
+                                 </button>
+                                 <button 
+                                     onClick={handleZoomOut}
+                                     className="p-3 hover:bg-stone-50 text-stone-600"
+                                     title="Zoom Out"
+                                 >
+                                     <Minus size={20} />
+                                 </button>
+                             </div>
+                         </div>
+
+                         <div className="absolute bottom-8 left-6 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg border border-white/50 z-[400] text-xs font-bold text-stone-600 flex items-center gap-2">
+                             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                             Live Tracking Active
+                         </div>
+                    </div>
                 )}
             </div>
             
@@ -379,6 +443,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       alert("Configuration Saved!");
   };
 
+  const handleAddHighlight = () => {
+      if(!newHighlight.title) return;
+      setHighlights([...highlights, { ...newHighlight, id: Date.now() }]);
+      setNewHighlight({ title: "", time: "", location: "", type: "Star" });
+  };
+
+  const handleDeleteHighlight = (id: number) => {
+      setHighlights(highlights.filter((h: any) => h.id !== id));
+  };
+
   const handleAddGuest = () => {
       const name = prompt("Enter Guest Name:");
       if (!name) return;
@@ -406,16 +480,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
           g.id === id ? { ...g, rsvp: !g.rsvp } : g
       ));
   }
-
-  const handleAddHighlight = () => {
-      if(!newHighlight.title) return;
-      setHighlights([...highlights, { ...newHighlight, id: Date.now() }]);
-      setNewHighlight({ title: "", time: "", location: "", type: "Star" });
-  };
-
-  const handleDeleteHighlight = (id: number) => {
-      setHighlights(highlights.filter((h: any) => h.id !== id));
-  };
 
   return (
     <div className="w-full h-full bg-[#fffbf5] flex overflow-hidden font-serif text-[#2d0a0d]">
