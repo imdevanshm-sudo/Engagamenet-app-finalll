@@ -428,35 +428,70 @@ const Lightbox = ({ url, onClose, caption }: { url: string, onClose: () => void,
 const MemoriesView = () => {
     const [photos, setPhotos] = useState<MediaItem[]>([]);
     const [selectedPhoto, setSelectedPhoto] = useState<MediaItem | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     
     useEffect(() => {
         const saved = localStorage.getItem('wedding_gallery_media');
         if (saved) setPhotos(JSON.parse(saved));
     }, []);
 
-    const handleUpload = () => {
-        const newPhoto: MediaItem = {
-             id: Date.now().toString(),
-             url: `https://source.unsplash.com/random/800x800?wedding-party&sig=${Date.now()}`, 
-             type: 'image',
-             caption: 'Shared Memory',
-             timestamp: Date.now()
+    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            // Size Limit Check (approx 3MB)
+            if (file.size > 3 * 1024 * 1024) {
+                alert("Please select an image smaller than 3MB.");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const result = reader.result as string;
+                const newPhoto: MediaItem = {
+                     id: Date.now().toString(),
+                     url: result,
+                     type: file.type.startsWith('video') ? 'video' : 'image',
+                     caption: 'Shared Memory',
+                     timestamp: Date.now()
+                }
+                
+                try {
+                    const updated = [newPhoto, ...photos];
+                    setPhotos(updated);
+                    localStorage.setItem('wedding_gallery_media', JSON.stringify(updated));
+                } catch (e) {
+                    alert("Storage full! Cannot save more photos.");
+                }
+            };
+            reader.readAsDataURL(file);
+            // Reset input
+            event.target.value = '';
         }
-        const updated = [newPhoto, ...photos];
-        setPhotos(updated);
-        localStorage.setItem('wedding_gallery_media', JSON.stringify(updated));
+    };
+
+    const triggerUpload = () => {
+        fileInputRef.current?.click();
     };
 
     return (
         <div className="h-full flex flex-col bg-[#1a0507] animate-fade-in relative">
             {selectedPhoto && <Lightbox url={selectedPhoto.url} caption={selectedPhoto.caption} onClose={() => setSelectedPhoto(null)} />}
             
+            {/* Hidden File Input */}
+            <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*"
+                onChange={handleFileSelect}
+            />
+
             <div className="p-6 pb-4 border-b border-white/10 flex justify-between items-end bg-gradient-to-b from-black/40 to-transparent sticky top-0 z-20 backdrop-blur-sm">
                 <div>
                     <h2 className="text-gold-100 font-heading text-2xl animate-fade-in-up">Memories</h2>
                     <p className="text-gold-400 text-xs animate-fade-in-up delay-100">Shared moments from everyone</p>
                 </div>
-                <button onClick={handleUpload} className="bg-gold-500 text-[#2d0a0d] text-xs font-bold px-4 py-2 rounded-full flex items-center gap-1 hover:bg-gold-400 active:scale-95 transition-transform shadow-lg shadow-gold-500/20">
+                <button onClick={triggerUpload} className="bg-gold-500 text-[#2d0a0d] text-xs font-bold px-4 py-2 rounded-full flex items-center gap-1 hover:bg-gold-400 active:scale-95 transition-transform shadow-lg shadow-gold-500/20">
                     <Upload size={14}/> Upload
                 </button>
             </div>
@@ -480,49 +515,9 @@ const MemoriesView = () => {
     );
 };
 
-const MapView = ({ userName }: { userName: string }) => {
+const MapView = ({ userName, activeUsers }: { userName: string, activeUsers: Record<string, any> }) => {
     const [viewMode, setViewMode] = useState<'venue' | 'google'>('venue');
-    const [activeUsers, setActiveUsers] = useState<Record<string, any>>({});
     
-    useEffect(() => {
-        const channel = new BroadcastChannel('wedding_live_map');
-        channel.onmessage = (event) => {
-            const data = event.data;
-            if (data.type === 'location_update') {
-                setActiveUsers(prev => ({ ...prev, [data.id]: data }));
-            }
-        };
-        
-        let watchId: number;
-        if (navigator.geolocation) {
-            watchId = navigator.geolocation.watchPosition(
-                (position) => {
-                     const { latitude, longitude } = position.coords;
-                     const pseudoX = (Math.abs(longitude * 10000) % 80) + 10; 
-                     const pseudoY = (Math.abs(latitude * 10000) % 80) + 10;
-                     
-                     const update = { 
-                        type: 'location_update', 
-                        id: userName, 
-                        name: userName, 
-                        x: pseudoX, y: pseudoY, 
-                        role: 'guest',
-                        map: viewMode
-                     };
-                     channel.postMessage(update);
-                     setActiveUsers(prev => ({ ...prev, [userName]: update }));
-                },
-                (error) => console.warn(error),
-                { enableHighAccuracy: true }
-            );
-        }
-
-        return () => {
-            channel.close();
-            if(watchId) navigator.geolocation.clearWatch(watchId);
-        };
-    }, [userName, viewMode]);
-
     const VENUE_ZONES = [
         { name: "Grand Stage", x: 50, y: 20, w: 30, h: 15, color: "#be123c" },
         { name: "Mandap", x: 80, y: 50, w: 20, h: 20, color: "#b45309" },
@@ -612,9 +607,6 @@ const MapView = ({ userName }: { userName: string }) => {
                  )}
                  
                  {Object.values(activeUsers).map((u: any, i) => {
-                     const userMap = u.map || 'venue';
-                     if (userMap !== viewMode) return null;
-                     
                      return (
                         <div 
                             key={i}
@@ -650,6 +642,7 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
   const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'map' | 'guest-book' | 'memories'>('home');
   const [rsvpConfirmed, setRsvpConfirmed] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [activeUsers, setActiveUsers] = useState<Record<string, any>>({});
   
   // Timer Logic (Target: Nov 26, 2025)
   const targetDate = new Date("2025-11-26T00:00:00");
@@ -682,6 +675,46 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
           clearInterval(timer);
       };
   }, []);
+
+  useEffect(() => {
+      const channel = new BroadcastChannel('wedding_live_map');
+      channel.onmessage = (event) => {
+          const data = event.data;
+          if (data.type === 'location_update') {
+              setActiveUsers(prev => ({ ...prev, [data.id]: data }));
+          }
+      };
+
+      let watchId: number;
+      if (navigator.geolocation) {
+          watchId = navigator.geolocation.watchPosition(
+              (position) => {
+                   const { latitude, longitude } = position.coords;
+                   // Consistent hashing for simulation map 0-100%
+                   const pseudoX = (Math.abs(longitude * 10000) % 80) + 10; 
+                   const pseudoY = (Math.abs(latitude * 10000) % 80) + 10;
+                   
+                   const update = { 
+                      type: 'location_update', 
+                      id: userName, 
+                      name: userName, 
+                      x: pseudoX, y: pseudoY, 
+                      role: 'guest',
+                      map: 'all' // Visible everywhere
+                   };
+                   channel.postMessage(update);
+                   setActiveUsers(prev => ({ ...prev, [userName]: update }));
+              },
+              (error) => console.warn(error),
+              { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+          );
+      }
+
+      return () => {
+          channel.close();
+          if(watchId) navigator.geolocation.clearWatch(watchId);
+      };
+  }, [userName]);
 
   const handleRSVP = () => {
       if (!isTimeUp || rsvpConfirmed) return;
@@ -806,7 +839,7 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
 
         {activeTab === 'guest-book' && <GuestBookView userName={userName} />}
         {activeTab === 'memories' && <MemoriesView />}
-        {activeTab === 'map' && <MapView userName={userName} />}
+        {activeTab === 'map' && <MapView userName={userName} activeUsers={activeUsers} />}
 
       </div>
 

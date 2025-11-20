@@ -259,9 +259,6 @@ const AdminLiveMap: React.FC = () => {
                             )}
                             
                             {Object.values(activeUsers).map((u, i) => {
-                                // Default to venue if undefined
-                                const userMap = u.map || 'venue';
-                                if (userMap !== viewMode) return null;
                                 return <MapNode key={i} x={u.x} y={u.y} name={u.name} type={u.role} delay={0} />;
                             })}
                         </div>

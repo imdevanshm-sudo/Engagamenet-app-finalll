@@ -43,7 +43,7 @@ interface LocationUpdate {
     x: number;
     y: number;
     role: 'couple' | 'guest';
-    map: 'venue' | 'google';
+    map: 'all';
 }
 
 // --- Shared Assets (Stickers & Map Icons) ---
@@ -278,6 +278,7 @@ const PhotoGalleryView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
     if (!isOpen) return null;
     const [photos, setPhotos] = useState<MediaItem[]>([]);
     const [selectedPhoto, setSelectedPhoto] = useState<MediaItem | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -292,18 +293,42 @@ const PhotoGalleryView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
         }
     }, [isOpen]);
 
-    const handleUpload = () => {
-        const newPhoto: MediaItem = {
-             id: Date.now().toString(),
-             url: "https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?q=80&w=2070&auto=format&fit=crop",
-             type: 'image',
-             caption: 'Couple Upload',
-             timestamp: Date.now()
+    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            // Size limit check (~3MB)
+            if (file.size > 3 * 1024 * 1024) {
+                alert("Please choose an image smaller than 3MB.");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const result = reader.result as string;
+                const newPhoto: MediaItem = {
+                     id: Date.now().toString(),
+                     url: result,
+                     type: file.type.startsWith('video') ? 'video' : 'image',
+                     caption: 'Couple Upload',
+                     timestamp: Date.now()
+                }
+                
+                try {
+                    const updated = [newPhoto, ...photos];
+                    setPhotos(updated);
+                    localStorage.setItem('wedding_gallery_media', JSON.stringify(updated));
+                } catch (e) {
+                    alert("Local storage full! Cannot save.");
+                }
+            };
+            reader.readAsDataURL(file);
+            event.target.value = '';
         }
-        const updated = [newPhoto, ...photos];
-        setPhotos(updated);
-        localStorage.setItem('wedding_gallery_media', JSON.stringify(updated));
-    }
+    };
+
+    const triggerUpload = () => {
+        fileInputRef.current?.click();
+    };
 
     return (
         <div className="fixed inset-0 z-[70] bg-[#1a0405] overflow-y-auto animate-in slide-in-from-bottom duration-700 overscroll-contain">
@@ -313,8 +338,18 @@ const PhotoGalleryView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
                 <h2 className="text-gold-100 font-heading text-xl tracking-widest">Family Memories</h2>
                 <button onClick={onClose} className="text-gold-400 hover:text-gold-100 bg-black/20 rounded-full p-2"><X size={24}/></button>
             </div>
+            
+            {/* Hidden Input */}
+            <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*"
+                onChange={handleFileSelect}
+            />
+
             <div className="p-6 pb-24 max-w-lg mx-auto">
-                 <div className="bg-[#fcd34d] rounded-2xl p-4 mb-8 flex items-center justify-center gap-4 shadow-xl cursor-pointer hover:bg-[#fbbf24] transition-colors active:scale-95" onClick={handleUpload}>
+                 <div className="bg-[#fcd34d] rounded-2xl p-4 mb-8 flex items-center justify-center gap-4 shadow-xl cursor-pointer hover:bg-[#fbbf24] transition-colors active:scale-95" onClick={triggerUpload}>
                      <Upload size={24} className="text-[#4a0e11]"/>
                      <span className="text-[#4a0e11] font-bold font-serif text-lg">Add New Memory</span>
                  </div>
@@ -365,25 +400,10 @@ const HeartHug = () => (
     </div>
 );
 
-const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: string }> = ({ isOpen, onClose, userName }) => {
+const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: string; activeUsers: Record<string, any> }> = ({ isOpen, onClose, userName, activeUsers }) => {
     const { transform, handlers, style } = usePanZoom(1, 0.5, 3);
-    const [activeUsers, setActiveUsers] = useState<Record<string, {x: number, y: number, name: string, role: 'couple'|'guest', timestamp: number, map?: 'venue' | 'google'}>>({});
     const [myLocation, setMyLocation] = useState<{x: number, y: number} | null>(null);
     const [viewMode, setViewMode] = useState<'venue' | 'google'>('venue');
-
-    useEffect(() => {
-        const channel = new BroadcastChannel('wedding_live_map');
-        channel.onmessage = (event) => {
-            const data = event.data;
-            if (data.type === 'location_update') {
-                setActiveUsers(prev => ({
-                    ...prev,
-                    [data.id]: { x: data.x, y: data.y, name: data.name, role: data.role, timestamp: Date.now(), map: data.map }
-                }));
-            }
-        };
-        return () => channel.close();
-    }, []);
 
     // Couple can update location by clicking too
     const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -401,15 +421,9 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
             name: userName,
             x, y,
             role: 'couple',
-            map: viewMode
+            map: 'all'
         });
         channel.close();
-        
-        // Self Update
-        setActiveUsers(prev => ({
-             ...prev,
-             [userName]: { x, y, name: userName, role: 'couple', timestamp: Date.now(), map: viewMode }
-        }));
     };
 
     const VENUE_ZONES = [
@@ -512,10 +526,6 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
                               
                               {/* Render Users */}
                               {Object.values(activeUsers).map((u, i) => {
-                                  // Default to venue if undefined
-                                  const userMap = u.map || 'venue';
-                                  if (userMap !== viewMode) return null;
-
                                   return <MapNode key={i} x={u.x} y={u.y} name={u.name === userName ? 'You' : u.name} type={u.role} delay={i * 100} />;
                               })}
                           </div>
@@ -799,6 +809,7 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [showExplosion, setShowExplosion] = useState(false);
   const [config, setConfig] = useState({ coupleName: "Sneha & Aman", date: "2025-11-26" });
+  const [activeUsers, setActiveUsers] = useState<Record<string, any>>({});
   
   // Countdown state
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0 });
@@ -821,6 +832,46 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
           setConfig(JSON.parse(savedConfig));
       }
   }, []);
+
+  useEffect(() => {
+      const channel = new BroadcastChannel('wedding_live_map');
+      channel.onmessage = (event) => {
+          const data = event.data;
+          if (data.type === 'location_update') {
+              setActiveUsers(prev => ({ ...prev, [data.id]: data }));
+          }
+      };
+
+      let watchId: number;
+      if (navigator.geolocation) {
+          watchId = navigator.geolocation.watchPosition(
+              (position) => {
+                   const { latitude, longitude } = position.coords;
+                   // Consistent hashing for simulation map 0-100%
+                   const pseudoX = (Math.abs(longitude * 10000) % 80) + 10; 
+                   const pseudoY = (Math.abs(latitude * 10000) % 80) + 10;
+                   
+                   const update = { 
+                      type: 'location_update', 
+                      id: userName, 
+                      name: userName, 
+                      x: pseudoX, y: pseudoY, 
+                      role: 'couple',
+                      map: 'all' // Visible everywhere
+                   };
+                   channel.postMessage(update);
+                   setActiveUsers(prev => ({ ...prev, [userName]: update }));
+              },
+              (error) => console.warn(error),
+              { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+          );
+      }
+
+      return () => {
+          channel.close();
+          if(watchId) navigator.geolocation.clearWatch(watchId);
+      };
+  }, [userName]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -954,7 +1005,7 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
           x: x,
           y: y,
           role: 'couple',
-          map: 'venue'
+          map: 'all'
       };
       channel.postMessage(update);
       channel.close();
@@ -1228,7 +1279,7 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
 
       <MessageBoard isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} userName={userName} />
       <PhotoGalleryView isOpen={isGalleryOpen} onClose={() => setIsGalleryOpen(false)} />
-      <LiveMapModal isOpen={isMapOpen} onClose={() => setIsMapOpen(false)} userName={userName} />
+      <LiveMapModal isOpen={isMapOpen} onClose={() => setIsMapOpen(false)} userName={userName} activeUsers={activeUsers} />
     </div>
   );
 };
