@@ -222,26 +222,6 @@ const GaneshaIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const SpinningFlower = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 100 100" className={className}>
-    <g className="origin-center animate-spin-slow will-change-transform">
-      {Array.from({ length: 8 }).map((_, i) => (
-        <path 
-          key={i}
-          d="M50,50 Q65,20 50,5 Q35,20 50,50" 
-          fill="#e3c98d" 
-          stroke="#b45309" 
-          strokeWidth="1"
-          transform={`rotate(${i * 45} 50 50)`} 
-          className="opacity-90"
-        />
-      ))}
-      <circle cx="50" cy="50" r="12" fill="#701a1f" stroke="#e3c98d" strokeWidth="2" />
-      <circle cx="50" cy="50" r="4" fill="#e3c98d" />
-    </g>
-  </svg>
-);
-
 const PeacockFeather = ({ className, style }: { className?: string, style?: React.CSSProperties }) => (
   <svg viewBox="0 0 100 300" className={className} style={style}>
     <path d="M50,35 C50,100 48,180 50,300" stroke="url(#quillGrad)" strokeWidth="1.5" fill="none" opacity="0.8" />
@@ -281,7 +261,6 @@ interface WelcomeScreenProps {
 
 const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const feathersRef = useRef<HTMLDivElement>(null);
   
   // Parallax Refs
   const bgBackRef = useRef<HTMLDivElement>(null); 
@@ -372,14 +351,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
     const handleScroll = () => {
       if (!scrollRef.current) return;
       
-      const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-      const maxScroll = scrollHeight - clientHeight;
+      const { scrollTop } = scrollRef.current;
       
-      if (feathersRef.current) {
-        const progress = maxScroll > 0 ? Math.min(Math.max(scrollTop / maxScroll, 0), 1) : 0;
-        feathersRef.current.style.setProperty('--scroll-p', progress.toFixed(3));
-      }
-
       requestAnimationFrame(() => {
          if (bgBackRef.current) bgBackRef.current.style.transform = `translate3d(0, ${-scrollTop * 0.05}px, 0)`;
          if (bgMidRef.current) bgMidRef.current.style.transform = `translate3d(0, ${-scrollTop * 0.15}px, 0)`;
@@ -396,16 +369,6 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
         window.removeEventListener('resize', handleScroll);
     };
   }, []);
-
-  const featherConfig = [
-    { rotate: -45, y: 30, scale: 0.85 },
-    { rotate: -30, y: 15, scale: 0.95 },
-    { rotate: -15, y: 5, scale: 1.0 },
-    { rotate: 0, y: 0, scale: 1.1 }, 
-    { rotate: 15, y: 5, scale: 1.0 },
-    { rotate: 30, y: 15, scale: 0.95 },
-    { rotate: 45, y: 30, scale: 0.85 },
-  ];
   
   const handleAdminClick = () => {
       playBellSound();
@@ -562,6 +525,16 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
           {muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
       </button>
 
+      {/* Admin Trigger - Moved outside scroll area for visibility */}
+      <button 
+          onClick={handleAdminClick} 
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 text-gold-500/30 hover:text-gold-400 transition-all p-2 flex items-center gap-2 group"
+          aria-label="Admin Login"
+      >
+          <Lock size={14} className="group-hover:scale-110 transition-transform" />
+          <span className="text-[10px] font-serif uppercase tracking-widest">Admin</span>
+      </button>
+
       {/* --- Scrollable Content Area --- */}
       <div 
         ref={scrollRef}
@@ -644,82 +617,76 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
             <PeacockFeather className="w-24 h-64 -mr-4 -mb-4 transform rotate-12 scale-x-[-1]" />
         </div>
 
-        {/* Admin Trigger */}
-        <button 
-            onClick={handleAdminClick} 
-            className="absolute bottom-2 left-1/2 -translate-x-1/2 text-white/5 hover:text-white/20 text-[10px] p-2"
-        >
-            Admin
-        </button>
-
-        {/* --- Modals --- */}
-        
-        {/* Admin Login Modal */}
-        {showAdminLogin && (
-            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-                <div className="bg-[#2d0a0d] border border-gold-500/30 p-6 rounded-2xl w-full max-w-xs text-center shadow-2xl animate-zoom-in">
-                    <h3 className="text-gold-200 font-heading text-xl mb-4">Admin Access</h3>
-                    <form onSubmit={handleLoginSubmit} className="space-y-4">
-                        <input 
-                            type="password" 
-                            value={adminPin} 
-                            onChange={e => setAdminPin(e.target.value)}
-                            className="w-full bg-black/30 border border-gold-500/20 rounded-lg px-4 py-2 text-center text-gold-100 tracking-[0.5em] focus:outline-none focus:border-gold-400"
-                            placeholder="PIN"
-                            autoFocus
-                        />
-                        <div className="flex gap-2">
-                            <button type="button" onClick={() => setShowAdminLogin(false)} className="flex-1 py-2 rounded-lg border border-gold-500/20 text-gold-400 hover:bg-white/5">Cancel</button>
-                            <button type="submit" className="flex-1 py-2 rounded-lg bg-gold-600 text-[#2d0a0d] font-bold hover:bg-gold-500">Unlock</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        )}
-
-        {/* User Login Modal */}
-        {showUserLogin && (
-            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-                <div className="bg-[#fffbf5] text-[#4a0e11] p-8 rounded-2xl w-full max-w-sm shadow-2xl relative animate-slide-up border-4 border-[#4a0e11]">
-                    <button onClick={() => setShowUserLogin(false)} className="absolute top-2 right-2 text-stone-400 hover:text-[#4a0e11]"><X size={20} /></button>
-                    
-                    <div className="text-center mb-6">
-                        <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-3 text-[#4a0e11]">
-                             {loginType === 'couple' ? <GaneshaIcon className="w-10 h-10" /> : <User size={32} />}
-                        </div>
-                        <h3 className="font-heading text-2xl">{loginType === 'couple' ? 'Couple Login' : 'Guest Entry'}</h3>
-                        <p className="text-xs text-stone-500 font-serif italic mt-1">Please provide your details</p>
-                    </div>
-
-                    <form onSubmit={handleUserLoginSubmit} className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-bold uppercase tracking-wider text-stone-500 mb-1">Full Name</label>
-                            <input 
-                                type="text" 
-                                value={userName} 
-                                onChange={e => setUserName(e.target.value)}
-                                className="w-full bg-white border border-stone-200 rounded-lg px-4 py-3 focus:outline-none focus:border-[#4a0e11] focus:ring-1 focus:ring-[#4a0e11]"
-                                placeholder="e.g. Rajesh Kumar"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold uppercase tracking-wider text-stone-500 mb-1">Phone Number</label>
-                            <input 
-                                type="tel" 
-                                value={userPhone} 
-                                onChange={e => setUserPhone(e.target.value)}
-                                className="w-full bg-white border border-stone-200 rounded-lg px-4 py-3 focus:outline-none focus:border-[#4a0e11] focus:ring-1 focus:ring-[#4a0e11]"
-                                placeholder="10-digit mobile number"
-                            />
-                        </div>
-                        <button type="submit" className="w-full bg-[#4a0e11] text-gold-100 py-3 rounded-lg font-bold shadow-lg hover:bg-[#691419] transition-colors active:scale-95 flex items-center justify-center gap-2 mt-2">
-                            <span>Continue</span> <ChevronRight size={16} />
-                        </button>
-                    </form>
-                </div>
-            </div>
-        )}
       </div>
+      
+      {/* --- Modals (Moved outside scroll container for proper layering) --- */}
+        
+      {/* Admin Login Modal */}
+      {showAdminLogin && (
+          <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+              <div className="bg-[#2d0a0d] border border-gold-500/30 p-6 rounded-2xl w-full max-w-xs text-center shadow-2xl animate-zoom-in">
+                  <h3 className="text-gold-200 font-heading text-xl mb-4">Admin Access</h3>
+                  <form onSubmit={handleLoginSubmit} className="space-y-4">
+                      <input 
+                          type="password" 
+                          value={adminPin} 
+                          onChange={e => setAdminPin(e.target.value)}
+                          className="w-full bg-black/30 border border-gold-500/20 rounded-lg px-4 py-2 text-center text-gold-100 tracking-[0.5em] focus:outline-none focus:border-gold-400"
+                          placeholder="PIN"
+                          autoFocus
+                      />
+                      <div className="flex gap-2">
+                          <button type="button" onClick={() => setShowAdminLogin(false)} className="flex-1 py-2 rounded-lg border border-gold-500/20 text-gold-400 hover:bg-white/5">Cancel</button>
+                          <button type="submit" className="flex-1 py-2 rounded-lg bg-gold-600 text-[#2d0a0d] font-bold hover:bg-gold-500">Unlock</button>
+                      </div>
+                  </form>
+              </div>
+          </div>
+      )}
+
+      {/* User Login Modal */}
+      {showUserLogin && (
+          <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+              <div className="bg-[#fffbf5] text-[#4a0e11] p-8 rounded-2xl w-full max-w-sm shadow-2xl relative animate-slide-up border-4 border-[#4a0e11]">
+                  <button onClick={() => setShowUserLogin(false)} className="absolute top-2 right-2 text-stone-400 hover:text-[#4a0e11]"><X size={20} /></button>
+                  
+                  <div className="text-center mb-6">
+                      <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-3 text-[#4a0e11]">
+                            {loginType === 'couple' ? <GaneshaIcon className="w-10 h-10" /> : <User size={32} />}
+                      </div>
+                      <h3 className="font-heading text-2xl">{loginType === 'couple' ? 'Couple Login' : 'Guest Entry'}</h3>
+                      <p className="text-xs text-stone-500 font-serif italic mt-1">Please provide your details</p>
+                  </div>
+
+                  <form onSubmit={handleUserLoginSubmit} className="space-y-4">
+                      <div>
+                          <label className="block text-xs font-bold uppercase tracking-wider text-stone-500 mb-1">Full Name</label>
+                          <input 
+                              type="text" 
+                              value={userName} 
+                              onChange={e => setUserName(e.target.value)}
+                              className="w-full bg-white border border-stone-200 rounded-lg px-4 py-3 focus:outline-none focus:border-[#4a0e11] focus:ring-1 focus:ring-[#4a0e11]"
+                              placeholder="e.g. Rajesh Kumar"
+                          />
+                      </div>
+                      <div>
+                          <label className="block text-xs font-bold uppercase tracking-wider text-stone-500 mb-1">Phone Number</label>
+                          <input 
+                              type="tel" 
+                              value={userPhone} 
+                              onChange={e => setUserPhone(e.target.value)}
+                              className="w-full bg-white border border-stone-200 rounded-lg px-4 py-3 focus:outline-none focus:border-[#4a0e11] focus:ring-1 focus:ring-[#4a0e11]"
+                              placeholder="10-digit mobile number"
+                          />
+                      </div>
+                      <button type="submit" className="w-full bg-[#4a0e11] text-gold-100 py-3 rounded-lg font-bold shadow-lg hover:bg-[#691419] transition-colors active:scale-95 flex items-center justify-center gap-2 mt-2">
+                          <span>Continue</span> <ChevronRight size={16} />
+                      </button>
+                  </form>
+              </div>
+          </div>
+      )}
+
     </div>
   );
 };

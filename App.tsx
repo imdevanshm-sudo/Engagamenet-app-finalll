@@ -4,12 +4,42 @@ import GuestDashboard from './components/GuestDashboard';
 import CoupleDashboard from './components/CoupleDashboard';
 import AdminDashboard from './components/AdminDashboard';
 
+// Update this version string whenever you deploy a significant update to force a cache clear
+const APP_VERSION = '1.1.0';
+
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<'welcome' | 'guest-dashboard' | 'couple-dashboard' | 'admin-dashboard'>('welcome');
   const [userName, setUserName] = useState<string>("");
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   useEffect(() => {
+    // Version Check for Cache Busting
+    const storedVersion = localStorage.getItem('wedding_app_version');
+    
+    if (storedVersion !== APP_VERSION) {
+       console.log(`App updated from ${storedVersion} to ${APP_VERSION}. Cleaning stale data.`);
+       
+       // Preserve session data to avoid logging users out unnecessarily
+       const userType = localStorage.getItem('wedding_current_user_type');
+       const guestName = localStorage.getItem('wedding_guest_name');
+       const guestPhone = localStorage.getItem('wedding_guest_phone');
+       const coupleName = localStorage.getItem('wedding_couple_name');
+       const couplePhone = localStorage.getItem('wedding_couple_phone');
+       
+       // Clear all local storage to remove stale state/caches
+       localStorage.clear();
+       
+       // Restore session data
+       if (userType) localStorage.setItem('wedding_current_user_type', userType);
+       if (guestName) localStorage.setItem('wedding_guest_name', guestName);
+       if (guestPhone) localStorage.setItem('wedding_guest_phone', guestPhone);
+       if (coupleName) localStorage.setItem('wedding_couple_name', coupleName);
+       if (couplePhone) localStorage.setItem('wedding_couple_phone', couplePhone);
+       
+       // Set new version
+       localStorage.setItem('wedding_app_version', APP_VERSION);
+    }
+
     // Check for active session
     const storedUserType = localStorage.getItem('wedding_current_user_type');
     const storedName = localStorage.getItem('wedding_guest_name') || localStorage.getItem('wedding_couple_name');
