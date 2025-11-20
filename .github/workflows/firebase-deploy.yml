@@ -9,7 +9,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Install & Build
+      - name: Install and Build
         run: |
           npm ci
           npm run build
