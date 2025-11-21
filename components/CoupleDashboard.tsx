@@ -43,7 +43,7 @@ interface Song {
 }
 
 interface LocationUpdate {
-    type: 'location_update';
+    type: 'location_update' | 'location_leave' | 'location_request';
     id: string;
     name: string;
     x: number;
@@ -76,8 +76,13 @@ const GoldDust = ({ opacity = 0.4 }: { opacity?: number }) => {
     }> = [];
 
     const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      if (canvas.parentElement) {
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = canvas.parentElement.clientHeight;
+      } else {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
       initParticles();
     };
 
@@ -264,20 +269,6 @@ const MapTree = ({ className }: { className?: string }) => (
     </svg>
   );
   
-const MapElephant = ({ className, flip }: { className?: string, flip?: boolean }) => (
-    <svg viewBox="0 0 100 60" className={className} style={{ transform: flip ? 'scaleX(-1)' : 'none' }}>
-        <path d="M20,40 C10,40 10,20 30,15 C40,10 60,10 75,20 C85,25 90,40 90,50 L85,50 L85,40 L75,40 L75,50 L65,50 L65,40 L40,40" fill="#5D4037" />
-        <path d="M20,40 Q25,50 15,55" stroke="#5D4037" strokeWidth="3" fill="none" />
-        <rect x="40" y="15" width="25" height="20" fill="#c05621" rx="2" />
-        <path d="M40,15 L65,15 L65,35 L40,35 Z" fill="url(#elephantPattern)" fillOpacity="0.5" />
-        <defs>
-        <pattern id="elephantPattern" width="4" height="4" patternUnits="userSpaceOnUse">
-            <circle cx="2" cy="2" r="1" fill="#fcd34d" />
-        </pattern>
-        </defs>
-    </svg>
-);
-
 const MapNode: React.FC<{ x: number; y: number; name: string; delay?: number; phone?: string; type?: 'guest' | 'couple' }> = ({ x, y, name, delay = 0, phone, type = 'guest' }) => {
     return (
         <div 
@@ -409,8 +400,8 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
   const [messages, setMessages] = useState<Message[]>([]);
   const [heartCount, setHeartCount] = useState(0);
   const [activeUsers, setActiveUsers] = useState<Record<string, LocationUpdate>>({});
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [theme, setTheme] = useState<ThemeConfig>({ gradient: 'royal', effect: 'dust' });
+  const [venueMapUrl, setVenueMapUrl] = useState("");
   
   // Music State
   const [playlist, setPlaylist] = useState<Song[]>([]);
@@ -449,6 +440,12 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
           const savedTheme = localStorage.getItem('wedding_theme_config');
           if (savedTheme) setTheme(JSON.parse(savedTheme));
 
+          const savedConfig = localStorage.getItem('wedding_global_config');
+          if (savedConfig) {
+              const parsed = JSON.parse(savedConfig);
+              if (parsed.venueMapUrl) setVenueMapUrl(parsed.venueMapUrl);
+          }
+
           // Mock Playlist
           const pl = [
               { id: '1', title: 'Din Shagna Da', artist: 'Jasleen Royal', album: 'Wedding', durationStr: '3:45', url: '', cover: 'https://i1.sndcdn.com/artworks-000396211683-3q0g30-t500x500.jpg' },
@@ -476,12 +473,15 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
               case 'theme_sync':
                   setTheme(data.payload);
                   break;
+              case 'config_sync':
+                  if(data.payload.venueMapUrl) setVenueMapUrl(data.payload.venueMapUrl);
+                  break;
           }
       };
       return () => channel.close();
   }, []);
 
-  // --- Location Handshake Logic ---
+  // --- Location Handshake & Heartbeat Logic ---
   useEffect(() => {
       const channel = new BroadcastChannel('wedding_live_map');
       
@@ -497,11 +497,19 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
               if (lastLocationRef.current) {
                   channel.postMessage(lastLocationRef.current);
               }
+          } else if (data.type === 'location_leave') {
+              // Remove user from map
+              setActiveUsers(prev => {
+                  const next = { ...prev };
+                  delete next[data.id];
+                  return next;
+              });
           }
       };
 
-      // 2. Track Own Position
       let watchId: number;
+      let heartbeatInterval: any;
+
       if (isSharingLocation && navigator.geolocation) {
           watchId = navigator.geolocation.watchPosition(
               (position) => {
@@ -527,10 +535,31 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
               (error) => console.warn(error),
               { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
           );
+
+          // Heartbeat: Re-broadcast every 5s to stay visible to new joiners
+          heartbeatInterval = setInterval(() => {
+              if (lastLocationRef.current) {
+                  channel.postMessage(lastLocationRef.current);
+              }
+          }, 5000);
+
+      } else {
+          // If we stop sharing, announce departure
+          if (lastLocationRef.current) {
+              channel.postMessage({ type: 'location_leave', id: userName });
+          }
+          // Clean self from map
+          setActiveUsers(prev => {
+              const next = { ...prev };
+              delete next[userName];
+              return next;
+          });
       }
+
       return () => {
           channel.close();
           if(watchId) navigator.geolocation.clearWatch(watchId);
+          if(heartbeatInterval) clearInterval(heartbeatInterval);
       }
   }, [userName, isSharingLocation]);
 
@@ -655,6 +684,20 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
                      const marker = L.marker([user.lat, user.lng], { icon }).addTo(mapInstance.current);
                      markersRef.current[user.id] = marker;
                  }
+            } else {
+                // Remove marker if invalid coords
+                 if (markersRef.current[user.id]) {
+                     markersRef.current[user.id].remove();
+                     delete markersRef.current[user.id];
+                 }
+            }
+        });
+        
+        // Cleanup markers for users who left
+        Object.keys(markersRef.current).forEach(id => {
+            if (!activeUsers[id]) {
+                markersRef.current[id].remove();
+                delete markersRef.current[id];
             }
         });
   }, [activeUsers, viewMode]);
@@ -704,197 +747,223 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
                 </div>
             </div>
             <div className="flex items-center gap-2">
-                 <button onClick={handleClearCache} className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-rose-300 transition-colors" title="Reset App">
-                    <RefreshCw size={20} />
-                </button>
-                <button onClick={onLogout} className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-rose-300 transition-colors">
-                    <LogOut size={20} />
-                </button>
+                 <button onClick={handleClearCache} className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-rose-400 transition-colors" title="Reset App">
+                     <RefreshCw size={18} />
+                 </button>
+                 <button onClick={onLogout} className="p-2 hover:bg-white/5 rounded-lg text-rose-400 hover:text-rose-200 transition-colors">
+                     <LogOut size={20} />
+                 </button>
             </div>
         </header>
-
-        {/* Tabs */}
-        <div className="flex-shrink-0 flex justify-around p-2 bg-[#2d0a0d] z-20 border-b border-white/5">
-            {[
-                { id: 'home', icon: Home, label: 'Home' },
-                { id: 'chat', icon: MessageSquare, label: 'Chat' },
-                { id: 'map', icon: Map, label: 'Tracker' },
-                { id: 'music', icon: Music, label: 'Music' }
-            ].map(tab => (
-                <button 
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all ${activeTab === tab.id ? 'bg-rose-900 text-rose-100' : 'text-rose-400/60'}`}
-                >
-                    <tab.icon size={20} />
-                    <span className="text-[10px] font-bold uppercase tracking-wider">{tab.label}</span>
-                </button>
-            ))}
-        </div>
 
         {/* Content Area */}
         <main className="flex-grow overflow-hidden relative z-10">
             {activeTab === 'home' && (
-                <div className="h-full overflow-y-auto p-6 space-y-6 animate-fade-in">
-                    <div className="bg-gradient-to-br from-rose-900 to-rose-950 p-6 rounded-2xl border border-rose-500/30 shadow-2xl relative overflow-hidden">
-                         <div className="absolute -right-4 -top-4 text-rose-500/10 rotate-12"><Heart size={120} fill="currentColor"/></div>
-                         <h2 className="text-3xl font-heading text-white mb-1">{heartCount}</h2>
-                         <p className="text-rose-200 text-xs uppercase tracking-widest mb-4">Total Hearts Received</p>
-                         <button onClick={triggerHeart} className="bg-rose-600 text-white px-6 py-2 rounded-full font-bold shadow-lg hover:bg-rose-500 transition-colors flex items-center gap-2">
-                             <Heart size={16} fill="currentColor"/> Send Love Back
-                         </button>
-                    </div>
+                <div className="h-full overflow-y-auto p-6 animate-fade-in">
+                     <div className="text-center my-6">
+                         <Heart size={40} className="text-rose-500 mx-auto mb-4 animate-pulse-slow fill-rose-500/50" />
+                         <h2 className="text-3xl font-cursive text-rose-200 mb-2">Welcome back, {userName}</h2>
+                         <p className="text-stone-400 text-sm">Your big day is getting closer.</p>
+                     </div>
+                     
+                     {/* Adore Meter Display */}
+                     <div className="bg-gradient-to-br from-rose-900/50 to-rose-950/50 p-6 rounded-2xl border border-rose-500/20 flex items-center justify-between mb-6 relative overflow-hidden group">
+                          <div className="absolute inset-0 bg-rose-500/5 group-hover:bg-rose-500/10 transition-colors"></div>
+                          <div>
+                              <h3 className="text-rose-200 font-bold mb-1">Love Received</h3>
+                              <p className="text-xs text-rose-400/80">Total hearts from guests</p>
+                          </div>
+                          <div className="text-4xl font-bold text-rose-100 flex items-center gap-2">
+                              {heartCount} <Heart size={24} fill="currentColor" className="text-rose-500"/>
+                          </div>
+                          <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-rose-500/20 rounded-full blur-xl"></div>
+                     </div>
 
-                    <div className="bg-[#2d0a0d]/80 p-6 rounded-2xl border border-white/10">
-                        <h3 className="text-rose-200 font-bold mb-4 flex items-center gap-2"><Users size={18}/> Guest Status</h3>
-                        <div className="space-y-3">
-                            <div className="flex justify-between items-center p-3 bg-white/5 rounded-lg">
-                                <span className="text-stone-400 text-sm">Active on Map</span>
-                                <span className="text-white font-bold">{Object.keys(activeUsers).length}</span>
-                            </div>
-                            <div className="flex justify-between items-center p-3 bg-white/5 rounded-lg">
-                                <span className="text-stone-400 text-sm">Messages Today</span>
-                                <span className="text-white font-bold">{messages.length}</span>
-                            </div>
-                        </div>
-                    </div>
+                     <div className="grid grid-cols-2 gap-4">
+                         <button onClick={() => setActiveTab('map')} className="p-4 bg-black/30 rounded-xl border border-rose-500/20 hover:border-rose-500/50 transition-all flex flex-col items-center gap-2 group">
+                             <Map size={24} className="text-rose-400 group-hover:scale-110 transition-transform"/>
+                             <span className="text-sm font-bold text-rose-100">Live Map</span>
+                         </button>
+                         <button onClick={() => setActiveTab('chat')} className="p-4 bg-black/30 rounded-xl border border-rose-500/20 hover:border-rose-500/50 transition-all flex flex-col items-center gap-2 group">
+                             <MessageSquare size={24} className="text-rose-400 group-hover:scale-110 transition-transform"/>
+                             <span className="text-sm font-bold text-rose-100">Messages</span>
+                         </button>
+                     </div>
                 </div>
             )}
 
             {activeTab === 'chat' && (
-                <div className="h-full flex flex-col animate-fade-in">
-                    <div className="flex-grow overflow-y-auto p-4 space-y-4">
-                        {messages.map((m, i) => (
-                             <div key={i} className={`flex flex-col ${m.sender === userName ? 'items-end' : 'items-start'}`}>
-                                 <div className={`max-w-[80%] px-4 py-2 rounded-xl ${m.sender === userName ? 'bg-rose-600 text-white rounded-tr-none' : 'bg-white/10 text-stone-300 rounded-tl-none'}`}>
-                                     <p className="text-sm font-serif">{m.text}</p>
-                                 </div>
-                                 <span className="text-[10px] text-stone-500 mt-1 px-1">{m.sender} • {m.timestamp}</span>
-                             </div>
+                <div className="flex flex-col h-full relative">
+                    <div className="flex-grow overflow-y-auto p-4 space-y-4 pb-24">
+                        {messages.map((msg, i) => (
+                            <div key={i} className={`flex ${msg.sender === userName ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[80%] p-3 rounded-2xl ${msg.sender === userName ? 'bg-rose-600 text-white' : 'bg-black/40 border border-rose-500/20'}`}>
+                                    {!msg.sender.includes(userName) && <p className="text-[10px] text-rose-400 font-bold mb-1">{msg.sender}</p>}
+                                    <p className="text-sm">{msg.text}</p>
+                                </div>
+                            </div>
                         ))}
                     </div>
-                    <div className="p-4 bg-[#2d0a0d] border-t border-white/10 flex gap-2">
-                        <input 
-                            type="text" 
-                            className="flex-grow bg-black/30 border border-white/10 rounded-full px-4 text-sm focus:outline-none focus:border-rose-500 text-white"
-                            placeholder="Reply to guests..."
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                    handleSendMessage((e.target as HTMLInputElement).value);
-                                    (e.target as HTMLInputElement).value = '';
-                                }
-                            }}
-                        />
-                        <button className="p-3 bg-rose-600 rounded-full text-white hover:bg-rose-500 shadow-lg">
-                            <Send size={18} />
-                        </button>
-                    </div>
-                    {/* Adore Meter */}
-                    <div className="absolute bottom-24 right-4">
-                        <AdoreMeter count={heartCount} onTrigger={triggerHeart} />
+                    <div className="absolute bottom-0 left-0 right-0 p-4 bg-[#2d0a0d] border-t border-rose-500/20 pb-24">
+                        <div className="flex gap-2">
+                            <button onClick={triggerHeart} className="p-3 bg-rose-900/50 rounded-full text-rose-400 border border-rose-500/30"><Heart size={20} /></button>
+                            <input 
+                                type="text" 
+                                placeholder="Reply to guests..." 
+                                className="flex-grow bg-black/30 border border-rose-500/20 rounded-full px-4 text-rose-100 focus:outline-none focus:border-rose-500"
+                                onKeyDown={(e) => {
+                                    if(e.key === 'Enter') {
+                                        handleSendMessage((e.target as HTMLInputElement).value);
+                                        (e.target as HTMLInputElement).value = '';
+                                    }
+                                }}
+                            />
+                            <button className="p-3 bg-rose-600 rounded-full text-white shadow-lg hover:bg-rose-500"><Send size={20} /></button>
+                        </div>
                     </div>
                 </div>
             )}
 
             {activeTab === 'map' && (
-                <div className="h-full flex flex-col animate-fade-in">
-                     <div className="flex flex-col items-center gap-3 p-3 bg-black/20 z-20 border-b border-white/5 backdrop-blur-sm">
+                <div className="flex flex-col h-full">
+                    <div className="bg-black/40 p-2 flex justify-between items-center px-4 border-b border-white/5 shrink-0">
                         <div className="flex gap-2">
-                            <button onClick={() => setViewMode('venue')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${viewMode === 'venue' ? 'bg-rose-600 text-white shadow-md' : 'bg-white/10 text-stone-400 hover:bg-white/20'}`}>Venue View</button>
-                            <button onClick={() => setViewMode('google')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${viewMode === 'google' ? 'bg-rose-600 text-white shadow-md' : 'bg-white/10 text-stone-400 hover:bg-white/20'}`}>Map View</button>
+                             <button onClick={() => setViewMode('venue')} className={`px-3 py-1 rounded-full text-xs font-bold ${viewMode === 'venue' ? 'bg-rose-600 text-white' : 'bg-white/10 text-stone-400'}`}>Venue</button>
+                             <button onClick={() => setViewMode('google')} className={`px-3 py-1 rounded-full text-xs font-bold ${viewMode === 'google' ? 'bg-rose-600 text-white' : 'bg-white/10 text-stone-400'}`}>GPS Map</button>
                         </div>
-                        
                         <button 
-                            onClick={() => setIsSharingLocation(!isSharingLocation)} 
-                            className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all border ${isSharingLocation ? 'bg-green-900/40 border-green-500 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'bg-white/5 border-white/10 text-stone-400 hover:bg-white/10'}`}
+                            onClick={() => setIsSharingLocation(!isSharingLocation)}
+                            className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase border transition-colors ${isSharingLocation ? 'bg-green-900/30 border-green-500 text-green-400' : 'bg-white/5 border-white/10 text-stone-500'}`}
                         >
-                            <div className={`w-2 h-2 rounded-full ${isSharingLocation ? 'bg-green-400 animate-pulse' : 'bg-stone-500'}`}></div>
-                            {isSharingLocation ? 'Sharing Live Location' : 'Location Hidden'}
+                            <div className={`w-1.5 h-1.5 rounded-full ${isSharingLocation ? 'bg-green-500 animate-pulse' : 'bg-stone-500'}`}></div>
+                            {isSharingLocation ? 'Broadcasting' : 'Location Off'}
                         </button>
                     </div>
 
-                    <div className="flex-grow relative overflow-hidden bg-[#0f0505]">
-                        {viewMode === 'venue' ? (
-                            <div className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden" {...handlers} style={style}>
+                    <div className="flex-grow relative bg-stone-900 overflow-hidden">
+                         {viewMode === 'venue' ? (
+                             <div className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden" {...handlers} style={style}>
                                 <div 
                                     className="absolute inset-0 w-full h-full origin-top-left transition-transform duration-75 ease-out"
                                     style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
                                 >
                                     <div className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 bg-[#f5f5f4] border-[20px] border-[#4a0e11] shadow-2xl overflow-hidden">
-                                        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#4a0e11 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
-                                        {VENUE_ZONES.map((zone, i) => (
-                                            <div key={i} className="absolute border-2 border-dashed flex items-center justify-center text-center p-2 opacity-60" 
-                                                style={{ 
-                                                    left: `${zone.x}%`, top: `${zone.y}%`, width: `${zone.w}%`, height: `${zone.h}%`, 
-                                                    transform: 'translate(-50%, -50%)',
-                                                    borderColor: zone.color, backgroundColor: `${zone.color}10`
-                                                }}>
-                                                <span className="font-serif font-bold text-[10px] uppercase tracking-wider text-[#4a0e11] bg-white/80 px-2 py-1 rounded-full shadow-sm">{zone.name}</span>
-                                            </div>
-                                        ))}
-                                        <MapTree className="absolute top-[15%] left-[15%] w-24 h-24 opacity-80" />
-                                        <MapTree className="absolute top-[15%] right-[15%] w-24 h-24 opacity-80" />
+                                        {venueMapUrl ? (
+                                            <>
+                                                <img src={venueMapUrl} className="absolute inset-0 w-full h-full object-cover opacity-90" alt="Venue Map" />
+                                                <div className="absolute inset-0 bg-black/5"></div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#4a0e11 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+                                                {VENUE_ZONES.map((zone, i) => (
+                                                    <div key={i} className="absolute border-2 border-dashed flex items-center justify-center text-center p-2 opacity-60" 
+                                                        style={{ 
+                                                            left: `${zone.x}%`, top: `${zone.y}%`, width: `${zone.w}%`, height: `${zone.h}%`, 
+                                                            transform: 'translate(-50%, -50%)',
+                                                            borderColor: zone.color, backgroundColor: `${zone.color}10`
+                                                        }}>
+                                                        <span className="font-serif font-bold text-[10px] uppercase tracking-wider text-[#4a0e11] bg-white/80 px-2 py-1 rounded-full shadow-sm">{zone.name}</span>
+                                                    </div>
+                                                ))}
+                                                <MapTree className="absolute top-[15%] left-[15%] w-24 h-24 opacity-80" />
+                                                <MapTree className="absolute top-[15%] right-[15%] w-24 h-24 opacity-80" />
+                                            </>
+                                        )}
+                                        
                                         {Object.values(activeUsers).map((u: LocationUpdate, i) => (
                                             <MapNode key={i} x={u.x} y={u.y} name={escapeHtml(u.name)} type={u.role} />
                                         ))}
                                     </div>
                                 </div>
                             </div>
-                        ) : (
-                            <div className="relative w-full h-full">
-                                <div ref={mapRef} className="w-full h-full bg-stone-200"></div>
-                                {/* GPS Button */}
-                                <button 
+                         ) : (
+                             <div className="relative w-full h-full">
+                                 <div ref={mapRef} className="w-full h-full bg-stone-200"></div>
+                                 <button 
                                     onClick={handleLocateMe}
-                                    className="absolute bottom-4 right-4 z-[500] bg-white text-black p-3 rounded-full shadow-xl active:scale-95 transition-transform"
-                                >
-                                    <LocateFixed size={24} />
-                                </button>
-                            </div>
-                        )}
+                                    className="absolute bottom-4 right-4 z-[500] bg-white text-black p-3 rounded-full shadow-xl active:scale-95 transition-transform hover:bg-gray-100"
+                                 >
+                                     <LocateFixed size={24} />
+                                 </button>
+                             </div>
+                         )}
                     </div>
                 </div>
             )}
 
             {activeTab === 'music' && (
-                <div className="h-full p-6 flex flex-col animate-fade-in">
-                    <div className="flex-shrink-0 mb-6 text-center">
-                         <div className="w-48 h-48 mx-auto rounded-full border-4 border-rose-900/50 shadow-[0_0_40px_rgba(225,29,72,0.2)] relative overflow-hidden mb-4 group">
-                             <img src={currentSong?.cover} className={`w-full h-full object-cover ${isPlaying ? 'animate-spin-slow' : ''}`} />
-                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                 <button onClick={togglePlay} className="bg-rose-600 rounded-full p-4 text-white hover:scale-110 transition-transform">
-                                     {isPlaying ? <Pause size={32} fill="currentColor"/> : <Play size={32} fill="currentColor"/>}
-                                 </button>
-                             </div>
-                         </div>
-                         <h2 className="text-2xl font-heading text-white mb-1">{currentSong?.title}</h2>
-                         <p className="text-rose-400 text-sm">{currentSong?.artist}</p>
-                    </div>
+                <div className="h-full overflow-y-auto p-6 animate-fade-in pb-32">
+                    <h2 className="text-2xl font-heading text-rose-200 mb-6 text-center">Music Controller</h2>
                     
-                    <div className="flex-grow bg-[#2d0a0d] rounded-2xl border border-white/10 overflow-hidden flex flex-col">
-                        <div className="p-4 border-b border-white/5 bg-white/5">
-                            <h3 className="font-bold text-stone-400 text-xs uppercase tracking-widest">Engagement Playlist</h3>
-                        </div>
-                        <div className="overflow-y-auto flex-grow">
-                            {playlist.map(song => (
-                                <div 
-                                    key={song.id} 
-                                    onClick={() => playSong(song)}
-                                    className={`flex items-center p-3 hover:bg-white/5 cursor-pointer transition-colors ${currentSong?.id === song.id ? 'bg-rose-900/20' : ''}`}
-                                >
-                                    <img src={song.cover} className="w-10 h-10 rounded object-cover mr-3 opacity-80" />
-                                    <div className="flex-grow">
-                                        <h4 className={`text-sm font-bold ${currentSong?.id === song.id ? 'text-rose-400' : 'text-white'}`}>{song.title}</h4>
-                                        <p className="text-xs text-stone-500">{song.artist}</p>
-                                    </div>
-                                    <span className="text-xs text-stone-600">{song.durationStr}</span>
+                    {/* Now Playing Card */}
+                    <div className="bg-gradient-to-b from-rose-900/40 to-black/40 p-6 rounded-2xl border border-rose-500/20 shadow-2xl mb-8 flex flex-col items-center relative overflow-hidden">
+                         <div className="absolute inset-0 bg-noise opacity-10"></div>
+                         <div className={`w-48 h-48 rounded-full border-4 border-rose-500/30 shadow-[0_0_40px_rgba(225,29,72,0.3)] mb-6 relative ${isPlaying ? 'animate-spin-slow' : ''}`}>
+                             <img src={currentSong?.cover} className="w-full h-full object-cover rounded-full" />
+                             <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-black/40 to-transparent"></div>
+                             <div className="absolute w-8 h-8 bg-[#2d0a0d] rounded-full top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-2 border-rose-500/50"></div>
+                         </div>
+                         
+                         <div className="text-center mb-6">
+                             <h3 className="text-xl font-bold text-rose-100">{currentSong?.title}</h3>
+                             <p className="text-rose-400 text-sm">{currentSong?.artist}</p>
+                         </div>
+
+                         <div className="flex items-center gap-6">
+                             <button className="text-rose-400 hover:text-rose-200"><SkipBack size={28} /></button>
+                             <button 
+                                onClick={togglePlay}
+                                className="w-16 h-16 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-lg hover:scale-105 transition-transform active:scale-95"
+                             >
+                                 {isPlaying ? <Pause size={28} fill="currentColor" /> : <Play size={28} fill="currentColor" className="ml-1" />}
+                             </button>
+                             <button className="text-rose-400 hover:text-rose-200"><SkipForward size={28} /></button>
+                         </div>
+                    </div>
+
+                    {/* Queue */}
+                    <div className="space-y-3">
+                        <h3 className="text-xs uppercase tracking-widest text-rose-500/80 font-bold mb-2 ml-1">Up Next</h3>
+                        {playlist.map((song, i) => (
+                            <div 
+                                key={song.id} 
+                                onClick={() => playSong(song)}
+                                className={`flex items-center gap-4 p-3 rounded-xl border transition-all cursor-pointer ${currentSong?.id === song.id ? 'bg-rose-900/30 border-rose-500/50' : 'bg-black/20 border-white/5 hover:bg-white/5'}`}
+                            >
+                                <div className="w-10 h-10 rounded-lg overflow-hidden">
+                                    <img src={song.cover} className="w-full h-full object-cover" />
                                 </div>
-                            ))}
-                        </div>
+                                <div className="flex-grow">
+                                    <h4 className={`font-bold text-sm ${currentSong?.id === song.id ? 'text-rose-200' : 'text-stone-300'}`}>{song.title}</h4>
+                                    <p className="text-xs text-stone-500">{song.artist}</p>
+                                </div>
+                                <div className="text-xs text-stone-500">{song.durationStr}</div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}
         </main>
+
+        {/* Navigation */}
+        <nav className="flex-shrink-0 p-2 bg-[#2d0a0d] border-t border-rose-500/20 flex justify-around z-20 pb-safe">
+             {[
+                 { id: 'home', icon: Home, label: 'Home' },
+                 { id: 'chat', icon: MessageSquare, label: 'Chat' },
+                 { id: 'map', icon: Map, label: 'Track' },
+                 { id: 'music', icon: Music, label: 'Music' },
+             ].map(item => (
+                 <button 
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id as any)}
+                    className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all ${activeTab === item.id ? 'bg-rose-900/50 text-rose-200' : 'text-stone-500'}`}
+                 >
+                     <item.icon size={20} className={activeTab === item.id ? 'animate-bounce-small' : ''} />
+                     <span className="text-[9px] uppercase tracking-widest font-bold">{item.label}</span>
+                 </button>
+             ))}
+        </nav>
     </div>
   );
 };

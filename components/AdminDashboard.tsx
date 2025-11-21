@@ -197,7 +197,7 @@ const usePanZoom = (initialScale = 1, minScale = 0.5, maxScale = 3) => {
 
 // --- Admin Live Map Component ---
 
-const AdminLiveMap: React.FC = () => {
+const AdminLiveMap: React.FC<{ mapImage?: string }> = ({ mapImage }) => {
     const { transform, handlers, style } = usePanZoom(1, 0.5, 3);
     const [activeUsers, setActiveUsers] = useState<Record<string, LocationUpdate>>({});
     const [viewMode, setViewMode] = useState<'venue' | 'google'>('venue');
@@ -319,21 +319,28 @@ const AdminLiveMap: React.FC = () => {
                             style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
                         >
                             <div className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 bg-[#f5f5f4] border-[20px] border-[#4a0e11] shadow-2xl overflow-hidden">
-                                 <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#4a0e11 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
-                                 
-                                 {VENUE_ZONES.map((zone, i) => (
-                                     <div key={i} className="absolute border-2 border-dashed flex items-center justify-center text-center p-2 opacity-60" 
-                                         style={{ 
-                                             left: `${zone.x}%`, top: `${zone.y}%`, width: `${zone.w}%`, height: `${zone.h}%`, 
-                                             transform: 'translate(-50%, -50%)',
-                                             borderColor: zone.color, backgroundColor: `${zone.color}10`
-                                         }}>
-                                         <span className="font-serif font-bold text-[10px] uppercase tracking-wider text-[#4a0e11] bg-white/80 px-2 py-1 rounded-full shadow-sm">{zone.name}</span>
-                                     </div>
-                                 ))}
-                                 
-                                 <MapTree className="absolute top-[15%] left-[15%] w-24 h-24 opacity-80" />
-                                 <MapTree className="absolute top-[15%] right-[15%] w-24 h-24 opacity-80" />
+                                 {mapImage ? (
+                                     <>
+                                        <img src={mapImage} className="absolute inset-0 w-full h-full object-cover opacity-90" alt="Venue Map" />
+                                        <div className="absolute inset-0 bg-black/5"></div>
+                                     </>
+                                 ) : (
+                                     <>
+                                        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#4a0e11 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+                                        {VENUE_ZONES.map((zone, i) => (
+                                            <div key={i} className="absolute border-2 border-dashed flex items-center justify-center text-center p-2 opacity-60" 
+                                                style={{ 
+                                                    left: `${zone.x}%`, top: `${zone.y}%`, width: `${zone.w}%`, height: `${zone.h}%`, 
+                                                    transform: 'translate(-50%, -50%)',
+                                                    borderColor: zone.color, backgroundColor: `${zone.color}10`
+                                                }}>
+                                                <span className="font-serif font-bold text-[10px] uppercase tracking-wider text-[#4a0e11] bg-white/80 px-2 py-1 rounded-full shadow-sm">{zone.name}</span>
+                                            </div>
+                                        ))}
+                                        <MapTree className="absolute top-[15%] left-[15%] w-24 h-24 opacity-80" />
+                                        <MapTree className="absolute top-[15%] right-[15%] w-24 h-24 opacity-80" />
+                                     </>
+                                 )}
                                  
                                  {Object.values(activeUsers).map((u: LocationUpdate, i) => (
                                      <MapNode key={i} x={u.x} y={u.y} name={escapeHtml(u.name)} type={u.role} />
@@ -351,7 +358,7 @@ const AdminLiveMap: React.FC = () => {
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'highlights' | 'gallery' | 'messages' | 'config' | 'theme' | 'map'>('overview');
-  const [config, setConfig] = useState({ coupleName: "", date: "", welcomeMsg: "", coupleImage: "" });
+  const [config, setConfig] = useState({ coupleName: "", date: "", welcomeMsg: "", coupleImage: "", venueMapUrl: "" });
   const [theme, setTheme] = useState<ThemeConfig>({ gradient: 'royal', effect: 'dust' });
   const [guestCount, setGuestCount] = useState(0);
   const [msgCount, setMsgCount] = useState(0);
@@ -410,9 +417,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         const savedTheme = localStorage.getItem('wedding_theme_config');
         
         if (savedConfig) {
-            setConfig({ ...JSON.parse(savedConfig), coupleImage: savedImage || "" });
+            const parsed = JSON.parse(savedConfig);
+            setConfig({ 
+                coupleName: parsed.coupleName || "",
+                date: parsed.date || "",
+                welcomeMsg: parsed.welcomeMsg || "",
+                coupleImage: savedImage || parsed.coupleImage || "",
+                venueMapUrl: parsed.venueMapUrl || ""
+            });
         } else {
-            setConfig({ coupleName: "Sneha & Aman", date: "2025-11-26", welcomeMsg: "Welcome to our Engagement!", coupleImage: savedImage || "" });
+            setConfig({ coupleName: "Sneha & Aman", date: "2025-11-26", welcomeMsg: "Welcome to our Engagement!", coupleImage: savedImage || "", venueMapUrl: "" });
         }
 
         if (savedTheme) {
@@ -875,6 +889,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                                 )}
                               </div>
                           </div>
+                           <div>
+                              <label className="block text-xs text-stone-400 uppercase tracking-widest mb-2">Venue Map Custom Image URL</label>
+                              <div className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    value={config.venueMapUrl} 
+                                    onChange={e => setConfig({...config, venueMapUrl: e.target.value})}
+                                    className="flex-grow bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-gold-500 focus:outline-none"
+                                    placeholder="https://... (Overrides default map)"
+                                />
+                                {config.venueMapUrl && (
+                                    <div className="w-12 h-12 rounded overflow-hidden border border-white/20 bg-white/5">
+                                        <img src={config.venueMapUrl} className="w-full h-full object-cover" />
+                                    </div>
+                                )}
+                              </div>
+                          </div>
                           <div>
                               <label className="block text-xs text-stone-400 uppercase tracking-widest mb-2">Welcome Message</label>
                               <textarea 
@@ -893,7 +924,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
               {activeTab === 'map' && (
                   <div className="h-full rounded-xl overflow-hidden border border-white/10 shadow-xl animate-fade-in">
-                      <AdminLiveMap />
+                      <AdminLiveMap mapImage={config.venueMapUrl} />
                   </div>
               )}
           </main>

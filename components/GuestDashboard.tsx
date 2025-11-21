@@ -44,7 +44,7 @@ interface GuestContact {
 }
 
 interface LocationUpdate {
-    type: 'location_update';
+    type: 'location_update' | 'location_leave';
     id: string;
     name: string;
     x: number;
@@ -72,6 +72,14 @@ const DEFAULT_EVENTS: WeddingEvent[] = [
     { id: '1', title: "Ring Ceremony", time: "Nov 26, 5:00 PM", loc: "Royal Gardens", icon: "💍" },
     { id: '2', title: "Dinner & Toast", time: "Nov 26, 7:30 PM", loc: "Grand Ballroom", icon: "🥂" },
     { id: '3', title: "DJ Night", time: "Nov 26, 9:00 PM", loc: "Poolside", icon: "💃" },
+];
+
+const VENUE_ZONES = [
+    { name: "Grand Stage", x: 50, y: 20, w: 30, h: 15, color: "#be123c" },
+    { name: "Mandap", x: 80, y: 50, w: 20, h: 20, color: "#b45309" },
+    { name: "Royal Dining", x: 20, y: 50, w: 25, h: 25, color: "#15803d" },
+    { name: "Entrance", x: 50, y: 90, w: 20, h: 10, color: "#4a0e11" },
+    { name: "Bar", x: 80, y: 80, w: 15, h: 15, color: "#1d4ed8" },
 ];
 
 // --- Assets & Effects ---
@@ -207,6 +215,139 @@ const FallingPetals = () => {
     </div>
   );
 }
+
+// Map Components
+const MapTree = ({ className }: { className?: string }) => (
+    <svg viewBox="0 0 100 100" className={className}>
+      <path d="M50,80 L50,100" stroke="#5D4037" strokeWidth="8" />
+      <path d="M20,80 Q10,60 30,40 Q10,30 40,10 Q70,30 60,40 Q90,60 80,80 Q50,90 20,80 Z" fill="#4a7c59" stroke="#33523f" strokeWidth="2" />
+      <circle cx="30" cy="50" r="3" fill="#ef4444" opacity="0.6" />
+      <circle cx="60" cy="30" r="3" fill="#ef4444" opacity="0.6" />
+      <circle cx="70" cy="60" r="3" fill="#ef4444" opacity="0.6" />
+    </svg>
+  );
+
+const MapNode: React.FC<{ x: number; y: number; name: string; delay?: number; phone?: string; type?: 'guest' | 'couple' }> = ({ x, y, name, delay = 0, phone, type = 'guest' }) => {
+    return (
+        <div 
+            className="absolute flex flex-col items-center z-20 group animate-in zoom-in duration-700 fill-mode-backwards cursor-pointer transition-all duration-500"
+            style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)', animationDelay: `${delay}ms` }}
+        >
+            <div 
+              className={`relative rounded-full shadow-[0_25px_35px_-5px_rgba(0,0,0,0.7),0_0_0_2px_${type === 'couple' ? '#e11d48' : '#fbbf24'}] transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-4 w-16 h-16 p-[4px] ${type === 'couple' ? 'bg-rose-950' : 'bg-[#1a0405]'}`}
+              style={{ transform: 'perspective(500px) rotateX(10deg)' }}
+            >
+                <div className={`w-full h-full rounded-full border ${type === 'couple' ? 'border-rose-400' : 'border-gold-500/30'} overflow-hidden relative bg-[#2d0a0d] flex items-center justify-center`}>
+                    {type === 'couple' ? (
+                        <Heart size={24} className="text-rose-500 fill-rose-500 animate-pulse" />
+                    ) : (
+                        <Users size={24} className="text-gold-300 opacity-80" />
+                    )}
+                </div>
+                {type === 'couple' && (
+                     <div className="absolute inset-0 rounded-full border-2 border-rose-500 animate-ping opacity-50"></div>
+                )}
+            </div>
+            <div className={`mt-4 px-4 py-1 ${type === 'couple' ? 'bg-rose-900/90 border-rose-500' : 'bg-[#4a0e11]/90 border-[#f59e0b]/50'} backdrop-blur-md rounded-full border shadow-[0_8px_16px_rgba(0,0,0,0.6)] transform transition-transform group-hover:scale-105 group-hover:-translate-y-1`}>
+                <span className="text-[#fef3c7] text-xs sm:text-sm font-serif font-bold whitespace-nowrap tracking-wide drop-shadow-sm">{name}</span>
+            </div>
+            <div className="absolute top-[90%] left-1/2 w-1 h-8 bg-black/30 -translate-x-1/2 blur-[2px] origin-top transform skew-x-[20deg] z-[-1]"></div>
+        </div>
+    );
+};
+
+// Hooks
+const usePanZoom = (initialScale = 1, minScale = 0.5, maxScale = 3) => {
+  const [transform, setTransform] = useState({ x: 0, y: 0, scale: initialScale, rotate: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const lastPos = useRef({ x: 0, y: 0 });
+  const [pinchDist, setPinchDist] = useState<number | null>(null);
+  const [pinchCenter, setPinchCenter] = useState<{x: number, y: number} | null>(null);
+
+  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    if ('touches' in e && e.touches.length === 2) {
+       const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+       );
+       const center = {
+           x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+           y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+       };
+       setPinchDist(dist);
+       setPinchCenter(center);
+       return;
+    }
+
+    setIsDragging(true);
+    lastPos.current = { x: clientX - transform.x, y: clientY - transform.y };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
+    if ('touches' in e && e.touches.length === 2 && pinchDist !== null && pinchCenter !== null) {
+       e.preventDefault();
+       const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+       );
+       const center = {
+           x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+           y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+       };
+
+       const deltaScale = dist - pinchDist;
+       const newScale = Math.min(maxScale, Math.max(minScale, transform.scale + deltaScale * 0.005));
+       
+       const deltaX = center.x - pinchCenter.x;
+       const deltaY = center.y - pinchCenter.y;
+
+       setTransform(prev => ({ 
+           ...prev, 
+           scale: newScale,
+           x: prev.x + deltaX,
+           y: prev.y + deltaY
+       }));
+       setPinchDist(dist);
+       setPinchCenter(center);
+       return;
+    }
+
+    if (!isDragging) return;
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    
+    if ('touches' in e) e.preventDefault(); 
+
+    setTransform(prev => ({
+       ...prev,
+       x: clientX - lastPos.current.x,
+       y: clientY - lastPos.current.y
+    }));
+  };
+
+  const handleMouseUp = () => {
+      setIsDragging(false);
+      setPinchDist(null);
+      setPinchCenter(null);
+  };
+
+  const handlers = {
+      onMouseDown: handleMouseDown,
+      onTouchStart: handleMouseDown,
+      onMouseMove: handleMouseMove,
+      onTouchMove: handleMouseMove,
+      onMouseUp: handleMouseUp,
+      onTouchEnd: handleMouseUp,
+      onMouseLeave: handleMouseUp
+  };
+  
+  const style: React.CSSProperties = { touchAction: 'none' };
+
+  return { transform, isDragging, handlers, style };
+};
 
 // Stickers
 const StickerKalash = () => (<svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md"><path d="M30,80 Q30,95 50,95 Q70,95 70,80 L75,40 Q80,30 50,30 Q20,30 25,40 Z" fill="#b45309" stroke="#78350f" strokeWidth="2"/><path d="M30,40 Q50,50 70,40" stroke="#fcd34d" strokeWidth="3" fill="none"/><circle cx="50" cy="60" r="10" fill="#fcd34d" /><path d="M50,30 L50,20 M40,30 L35,15 M60,30 L65,15" stroke="#15803d" strokeWidth="3"/><circle cx="50" cy="15" r="8" fill="#fbbf24"/></svg>);
@@ -553,15 +694,19 @@ const LiveMapModal = ({
     onClose,
     activeUsers,
     isSharing,
-    onToggleSharing
+    onToggleSharing,
+    mapImage
 }: { 
     userName: string, 
     isOpen: boolean, 
     onClose: () => void,
     activeUsers: Record<string, LocationUpdate>,
     isSharing: boolean,
-    onToggleSharing: () => void
+    onToggleSharing: () => void,
+    mapImage?: string
 }) => {
+    const [viewMode, setViewMode] = useState<'venue' | 'google'>('venue');
+    const { transform, handlers, style } = usePanZoom();
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstance = useRef<any>(null);
     const markersRef = useRef<Record<string, any>>({});
@@ -570,7 +715,7 @@ const LiveMapModal = ({
     const venuePos = [26.7857, 83.0763]; 
 
     useEffect(() => {
-        if (!isOpen) return;
+        if (!isOpen || viewMode !== 'google') return;
         
         // Initialize Map
         const initMap = async () => {
@@ -602,11 +747,11 @@ const LiveMapModal = ({
                 markersRef.current = {};
             }
         };
-    }, [isOpen]);
+    }, [isOpen, viewMode]);
 
-    // Update Markers
+    // Update Markers (Leaflet)
     useEffect(() => {
-        if (!mapInstance.current) return;
+        if (!mapInstance.current || viewMode !== 'google') return;
         const L = (window as any).L;
 
         Object.values(activeUsers).forEach((user: any) => {
@@ -644,7 +789,7 @@ const LiveMapModal = ({
              }
         });
 
-    }, [activeUsers, userName, isOpen]);
+    }, [activeUsers, userName, isOpen, viewMode]);
 
     // GPS Locate Function
     const handleLocateMe = () => {
@@ -668,28 +813,73 @@ const LiveMapModal = ({
             </div>
             
             {/* Map Control Bar */}
-            <div className="bg-black/40 p-2 flex justify-between items-center px-4 border-b border-white/5">
-                 <span className="text-xs text-stone-400 flex items-center gap-2">
-                     <Users size={14} /> {Object.keys(activeUsers).length} Active
-                 </span>
-                 <button 
-                    onClick={onToggleSharing}
-                    className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${isSharing ? 'bg-green-900/40 text-green-400 border border-green-500/50' : 'bg-white/5 text-stone-400 border border-white/10 hover:bg-white/10'}`}
-                 >
-                     <div className={`w-2 h-2 rounded-full ${isSharing ? 'bg-green-500 animate-pulse' : 'bg-stone-500'}`}></div>
-                     {isSharing ? 'Sharing Live' : 'Share Location'}
-                 </button>
+            <div className="bg-black/40 p-2 flex flex-col sm:flex-row justify-between items-center px-4 border-b border-white/5 gap-2">
+                 <div className="flex items-center gap-2">
+                     <button onClick={() => setViewMode('venue')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${viewMode === 'venue' ? 'bg-rose-600 text-white shadow-md' : 'bg-white/10 text-stone-400 hover:bg-white/20'}`}>Venue</button>
+                     <button onClick={() => setViewMode('google')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${viewMode === 'google' ? 'bg-rose-600 text-white shadow-md' : 'bg-white/10 text-stone-400 hover:bg-white/20'}`}>GPS Map</button>
+                 </div>
+                 <div className="flex items-center gap-4">
+                     <span className="text-xs text-stone-400 flex items-center gap-2 hidden sm:flex">
+                         <Users size={14} /> {Object.keys(activeUsers).length} Active
+                     </span>
+                     <button 
+                        onClick={onToggleSharing}
+                        className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${isSharing ? 'bg-green-900/40 text-green-400 border border-green-500/50' : 'bg-white/5 text-stone-400 border border-white/10 hover:bg-white/10'}`}
+                     >
+                         <div className={`w-2 h-2 rounded-full ${isSharing ? 'bg-green-500 animate-pulse' : 'bg-stone-500'}`}></div>
+                         {isSharing ? 'Sharing Live' : 'Share Location'}
+                     </button>
+                 </div>
             </div>
 
-            <div className="flex-grow relative">
-                 <div ref={mapRef} className="w-full h-full bg-stone-200"></div>
-                 {/* GPS Button */}
-                 <button 
-                    onClick={handleLocateMe}
-                    className="absolute bottom-4 right-4 z-[500] bg-white text-black p-3 rounded-full shadow-xl active:scale-95 transition-transform"
-                 >
-                     <LocateFixed size={24} />
-                 </button>
+            <div className="flex-grow relative bg-[#0f0505] overflow-hidden">
+                 {viewMode === 'venue' ? (
+                     <div className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden" {...handlers} style={style}>
+                        <div 
+                            className="absolute inset-0 w-full h-full origin-top-left transition-transform duration-75 ease-out"
+                            style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
+                        >
+                            <div className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 bg-[#f5f5f4] border-[20px] border-[#4a0e11] shadow-2xl overflow-hidden">
+                                {mapImage ? (
+                                    <>
+                                        <img src={mapImage} className="absolute inset-0 w-full h-full object-cover opacity-90" alt="Venue Map" />
+                                        <div className="absolute inset-0 bg-black/5"></div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#4a0e11 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+                                        {VENUE_ZONES.map((zone, i) => (
+                                            <div key={i} className="absolute border-2 border-dashed flex items-center justify-center text-center p-2 opacity-60" 
+                                                style={{ 
+                                                    left: `${zone.x}%`, top: `${zone.y}%`, width: `${zone.w}%`, height: `${zone.h}%`, 
+                                                    transform: 'translate(-50%, -50%)',
+                                                    borderColor: zone.color, backgroundColor: `${zone.color}10`
+                                                }}>
+                                                <span className="font-serif font-bold text-[10px] uppercase tracking-wider text-[#4a0e11] bg-white/80 px-2 py-1 rounded-full shadow-sm">{zone.name}</span>
+                                            </div>
+                                        ))}
+                                        <MapTree className="absolute top-[15%] left-[15%] w-24 h-24 opacity-80" />
+                                        <MapTree className="absolute top-[15%] right-[15%] w-24 h-24 opacity-80" />
+                                    </>
+                                )}
+                                
+                                {Object.values(activeUsers).map((u: LocationUpdate, i) => (
+                                    <MapNode key={i} x={u.x} y={u.y} name={escapeHtml(u.name)} type={u.role} />
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                 ) : (
+                     <div className="relative w-full h-full">
+                         <div ref={mapRef} className="w-full h-full bg-stone-200"></div>
+                         <button 
+                            onClick={handleLocateMe}
+                            className="absolute bottom-4 right-4 z-[500] bg-white text-black p-3 rounded-full shadow-xl active:scale-95 transition-transform"
+                         >
+                             <LocateFixed size={24} />
+                         </button>
+                     </div>
+                 )}
             </div>
             <div className="p-4 bg-[#2d0a0d] text-center">
                 <p className="text-xs text-stone-400">Enable sharing to help friends find you at the venue!</p>
@@ -711,10 +901,10 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
     const [events, setEvents] = useState<WeddingEvent[]>(DEFAULT_EVENTS);
     const [heartCount, setHeartCount] = useState(0);
     const [showMapModal, setShowMapModal] = useState(false);
-    const [globalConfig, setGlobalConfig] = useState({ coupleName: "Sneha & Aman", date: "Nov 26" });
+    const [globalConfig, setGlobalConfig] = useState({ coupleName: "Sneha & Aman", date: "Nov 26", venueMapUrl: "" });
     const [theme, setTheme] = useState<ThemeConfig>({ gradient: 'royal', effect: 'dust' });
 
-    // --- Location Tracking State (Lifted from Modal) ---
+    // --- Location Tracking State ---
     const [activeUsers, setActiveUsers] = useState<Record<string, LocationUpdate>>({});
     const [isLocationSharing, setIsLocationSharing] = useState(false);
     const lastLocationRef = useRef<LocationUpdate | null>(null);
@@ -737,7 +927,11 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
         const conf = localStorage.getItem('wedding_global_config');
         if (conf) {
              const c = JSON.parse(conf);
-             setGlobalConfig({ coupleName: c.coupleName || "Sneha & Aman", date: c.date || "Nov 26" });
+             setGlobalConfig({ 
+                 coupleName: c.coupleName || "Sneha & Aman", 
+                 date: c.date || "Nov 26",
+                 venueMapUrl: c.venueMapUrl || ""
+             });
         }
 
         const savedTheme = localStorage.getItem('wedding_theme_config');
@@ -766,7 +960,11 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                     setEvents(data.payload);
                     break;
                 case 'config_sync':
-                    setGlobalConfig({ coupleName: data.payload.coupleName, date: data.payload.date });
+                    setGlobalConfig({ 
+                        coupleName: data.payload.coupleName, 
+                        date: data.payload.date,
+                        venueMapUrl: data.payload.venueMapUrl
+                    });
                     break;
                 case 'theme_sync':
                     setTheme(data.payload);
@@ -784,6 +982,9 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
         // 1. Handshake: Announce we are here and ask others for their location
         channel.postMessage({ type: 'location_request' });
 
+        // Periodic Heartbeat: Re-broadcast location every 5s to ensure new users see us
+        let heartbeatInterval: any;
+
         channel.onmessage = (event) => {
              const data = event.data;
              if (data.type === 'location_update') {
@@ -793,6 +994,12 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                  if (isLocationSharing && lastLocationRef.current) {
                      channel.postMessage(lastLocationRef.current);
                  }
+             } else if (data.type === 'location_leave') {
+                 setActiveUsers(prev => {
+                     const next = { ...prev };
+                     delete next[data.id];
+                     return next;
+                 });
              }
         };
 
@@ -824,11 +1031,30 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                 (err) => console.error("Geo Error:", err),
                 { enableHighAccuracy: true, maximumAge: 5000 }
             );
+
+            // Start Heartbeat
+            heartbeatInterval = setInterval(() => {
+                if (lastLocationRef.current) {
+                    channel.postMessage(lastLocationRef.current);
+                }
+            }, 5000);
+        } else {
+            // Send Leave Message if we stop sharing
+            if (lastLocationRef.current) {
+                channel.postMessage({ type: 'location_leave', id: userName });
+            }
+            // Remove self from local map
+            setActiveUsers(prev => {
+                const next = { ...prev };
+                delete next[userName];
+                return next;
+            });
         }
         
         return () => {
             channel.close();
             if (watchId) navigator.geolocation.clearWatch(watchId);
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
         };
     }, [isLocationSharing, userName]);
 
@@ -1041,6 +1267,7 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                 activeUsers={activeUsers}
                 isSharing={isLocationSharing}
                 onToggleSharing={() => setIsLocationSharing(!isLocationSharing)}
+                mapImage={globalConfig.venueMapUrl}
              />
         </div>
     );
