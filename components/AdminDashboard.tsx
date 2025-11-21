@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, Settings, Scroll, Calendar, Megaphone, Plus, Minus,
   FileText, Camera, MessageSquare, Home, Users, Folder, 
-  Trash2, Edit2, Check, X, Save, Search, Phone, MapPin, Upload, Image as ImageIcon, Film, ExternalLink, Map, Heart, Navigation, LocateFixed, Music, Clock, PenTool, Plane, LogOut, Send, Ban, BellRing
+  Trash2, Edit2, Check, X, Save, Search, Phone, MapPin, Upload, Image as ImageIcon, Film, ExternalLink, Map, Heart, Navigation, LocateFixed, Music, Clock, PenTool, Plane, LogOut, Send, Ban, BellRing, Palette, Sparkles, CloudFog, Flower
 } from 'lucide-react';
 
 // --- Utility to Prevent XSS in Map Markers ---
@@ -46,6 +46,11 @@ interface LocationUpdate {
     lng?: number;
     role: 'guest' | 'couple';
     map: 'all' | 'venue' | 'google';
+}
+
+interface ThemeConfig {
+    gradient: 'royal' | 'midnight' | 'sunset';
+    effect: 'dust' | 'petals' | 'lights' | 'none';
 }
 
 const DEFAULT_EVENTS: WeddingEvent[] = [
@@ -345,8 +350,9 @@ const AdminLiveMap: React.FC = () => {
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'highlights' | 'gallery' | 'messages' | 'config' | 'map'>('overview');
-  const [config, setConfig] = useState({ coupleName: "", date: "", welcomeMsg: "" });
+  const [activeTab, setActiveTab] = useState<'overview' | 'highlights' | 'gallery' | 'messages' | 'config' | 'theme' | 'map'>('overview');
+  const [config, setConfig] = useState({ coupleName: "", date: "", welcomeMsg: "", coupleImage: "" });
+  const [theme, setTheme] = useState<ThemeConfig>({ gradient: 'royal', effect: 'dust' });
   const [guestCount, setGuestCount] = useState(0);
   const [msgCount, setMsgCount] = useState(0);
   const [heartCount, setHeartCount] = useState(0);
@@ -400,8 +406,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       // Initial Load
       const loadData = () => {
         const savedConfig = localStorage.getItem('wedding_global_config');
-        if (savedConfig) setConfig(JSON.parse(savedConfig));
-        else setConfig({ coupleName: "Sneha & Aman", date: "2025-11-26", welcomeMsg: "Welcome to our Engagement!" });
+        const savedImage = localStorage.getItem('wedding_couple_image');
+        const savedTheme = localStorage.getItem('wedding_theme_config');
+        
+        if (savedConfig) {
+            setConfig({ ...JSON.parse(savedConfig), coupleImage: savedImage || "" });
+        } else {
+            setConfig({ coupleName: "Sneha & Aman", date: "2025-11-26", welcomeMsg: "Welcome to our Engagement!", coupleImage: savedImage || "" });
+        }
+
+        if (savedTheme) {
+            setTheme(JSON.parse(savedTheme));
+        }
 
         // Count guests (rough estimate from local keys)
         let gCount = 0;
@@ -462,8 +478,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const handleSaveConfig = () => {
       localStorage.setItem('wedding_global_config', JSON.stringify(config));
       localStorage.setItem('wedding_welcome_msg', config.welcomeMsg);
+      if (config.coupleImage) {
+          localStorage.setItem('wedding_couple_image', config.coupleImage);
+      }
       broadcastSync('config_sync', config);
       alert("Configuration Saved & Broadcasted!");
+  };
+
+  const handleThemeUpdate = (newTheme: Partial<ThemeConfig>) => {
+      const updated = { ...theme, ...newTheme };
+      setTheme(updated);
+      localStorage.setItem('wedding_theme_config', JSON.stringify(updated));
+      broadcastSync('theme_sync', updated);
   };
 
   const handleClearData = () => {
@@ -544,9 +570,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#1a0507] text-gold-100 font-serif">
+    <div className={`w-full h-full flex flex-col font-serif ${
+        theme.gradient === 'midnight' ? 'bg-gradient-to-b from-[#0f172a] via-[#1e1b4b] to-[#020617]' :
+        theme.gradient === 'sunset' ? 'bg-gradient-to-b from-[#4a0404] via-[#7c2d12] to-[#2d0a0d]' :
+        'bg-gradient-to-b from-[#1a0507] via-[#2d0a0d] to-[#0f0505]'
+    } text-gold-100 transition-colors duration-1000`}>
       {/* Header */}
-      <header className="p-4 bg-[#2d0a0d] border-b border-gold-500/20 flex justify-between items-center shadow-lg z-20">
+      <header className="p-4 bg-[#2d0a0d]/90 backdrop-blur-md border-b border-gold-500/20 flex justify-between items-center shadow-lg z-20">
           <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gold-500 text-[#2d0a0d] rounded-lg flex items-center justify-center font-bold shadow-md">
                   <Settings size={20} />
@@ -563,9 +593,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
       <div className="flex flex-grow overflow-hidden">
           {/* Sidebar */}
-          <aside className="w-20 bg-[#2d0a0d]/50 border-r border-white/5 flex flex-col items-center py-4 gap-4 z-10">
+          <aside className="w-20 bg-[#2d0a0d]/50 border-r border-white/5 flex flex-col items-center py-4 gap-4 z-10 backdrop-blur-sm">
               {[
                   { id: 'overview', icon: Home, label: 'Home' },
+                  { id: 'theme', icon: Palette, label: 'Theme' },
                   { id: 'highlights', icon: Calendar, label: 'Events' },
                   { id: 'gallery', icon: Camera, label: 'Media' },
                   { id: 'messages', icon: MessageSquare, label: 'Chat' },
@@ -583,7 +614,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
           </aside>
 
           {/* Content */}
-          <main className="flex-grow overflow-y-auto p-6 bg-[#0f0505]">
+          <main className="flex-grow overflow-y-auto p-6">
               {activeTab === 'overview' && (
                   <div className="space-y-6 animate-fade-in">
                       <h2 className="text-2xl font-heading text-gold-200 mb-4">Dashboard Overview</h2>
@@ -636,6 +667,65 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                           <button onClick={handleClearData} className="w-full py-3 rounded-lg border border-red-500/50 text-red-400 hover:bg-red-900/20 transition-colors flex items-center justify-center gap-2">
                               <Trash2 size={16} /> Reset All App Data
                           </button>
+                      </div>
+                  </div>
+              )}
+
+              {activeTab === 'theme' && (
+                  <div className="space-y-8 animate-fade-in max-w-2xl">
+                      <h2 className="text-2xl font-heading text-gold-200 flex items-center gap-3">
+                          <Palette className="text-gold-500"/> Theme Customizer
+                      </h2>
+                      
+                      <div className="bg-[#2d0a0d] p-6 rounded-xl border border-white/10 shadow-xl">
+                           <h3 className="text-gold-400 font-bold text-sm uppercase tracking-widest mb-4">Background Gradient</h3>
+                           <div className="grid grid-cols-3 gap-4">
+                               {[
+                                   { id: 'royal', label: 'Royal Rose', class: 'bg-gradient-to-b from-[#1a0507] via-[#2d0a0d] to-[#0f0505]' },
+                                   { id: 'midnight', label: 'Midnight Blue', class: 'bg-gradient-to-b from-[#0f172a] via-[#1e1b4b] to-[#020617]' },
+                                   { id: 'sunset', label: 'Golden Sunset', class: 'bg-gradient-to-b from-[#4a0404] via-[#7c2d12] to-[#2d0a0d]' },
+                               ].map(opt => (
+                                   <button 
+                                        key={opt.id}
+                                        onClick={() => handleThemeUpdate({ gradient: opt.id as any })}
+                                        className={`relative h-24 rounded-lg border-2 transition-all overflow-hidden group ${theme.gradient === opt.id ? 'border-gold-500 scale-105 shadow-gold-500/20 shadow-lg' : 'border-white/10 hover:border-white/30'}`}
+                                   >
+                                       <div className={`absolute inset-0 ${opt.class}`}></div>
+                                       <div className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-transparent transition-colors">
+                                            <span className="font-bold text-white text-sm shadow-black/50 drop-shadow-md">{opt.label}</span>
+                                       </div>
+                                       {theme.gradient === opt.id && (
+                                           <div className="absolute top-2 right-2 bg-gold-500 text-[#2d0a0d] rounded-full p-0.5"><Check size={12}/></div>
+                                       )}
+                                   </button>
+                               ))}
+                           </div>
+                      </div>
+
+                      <div className="bg-[#2d0a0d] p-6 rounded-xl border border-white/10 shadow-xl">
+                           <h3 className="text-gold-400 font-bold text-sm uppercase tracking-widest mb-4">Cinematic Overlay Effect</h3>
+                           <div className="grid grid-cols-4 gap-4">
+                               {[
+                                   { id: 'dust', label: 'Gold Dust', icon: Sparkles },
+                                   { id: 'petals', label: 'Rose Petals', icon: Flower },
+                                   { id: 'lights', label: 'God Rays', icon: CloudFog },
+                                   { id: 'none', label: 'None', icon: Ban },
+                               ].map(opt => (
+                                   <button 
+                                        key={opt.id}
+                                        onClick={() => handleThemeUpdate({ effect: opt.id as any })}
+                                        className={`flex flex-col items-center justify-center gap-3 py-6 rounded-lg border transition-all ${theme.effect === opt.id ? 'bg-white/10 border-gold-500 text-gold-100' : 'bg-black/20 border-white/10 text-stone-400 hover:bg-white/5'}`}
+                                   >
+                                       <opt.icon size={24} className={theme.effect === opt.id ? 'text-gold-400' : ''} />
+                                       <span className="text-xs font-bold uppercase">{opt.label}</span>
+                                   </button>
+                               ))}
+                           </div>
+                      </div>
+                      
+                      <div className="p-4 bg-blue-900/20 rounded-lg border border-blue-500/30 text-sm text-blue-200 flex gap-3">
+                          <Film className="shrink-0" />
+                          <p>Changes made here are broadcast instantly to all guests, the couple dashboard, and the welcome screen. No refresh required.</p>
                       </div>
                   </div>
               )}
@@ -747,7 +837,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
               {activeTab === 'config' && (
                   <div className="space-y-6 animate-fade-in max-w-md">
-                      <h2 className="text-2xl font-heading text-gold-200">Wedding Configuration</h2>
+                      <h2 className="text-2xl font-heading text-gold-200">Engagement Configuration</h2>
                       
                       <div className="space-y-4">
                           <div>
@@ -760,13 +850,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                               />
                           </div>
                           <div>
-                              <label className="block text-xs text-stone-400 uppercase tracking-widest mb-2">Wedding Date</label>
+                              <label className="block text-xs text-stone-400 uppercase tracking-widest mb-2">Engagement Date</label>
                               <input 
                                 type="date" 
                                 value={config.date} 
                                 onChange={e => setConfig({...config, date: e.target.value})}
                                 className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-gold-500 focus:outline-none"
                               />
+                          </div>
+                           <div>
+                              <label className="block text-xs text-stone-400 uppercase tracking-widest mb-2">Main Display Image URL</label>
+                              <div className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    value={config.coupleImage} 
+                                    onChange={e => setConfig({...config, coupleImage: e.target.value})}
+                                    className="flex-grow bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-gold-500 focus:outline-none"
+                                    placeholder="https://..."
+                                />
+                                {config.coupleImage && (
+                                    <div className="w-12 h-12 rounded overflow-hidden border border-white/20">
+                                        <img src={config.coupleImage} className="w-full h-full object-cover" />
+                                    </div>
+                                )}
+                              </div>
                           </div>
                           <div>
                               <label className="block text-xs text-stone-400 uppercase tracking-widest mb-2">Welcome Message</label>

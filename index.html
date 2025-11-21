@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#2d0a0d" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="description" content="A royal wedding experience">
+    <meta name="description" content="A royal engagement experience">
     <link rel="manifest" href="/manifest.json">
     
     <!-- Cache Control for regular updates -->
@@ -249,5 +249,18 @@
     <div class="film-grain"></div>
     <div class="vignette"></div>
     <script type="module" src="/index.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then(registration => {
+              console.log('SW registered: ', registration);
+            })
+            .catch(registrationError => {
+              console.log('SW registration failed: ', registrationError);
+            });
+        });
+      }
+    </script>
   </body>
 </html>

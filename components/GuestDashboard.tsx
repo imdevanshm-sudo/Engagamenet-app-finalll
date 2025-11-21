@@ -4,7 +4,7 @@ import {
   Home, Calendar, MessageSquare, Heart, Camera, MapPin, Clock, 
   ChevronRight, LogOut, Sparkles, Map, Send, 
   Smile, Upload, Phone, Download, Lock, Search, ExternalLink, Contact,
-  User, Music, Info, MailCheck, X, Navigation, Share2, Check, LocateFixed, Compass, Flower, Settings, Bell, ToggleLeft, ToggleRight, Trash2, RefreshCw, Battery, Wifi, WifiOff, Smartphone, Users, Plus, Minus, Loader, Disc
+  User, Music, Info, MailCheck, X, Navigation, Share2, Check, LocateFixed, Compass, Flower, Settings, Bell, ToggleLeft, ToggleRight, Trash2, RefreshCw, Battery, Wifi, WifiOff, Smartphone, Users, Plus, Minus, Loader, Disc, Crown
 } from 'lucide-react';
 
 // --- Utility to Prevent XSS in Map Markers ---
@@ -63,13 +63,20 @@ interface WeddingEvent {
     icon: string;
 }
 
+interface ThemeConfig {
+    gradient: 'royal' | 'midnight' | 'sunset';
+    effect: 'dust' | 'petals' | 'lights' | 'none';
+}
+
 const DEFAULT_EVENTS: WeddingEvent[] = [
     { id: '1', title: "Ring Ceremony", time: "Nov 26, 5:00 PM", loc: "Royal Gardens", icon: "💍" },
     { id: '2', title: "Dinner & Toast", time: "Nov 26, 7:30 PM", loc: "Grand Ballroom", icon: "🥂" },
     { id: '3', title: "DJ Night", time: "Nov 26, 9:00 PM", loc: "Poolside", icon: "💃" },
 ];
 
-// --- Assets & Stickers ---
+// --- Assets & Effects ---
+
+// Gold Dust Effect
 const GoldDust = ({ opacity = 0.4 }: { opacity?: number }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -146,6 +153,61 @@ const GoldDust = ({ opacity = 0.4 }: { opacity?: number }) => {
   return <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none z-0 mix-blend-screen" />;
 };
 
+// God Rays Effect
+const GodRays = () => (
+    <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden mix-blend-overlay">
+        <div className="absolute top-[-20%] left-[-10%] w-[120%] h-[60%] bg-gradient-to-b from-gold-200/10 to-transparent rotate-12 blur-3xl transform origin-top-left animate-breathe"></div>
+        <div className="absolute top-[-20%] right-[-10%] w-[120%] h-[60%] bg-gradient-to-b from-gold-400/5 to-transparent -rotate-12 blur-3xl transform origin-top-right animate-breathe delay-700"></div>
+    </div>
+);
+
+// Petals Effect
+const PetalIcon = ({ className, style }: { className?: string, style?: React.CSSProperties }) => (
+  <svg viewBox="0 0 30 30" className={className} style={style}>
+     <path d="M15,0 C5,5 0,15 5,25 C10,30 20,30 25,25 C30,15 25,5 15,0 Z" fill="url(#petal-gradient)" />
+     <defs>
+        <linearGradient id="petal-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+           <stop offset="0%" stopColor="#be123c" /> 
+           <stop offset="50%" stopColor="#9f1239" />
+           <stop offset="100%" stopColor="#881337" /> 
+        </linearGradient>
+     </defs>
+  </svg>
+);
+
+const FallingPetals = () => {
+  const petals = Array.from({ length: 12 }).map((_, i) => {
+     const r1 = (i * 37 + 13) % 100; 
+     const r2 = (i * 23 + 7) % 100;  
+     return {
+        id: i,
+        left: `${r1}%`,
+        delay: `${r2 * 0.2}s`, 
+        duration: `${15 + (i * 0.5)}s`, 
+        scale: 0.6 + (r2 * 0.008),
+     };
+  });
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
+       {petals.map(p => (
+          <div 
+            key={p.id}
+            className="absolute -top-8 animate-petal-fall opacity-0 will-change-transform blur-[0px]"
+            style={{
+               left: p.left,
+               animationDelay: p.delay,
+               animationDuration: p.duration,
+               '--scale': p.scale
+            } as React.CSSProperties}
+          >
+            <PetalIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+          </div>
+       ))}
+    </div>
+  );
+}
+
 // Stickers
 const StickerKalash = () => (<svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md"><path d="M30,80 Q30,95 50,95 Q70,95 70,80 L75,40 Q80,30 50,30 Q20,30 25,40 Z" fill="#b45309" stroke="#78350f" strokeWidth="2"/><path d="M30,40 Q50,50 70,40" stroke="#fcd34d" strokeWidth="3" fill="none"/><circle cx="50" cy="60" r="10" fill="#fcd34d" /><path d="M50,30 L50,20 M40,30 L35,15 M60,30 L65,15" stroke="#15803d" strokeWidth="3"/><circle cx="50" cy="15" r="8" fill="#fbbf24"/></svg>);
 const StickerShehnai = () => (<svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md"><path d="M20,80 L80,20 L90,30 L30,90 Z" fill="#92400e" /><circle cx="25" cy="85" r="12" fill="#fbbf24" stroke="#b45309" strokeWidth="2"/><circle cx="25" cy="85" r="6" fill="#000" opacity="0.3"/><path d="M35,65 L40,60 M50,50 L55,45 M65,35 L70,30" stroke="#fbbf24" strokeWidth="3"/></svg>);
@@ -168,47 +230,99 @@ const STICKER_MAP: Record<string, React.ReactNode> = {
 };
 
 const AdoreMeter = ({ count, onTrigger }: { count: number, onTrigger: () => void }) => {
-    const fillPercent = Math.min(100, Math.max(10, (count * 0.1) % 110));
-    const [hearts, setHearts] = useState<Array<{id: number, type: 'heart'|'ring'|'diamond', x: number}>>([]);
+    // Calculate fill percentage (cycling every 100 likes for visual effect)
+    const fillPercent = Math.min(100, (count % 100) + 15); 
+    const [hearts, setHearts] = useState<Array<{id: number, type: 'heart'|'sparkle', x: number, delay: number}>>([]);
+    const [scale, setScale] = useState(1);
 
     const handleClick = () => {
         onTrigger();
+        setScale(0.9); // Click press effect
+        setTimeout(() => setScale(1), 150);
+
         const id = Date.now();
-        const types: ('heart'|'ring'|'diamond')[] = ['heart', 'ring', 'diamond'];
-        const type = types[Math.floor(Math.random() * types.length)];
-        const x = Math.random() * 40 - 20; 
-        setHearts(prev => [...prev, { id, type, x }]);
-        setTimeout(() => setHearts(prev => prev.filter(h => h.id !== id)), 2000);
+        const types: ('heart'|'sparkle')[] = ['heart', 'sparkle'];
+        // Generate multiple particles per click
+        for (let i = 0; i < 3; i++) {
+            const type = types[Math.floor(Math.random() * types.length)];
+            const x = (Math.random() * 60) - 30; // Spread -30px to 30px
+            const delay = i * 100;
+            
+            const newHeart = { id: id + i, type, x, delay };
+            setHearts(prev => [...prev, newHeart]);
+            
+            // Clean up
+            setTimeout(() => {
+                setHearts(prev => prev.filter(h => h.id !== newHeart.id));
+            }, 2000);
+        }
     };
 
     return (
-        <div className="flex flex-col items-center pointer-events-auto animate-fade-in delay-500 relative z-50" onClick={handleClick}>
-            <div className="absolute bottom-full w-24 h-40 pointer-events-none overflow-hidden -z-10 left-1/2 -translate-x-1/2">
+        <div className="relative z-50">
+            {/* Floating Particles Container */}
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-40 h-60 pointer-events-none overflow-hidden -z-10">
                  {hearts.map(h => (
-                     <div key={h.id} className="absolute bottom-0 left-1/2 animate-sidebar-float text-rose-500 drop-shadow-lg" style={{ '--x': `${h.x}px` } as React.CSSProperties}>
-                         {h.type === 'heart' && <Heart size={20} fill="currentColor" />}
-                         {h.type === 'ring' && <div className="w-5 h-5 border-2 border-yellow-400 rounded-full"></div>}
-                         {h.type === 'diamond' && <div className="w-4 h-4 bg-blue-400 rotate-45"></div>}
+                     <div 
+                        key={h.id} 
+                        className="absolute bottom-4 left-1/2 animate-sidebar-float text-rose-500 drop-shadow-lg will-change-transform" 
+                        style={{ 
+                            '--x': `${h.x}px`,
+                            animationDelay: `${h.delay}ms`
+                        } as React.CSSProperties}
+                     >
+                         {h.type === 'heart' ? (
+                             <Heart size={Math.random() * 10 + 14} fill="url(#heartGradient)" className="text-rose-500" />
+                         ) : (
+                             <Sparkles size={16} className="text-gold-400" />
+                         )}
                      </div>
                  ))}
+                 <svg width="0" height="0">
+                    <defs>
+                        <linearGradient id="heartGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#fbbf24" />
+                            <stop offset="100%" stopColor="#e11d48" />
+                        </linearGradient>
+                    </defs>
+                </svg>
             </div>
 
-            <div className="relative w-14 h-36 cursor-pointer group transition-transform active:scale-95 hover:scale-105 duration-300">
-                <div className="absolute inset-0 bg-black/20 backdrop-blur-md rounded-full border border-white/20 shadow-xl"></div>
-                <div className="absolute bottom-2 left-2 right-2 bg-stone-800/50 rounded-full overflow-hidden h-[80%] w-[calc(100%-16px)] ml-auto mr-auto z-10">
+            {/* Main Orb Button */}
+            <button 
+                onClick={handleClick}
+                className="relative w-16 h-16 rounded-full group transition-transform duration-200 active:scale-90"
+                style={{ transform: `scale(${scale})` }}
+            >
+                {/* Glowing Ring */}
+                <div className="absolute -inset-1 bg-gradient-to-br from-rose-500 to-gold-500 rounded-full blur opacity-40 group-hover:opacity-75 animate-pulse-slow"></div>
+                
+                {/* Glass Container */}
+                <div className="absolute inset-0 rounded-full bg-black/60 backdrop-blur-md border-2 border-white/10 overflow-hidden shadow-2xl">
+                    {/* Liquid Fill */}
                     <div 
-                        className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-rose-600 via-rose-500 to-rose-400 transition-all duration-700 ease-out flex items-start justify-center pt-1 shadow-[0_0_15px_rgba(225,29,72,0.6)]"
+                        className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-rose-600 via-rose-500 to-rose-400 transition-all duration-500 ease-out"
                         style={{ height: `${fillPercent}%` }}
                     >
-                         <div className="w-full h-2 bg-white/30 animate-pulse blur-[1px]"></div>
+                        {/* Wave top */}
+                        <div className="absolute top-0 left-0 w-full h-[4px] bg-rose-300/50 blur-[2px]"></div>
                     </div>
+                    
+                    {/* Reflection */}
+                    <div className="absolute top-2 left-3 w-4 h-2 bg-white/20 rounded-full -rotate-12 blur-[1px]"></div>
                 </div>
-                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-gradient-to-br from-rose-500 to-rose-700 z-20 shadow-lg flex items-center justify-center border-2 border-rose-300">
-                    <Heart size={16} fill="#fcd34d" className="text-gold-300 animate-pulse" />
+
+                {/* Center Icon & Count */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
+                    <Heart size={20} fill="#fff" className="text-white drop-shadow-md animate-heartbeat" />
+                    <span className="text-[9px] font-bold text-white drop-shadow-md mt-0.5 bg-black/20 px-1.5 rounded-full backdrop-blur-[1px]">
+                        {count}
+                    </span>
                 </div>
-            </div>
-            <div className="mt-2 px-3 py-1 bg-black/60 backdrop-blur-sm rounded-full text-[9px] font-bold text-gold-200 tracking-widest uppercase shadow-sm border border-gold-500/30 text-center">
-                Adore Meter<br/>{count}
+            </button>
+            
+            <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap">
+                <span className="text-[9px] text-gold-500 font-bold uppercase tracking-wider opacity-80">Adore</span>
             </div>
         </div>
     );
@@ -338,44 +452,58 @@ const GuestBookView = ({ userName, messages, onSendMessage, heartCount, onHeartT
 
             {view === 'wishes' && (
                 <div className="flex flex-col flex-grow h-full overflow-hidden relative">
-                    <div className={`absolute inset-2 bottom-24 rounded-xl border backdrop-blur-md z-0 pointer-events-none transition-colors duration-500 ${isRomanticMode ? 'bg-black/40 border-white/10' : 'bg-white/60 border-white/30'}`}></div>
+                    <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-[#1a0507] to-transparent z-10 pointer-events-none"></div>
 
-                    <div ref={scrollRef} className="flex-grow overflow-y-auto p-4 space-y-4 pb-24 relative z-10 overscroll-contain mx-2">
+                    <div ref={scrollRef} className="flex-grow overflow-y-auto p-4 space-y-6 pb-24 relative z-0 overscroll-contain mx-0 sm:mx-2">
                         {messages.map((msg, i) => {
                             const isMe = msg.sender === userName;
                             return (
-                                <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                                     <div className={`max-w-[80%] px-4 py-2 rounded-xl shadow-sm ${
-                                         msg.type === 'sticker' ? 'bg-transparent p-0' :
-                                         isMe ? 'bg-gradient-to-r from-gold-500 to-gold-600 text-[#2d0a0d] rounded-tr-none' : 
-                                         msg.isCouple ? 'bg-rose-900/90 text-rose-100 border border-rose-500/30 rounded-tl-none' :
-                                         'bg-black/60 text-stone-200 border border-white/10 rounded-tl-none'
-                                     }`}>
-                                         {msg.type === 'sticker' && msg.stickerKey ? (
-                                             <div className="w-24 h-24">{STICKER_MAP[msg.stickerKey]}</div>
-                                         ) : (
-                                             <p className="text-sm font-serif leading-relaxed">{msg.text}</p>
+                                <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-slide-up`}>
+                                     <div className={`max-w-[85%] relative group`}>
+                                         
+                                         {/* Couple Badge */}
+                                         {msg.isCouple && (
+                                             <div className="absolute -top-3 -left-2 bg-gradient-to-r from-rose-600 to-rose-800 text-white text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md border border-rose-400/50 z-10">
+                                                 <Crown size={10} fill="currentColor" /> Couple
+                                             </div>
                                          )}
+
+                                         <div className={`px-4 py-3 shadow-lg backdrop-blur-sm transition-transform ${
+                                             msg.type === 'sticker' ? 'bg-transparent p-0 shadow-none' :
+                                             isMe ? 
+                                                'bg-gradient-to-br from-gold-400 to-gold-600 text-[#2d0a0d] rounded-2xl rounded-tr-sm shadow-gold-500/10' : 
+                                             msg.isCouple ? 
+                                                'bg-gradient-to-br from-rose-900 to-[#4a0410] border border-rose-500/30 text-rose-100 rounded-2xl rounded-tl-sm shadow-[0_4px_15px_rgba(225,29,72,0.2)]' :
+                                                'bg-white/10 border border-white/5 text-stone-200 rounded-2xl rounded-tl-sm shadow-black/20'
+                                         }`}>
+                                             {msg.type === 'sticker' && msg.stickerKey ? (
+                                                 <div className="w-28 h-28 drop-shadow-xl transform hover:scale-105 transition-transform">{STICKER_MAP[msg.stickerKey]}</div>
+                                             ) : (
+                                                 <p className="text-sm font-serif leading-relaxed">{msg.text}</p>
+                                             )}
+                                         </div>
+                                         
+                                         <div className={`flex items-center gap-1.5 mt-1.5 text-[10px] opacity-60 ${isMe ? 'justify-end text-gold-300/70' : 'justify-start text-stone-400'}`}>
+                                             {!isMe && <span className="font-bold text-gold-500/80">{msg.sender}</span>}
+                                             <span>• {msg.timestamp}</span>
+                                         </div>
                                      </div>
-                                     <span className="text-[10px] text-stone-400 mt-1 px-1 flex items-center gap-1">
-                                         {msg.sender} {msg.isCouple && <Heart size={8} fill="currentColor" className="text-rose-500"/>} • {msg.timestamp}
-                                     </span>
                                 </div>
                             )
                         })}
                     </div>
 
-                    {/* Adore Meter Floating in Chat */}
-                    <div className="absolute bottom-24 right-6 z-50">
+                    {/* Adore Meter - Integrated Floating Button */}
+                    <div className="absolute bottom-24 right-4 z-50">
                         <AdoreMeter count={heartCount} onTrigger={onHeartTrigger} />
                     </div>
 
                     {/* Chat Input Area */}
-                    <div className="p-4 relative z-20 bg-[#2d0a0d] border-t border-white/10 pb-20 sm:pb-4">
-                        <div className="flex items-center gap-2 bg-black/30 rounded-full px-2 py-1 border border-white/10 backdrop-blur-md">
+                    <div className="p-3 sm:p-4 relative z-20 bg-[#2d0a0d]/90 border-t border-white/10 pb-safe backdrop-blur-lg shadow-2xl">
+                        <div className="flex items-center gap-2 bg-black/40 rounded-full px-2 py-1.5 border border-white/10 focus-within:border-gold-500/50 transition-colors">
                              <button 
                                 onClick={() => setActiveTab(activeTab === 'sticker' ? null : 'sticker')}
-                                className={`p-2 rounded-full transition-colors ${activeTab === 'sticker' ? 'bg-gold-500 text-black' : 'text-stone-400 hover:text-gold-400'}`}
+                                className={`p-2 rounded-full transition-colors ${activeTab === 'sticker' ? 'bg-gold-500 text-black rotate-12' : 'text-stone-400 hover:text-gold-400'}`}
                              >
                                  <Smile size={20} />
                              </button>
@@ -383,14 +511,14 @@ const GuestBookView = ({ userName, messages, onSendMessage, heartCount, onHeartT
                                 type="text" 
                                 value={inputText}
                                 onChange={(e) => setInputText(e.target.value)}
-                                placeholder="Send wishes..."
+                                placeholder="Send your wishes..."
                                 className="flex-grow bg-transparent border-none text-white placeholder-white/30 focus:ring-0 focus:outline-none h-10 text-sm"
                                 onKeyDown={(e) => e.key === 'Enter' && sendMessage(inputText)}
                              />
                              <button 
                                 onClick={() => sendMessage(inputText)}
                                 disabled={!inputText.trim() || isSending}
-                                className="p-2 bg-gold-500 text-black rounded-full hover:bg-gold-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                className="p-2.5 bg-gradient-to-r from-gold-500 to-gold-600 text-[#2d0a0d] rounded-full hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
                              >
                                  {isSending ? <Loader size={18} className="animate-spin"/> : <Send size={18} />}
                              </button>
@@ -398,14 +526,14 @@ const GuestBookView = ({ userName, messages, onSendMessage, heartCount, onHeartT
 
                         {/* Sticker Tray */}
                         {activeTab === 'sticker' && (
-                            <div className="absolute bottom-full left-0 w-full bg-[#1a0507] border-t border-white/10 p-4 animate-slide-up z-30 shadow-2xl">
-                                <div className="flex justify-between items-center mb-2">
-                                    <span className="text-xs text-stone-400 uppercase tracking-widest">Stickers</span>
-                                    <button onClick={() => setActiveTab(null)}><X size={16} className="text-stone-500"/></button>
+                            <div className="absolute bottom-full left-0 w-full bg-[#1a0507] border-t border-white/10 p-4 animate-slide-up z-30 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] rounded-t-2xl">
+                                <div className="flex justify-between items-center mb-3 px-1">
+                                    <span className="text-xs text-stone-400 uppercase tracking-widest font-bold flex items-center gap-2"><Sparkles size={12} className="text-gold-500"/> Stickers</span>
+                                    <button onClick={() => setActiveTab(null)} className="bg-white/5 p-1 rounded-full hover:bg-white/10"><X size={16} className="text-stone-400"/></button>
                                 </div>
-                                <div className="grid grid-cols-4 gap-4">
+                                <div className="grid grid-cols-4 gap-3 sm:gap-4 max-h-48 overflow-y-auto no-scrollbar">
                                     {Object.keys(STICKER_MAP).map(key => (
-                                        <button key={key} onClick={() => sendMessage('', key)} className="aspect-square p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
+                                        <button key={key} onClick={() => sendMessage('', key)} className="aspect-square p-2 bg-white/5 rounded-xl hover:bg-white/10 transition-all hover:scale-105 active:scale-95 border border-transparent hover:border-gold-500/30">
                                             {STICKER_MAP[key]}
                                         </button>
                                     ))}
@@ -419,11 +547,24 @@ const GuestBookView = ({ userName, messages, onSendMessage, heartCount, onHeartT
     );
 };
 
-const LiveMapModal = ({ userName, isOpen, onClose }: { userName: string, isOpen: boolean, onClose: () => void }) => {
+const LiveMapModal = ({ 
+    userName, 
+    isOpen, 
+    onClose,
+    activeUsers,
+    isSharing,
+    onToggleSharing
+}: { 
+    userName: string, 
+    isOpen: boolean, 
+    onClose: () => void,
+    activeUsers: Record<string, LocationUpdate>,
+    isSharing: boolean,
+    onToggleSharing: () => void
+}) => {
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstance = useRef<any>(null);
     const markersRef = useRef<Record<string, any>>({});
-    const [activeUsers, setActiveUsers] = useState<Record<string, LocationUpdate>>({});
     
     // Initial Position: Hotel Soni International, Khalilabad
     const venuePos = [26.7857, 83.0763]; 
@@ -431,36 +572,7 @@ const LiveMapModal = ({ userName, isOpen, onClose }: { userName: string, isOpen:
     useEffect(() => {
         if (!isOpen) return;
         
-        const channel = new BroadcastChannel('wedding_live_map');
-
-        // 1. Announce presence
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition((pos) => {
-                 const update: LocationUpdate = {
-                     type: 'location_update',
-                     id: userName,
-                     name: userName,
-                     x: 0, y: 0,
-                     lat: pos.coords.latitude,
-                     lng: pos.coords.longitude,
-                     role: 'guest',
-                     map: 'google'
-                 };
-                 channel.postMessage(update);
-            });
-        }
-        
-        // 2. Listen for updates
-        channel.onmessage = (event) => {
-             const data = event.data as LocationUpdate;
-             if (data.type === 'location_update') {
-                 setActiveUsers(prev => ({ ...prev, [data.id]: data }));
-             } else if (data.type === 'location_request' as any) {
-                 // Reply with own location if possible (simplified for guest)
-             }
-        };
-        
-        // 3. Initialize Map
+        // Initialize Map
         const initMap = async () => {
             if (mapRef.current && !mapInstance.current) {
                 const L = (window as any).L;
@@ -481,41 +593,42 @@ const LiveMapModal = ({ userName, isOpen, onClose }: { userName: string, isOpen:
             }
         };
         
-        // Small delay to ensure DOM is ready
         setTimeout(initMap, 100);
 
         return () => {
-            channel.close();
             if (mapInstance.current) {
                 mapInstance.current.remove();
                 mapInstance.current = null;
                 markersRef.current = {};
             }
         };
-    }, [isOpen, userName]);
+    }, [isOpen]);
 
     // Update Markers
     useEffect(() => {
         if (!mapInstance.current) return;
         const L = (window as any).L;
 
-        Object.values(activeUsers).forEach((user: LocationUpdate) => {
-             if (user.lat && user.lng) {
-                 if (markersRef.current[user.id]) {
-                     markersRef.current[user.id].setLatLng([user.lat, user.lng]);
+        Object.values(activeUsers).forEach((user: any) => {
+             const u = user as LocationUpdate;
+             if (u.lat && u.lng) {
+                 if (markersRef.current[u.id]) {
+                     markersRef.current[u.id].setLatLng([u.lat, u.lng]);
                  } else {
-                     const safeName = escapeHtml(user.name);
+                     const safeName = escapeHtml(u.name);
                      const iconHtml = `
                         <div class="relative flex flex-col items-center justify-center">
                             <div class="w-8 h-8 rounded-full border-2 shadow-lg flex items-center justify-center font-bold text-xs backdrop-blur-md ${
-                                user.role === 'couple'
+                                u.role === 'couple'
                                     ? 'bg-rose-900/90 border-rose-400 text-rose-100' 
-                                    : 'bg-amber-900/90 border-amber-400 text-amber-100'
+                                    : u.id === userName 
+                                        ? 'bg-green-900/90 border-green-400 text-green-100'
+                                        : 'bg-amber-900/90 border-amber-400 text-amber-100'
                             }">
                                 ${safeName.charAt(0)}
                             </div>
                              <div class="mt-1 px-2 py-0.5 rounded bg-black/60 text-[8px] font-bold text-white whitespace-nowrap border border-white/10">
-                                ${user.role === 'couple' ? 'Couple' : safeName}
+                                ${u.role === 'couple' ? 'Couple' : u.id === userName ? 'You' : safeName}
                             </div>
                         </div>
                     `;
@@ -525,13 +638,13 @@ const LiveMapModal = ({ userName, isOpen, onClose }: { userName: string, isOpen:
                         iconSize: [40, 50],
                         iconAnchor: [20, 20]
                     });
-                     const marker = L.marker([user.lat, user.lng], { icon }).addTo(mapInstance.current);
-                     markersRef.current[user.id] = marker;
+                     const marker = L.marker([u.lat, u.lng], { icon }).addTo(mapInstance.current);
+                     markersRef.current[u.id] = marker;
                  }
              }
         });
 
-    }, [activeUsers]);
+    }, [activeUsers, userName, isOpen]);
 
     if (!isOpen) return null;
 
@@ -541,11 +654,26 @@ const LiveMapModal = ({ userName, isOpen, onClose }: { userName: string, isOpen:
                 <h3 className="text-gold-100 font-heading flex items-center gap-2"><Map size={18}/> Live Tracker</h3>
                 <button onClick={onClose} className="p-2 bg-white/10 rounded-full text-white"><X size={20}/></button>
             </div>
+            
+            {/* Map Control Bar */}
+            <div className="bg-black/40 p-2 flex justify-between items-center px-4 border-b border-white/5">
+                 <span className="text-xs text-stone-400 flex items-center gap-2">
+                     <Users size={14} /> {Object.keys(activeUsers).length} Active
+                 </span>
+                 <button 
+                    onClick={onToggleSharing}
+                    className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${isSharing ? 'bg-green-900/40 text-green-400 border border-green-500/50' : 'bg-white/5 text-stone-400 border border-white/10 hover:bg-white/10'}`}
+                 >
+                     <div className={`w-2 h-2 rounded-full ${isSharing ? 'bg-green-500 animate-pulse' : 'bg-stone-500'}`}></div>
+                     {isSharing ? 'Sharing Live' : 'Share Location'}
+                 </button>
+            </div>
+
             <div className="flex-grow relative">
                  <div ref={mapRef} className="w-full h-full bg-stone-200"></div>
             </div>
             <div className="p-4 bg-[#2d0a0d] text-center">
-                <p className="text-xs text-stone-400">Use this map to find the venue and see live locations of the couple!</p>
+                <p className="text-xs text-stone-400">Enable sharing to help friends find you at the venue!</p>
             </div>
         </div>
     );
@@ -565,6 +693,12 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
     const [heartCount, setHeartCount] = useState(0);
     const [showMapModal, setShowMapModal] = useState(false);
     const [globalConfig, setGlobalConfig] = useState({ coupleName: "Sneha & Aman", date: "Nov 26" });
+    const [theme, setTheme] = useState<ThemeConfig>({ gradient: 'royal', effect: 'dust' });
+
+    // --- Location Tracking State (Lifted from Modal) ---
+    const [activeUsers, setActiveUsers] = useState<Record<string, LocationUpdate>>({});
+    const [isLocationSharing, setIsLocationSharing] = useState(false);
+    const lastLocationRef = useRef<LocationUpdate | null>(null);
 
     // --- Sync Logic ---
     useEffect(() => {
@@ -585,6 +719,11 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
         if (conf) {
              const c = JSON.parse(conf);
              setGlobalConfig({ coupleName: c.coupleName || "Sneha & Aman", date: c.date || "Nov 26" });
+        }
+
+        const savedTheme = localStorage.getItem('wedding_theme_config');
+        if (savedTheme) {
+            setTheme(JSON.parse(savedTheme));
         }
 
         // Listen for broadcasts
@@ -610,11 +749,69 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                 case 'config_sync':
                     setGlobalConfig({ coupleName: data.payload.coupleName, date: data.payload.date });
                     break;
+                case 'theme_sync':
+                    setTheme(data.payload);
+                    break;
             }
         };
 
         return () => channel.close();
     }, []);
+
+    // --- Background Location Tracking Effect ---
+    useEffect(() => {
+        const channel = new BroadcastChannel('wedding_live_map');
+
+        // 1. Handshake: Announce we are here and ask others for their location
+        channel.postMessage({ type: 'location_request' });
+
+        channel.onmessage = (event) => {
+             const data = event.data;
+             if (data.type === 'location_update') {
+                 setActiveUsers(prev => ({ ...prev, [data.id]: data }));
+             } else if (data.type === 'location_request') {
+                 // If someone else joins and we are sharing, tell them where we are immediately
+                 if (isLocationSharing && lastLocationRef.current) {
+                     channel.postMessage(lastLocationRef.current);
+                 }
+             }
+        };
+
+        let watchId: number;
+        if (isLocationSharing && navigator.geolocation) {
+            watchId = navigator.geolocation.watchPosition(
+                (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    // Generate pseudo venue coords for the visual map
+                    const pseudoX = (Math.abs(longitude * 10000) % 80) + 10; 
+                    const pseudoY = (Math.abs(latitude * 10000) % 80) + 10;
+
+                    const update: LocationUpdate = {
+                        type: 'location_update',
+                        id: userName,
+                        name: userName,
+                        x: pseudoX, y: pseudoY,
+                        lat: latitude,
+                        lng: longitude,
+                        role: 'guest',
+                        map: 'all'
+                    };
+                    
+                    lastLocationRef.current = update;
+                    channel.postMessage(update);
+                    // Update local state so I see myself
+                    setActiveUsers(prev => ({ ...prev, [userName]: update }));
+                },
+                (err) => console.error("Geo Error:", err),
+                { enableHighAccuracy: true, maximumAge: 5000 }
+            );
+        }
+        
+        return () => {
+            channel.close();
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+        };
+    }, [isLocationSharing, userName]);
 
     // Actions
     const handleSendMessage = (text: string, stickerKey?: string) => {
@@ -676,9 +873,15 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
     };
 
     return (
-        <div className="w-full h-full bg-[#1a0507] text-gold-100 font-serif flex flex-col relative overflow-hidden">
-             <div className="absolute inset-0 pointer-events-none">
-                 <GoldDust opacity={0.3} />
+        <div className={`w-full h-full flex flex-col relative overflow-hidden transition-colors duration-1000 ${
+            theme.gradient === 'midnight' ? 'bg-gradient-to-b from-[#0f172a] via-[#1e1b4b] to-[#020617]' :
+            theme.gradient === 'sunset' ? 'bg-gradient-to-b from-[#4a0404] via-[#7c2d12] to-[#2d0a0d]' :
+            'bg-gradient-to-b from-[#1a0507] via-[#2d0a0d] to-[#0f0505]'
+        } text-gold-100 font-serif`}>
+             <div className="absolute inset-0 pointer-events-none transition-opacity duration-1000">
+                 {theme.effect === 'dust' && <GoldDust opacity={0.3} />}
+                 {theme.effect === 'petals' && <FallingPetals />}
+                 {theme.effect === 'lights' && <GodRays />}
              </div>
 
              {/* Header */}
@@ -718,7 +921,10 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                                  <h3 className="font-bold text-sm">Itinerary</h3>
                                  <p className="text-[10px] text-stone-500">View event timings</p>
                              </button>
-                             <button onClick={() => setShowMapModal(true)} className="bg-[#2d0a0d] p-4 rounded-xl border border-white/10 hover:border-gold-500/50 transition-all group">
+                             <button onClick={() => setShowMapModal(true)} className="bg-[#2d0a0d] p-4 rounded-xl border border-white/10 hover:border-gold-500/50 transition-all group relative overflow-hidden">
+                                 {isLocationSharing && (
+                                     <div className="absolute top-3 right-3 w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]"></div>
+                                 )}
                                  <MapPin size={24} className="text-rose-500 mb-2 group-hover:scale-110 transition-transform"/>
                                  <h3 className="font-bold text-sm">Venue Map</h3>
                                  <p className="text-[10px] text-stone-500">Find your way</p>
@@ -797,7 +1003,14 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                  ))}
              </nav>
 
-             <LiveMapModal userName={userName} isOpen={showMapModal} onClose={() => setShowMapModal(false)} />
+             <LiveMapModal 
+                userName={userName} 
+                isOpen={showMapModal} 
+                onClose={() => setShowMapModal(false)}
+                activeUsers={activeUsers}
+                isSharing={isLocationSharing}
+                onToggleSharing={() => setIsLocationSharing(!isLocationSharing)}
+             />
         </div>
     );
 };

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, MessageSquare, Heart, Camera, X, Sparkles, Music, Gift, Smile, Send, Play, Pause, SkipForward, SkipBack, ExternalLink, LogOut, ChevronRight, Radio, Map, Navigation, Phone, Search, Compass, Globe, Plane, Hand, Plus, Minus, Users, Utensils, PhoneCall, MapPin, Lock, User, Film, Upload, Mic, ChevronLeft, LocateFixed, Volume2, VolumeX, ListMusic, Download, Check, Flower, Smartphone, PlusCircle, Disc, Wifi, Settings } from 'lucide-react';
+import { Home, MessageSquare, Heart, Camera, X, Sparkles, Music, Gift, Smile, Send, Play, Pause, SkipForward, SkipBack, ExternalLink, LogOut, ChevronRight, Radio, Map, Navigation, Phone, Search, Compass, Globe, Plane, Hand, Plus, Minus, Users, Utensils, PhoneCall, MapPin, Lock, User, Film, Upload, Mic, ChevronLeft, LocateFixed, Volume2, VolumeX, ListMusic, Download, Check, Flower, Smartphone, PlusCircle, Disc, Wifi, Settings, CloudFog } from 'lucide-react';
 
 // --- Utility to Prevent XSS in Map Markers ---
 const escapeHtml = (unsafe: string) => {
@@ -52,6 +52,11 @@ interface LocationUpdate {
     lng?: number;
     role: 'couple' | 'guest';
     map: 'all' | 'venue' | 'google';
+}
+
+interface ThemeConfig {
+    gradient: 'royal' | 'midnight' | 'sunset';
+    effect: 'dust' | 'petals' | 'lights' | 'none';
 }
 
 // --- Live Background Component ---
@@ -125,6 +130,61 @@ const GoldDust = ({ opacity = 0.4 }: { opacity?: number }) => {
 
   return <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none z-0 mix-blend-screen" />;
 };
+
+// God Rays Effect
+const GodRays = () => (
+    <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden mix-blend-overlay">
+        <div className="absolute top-[-20%] left-[-10%] w-[120%] h-[60%] bg-gradient-to-b from-gold-200/10 to-transparent rotate-12 blur-3xl transform origin-top-left animate-breathe"></div>
+        <div className="absolute top-[-20%] right-[-10%] w-[120%] h-[60%] bg-gradient-to-b from-gold-400/5 to-transparent -rotate-12 blur-3xl transform origin-top-right animate-breathe delay-700"></div>
+    </div>
+);
+
+// Petals Effect
+const PetalIcon = ({ className, style }: { className?: string, style?: React.CSSProperties }) => (
+  <svg viewBox="0 0 30 30" className={className} style={style}>
+     <path d="M15,0 C5,5 0,15 5,25 C10,30 20,30 25,25 C30,15 25,5 15,0 Z" fill="url(#petal-gradient)" />
+     <defs>
+        <linearGradient id="petal-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+           <stop offset="0%" stopColor="#be123c" /> 
+           <stop offset="50%" stopColor="#9f1239" />
+           <stop offset="100%" stopColor="#881337" /> 
+        </linearGradient>
+     </defs>
+  </svg>
+);
+
+const FallingPetals = () => {
+  const petals = Array.from({ length: 12 }).map((_, i) => {
+     const r1 = (i * 37 + 13) % 100; 
+     const r2 = (i * 23 + 7) % 100;  
+     return {
+        id: i,
+        left: `${r1}%`,
+        delay: `${r2 * 0.2}s`, 
+        duration: `${15 + (i * 0.5)}s`, 
+        scale: 0.6 + (r2 * 0.008),
+     };
+  });
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
+       {petals.map(p => (
+          <div 
+            key={p.id}
+            className="absolute -top-8 animate-petal-fall opacity-0 will-change-transform blur-[0px]"
+            style={{
+               left: p.left,
+               animationDelay: p.delay,
+               animationDuration: p.duration,
+               '--scale': p.scale
+            } as React.CSSProperties}
+          >
+            <PetalIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+          </div>
+       ))}
+    </div>
+  );
+}
 
 // --- Shared Assets (Stickers & Map Icons) ---
 const StickerKalash = () => (<svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md"><path d="M30,80 Q30,95 50,95 Q70,95 70,80 L75,40 Q80,30 50,30 Q20,30 25,40 Z" fill="#b45309" stroke="#78350f" strokeWidth="2"/><path d="M30,40 Q50,50 70,40" stroke="#fcd34d" strokeWidth="3" fill="none"/><circle cx="50" cy="60" r="10" fill="#fcd34d" /><path d="M50,30 L50,20 M40,30 L35,15 M60,30 L65,15" stroke="#15803d" strokeWidth="3"/><circle cx="50" cy="15" r="8" fill="#fbbf24"/></svg>);
@@ -350,6 +410,7 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
   const [heartCount, setHeartCount] = useState(0);
   const [activeUsers, setActiveUsers] = useState<Record<string, LocationUpdate>>({});
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [theme, setTheme] = useState<ThemeConfig>({ gradient: 'royal', effect: 'dust' });
   
   // Music State
   const [playlist, setPlaylist] = useState<Song[]>([]);
@@ -365,6 +426,7 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
   const venuePos = [26.7857, 83.0763];
   
   // Location Broadcast Ref
+  const [isSharingLocation, setIsSharingLocation] = useState(false);
   const lastLocationRef = useRef<LocationUpdate | null>(null);
 
   const VENUE_ZONES = [
@@ -383,6 +445,9 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
           
           const hearts = localStorage.getItem('wedding_heart_count');
           if (hearts) setHeartCount(parseInt(hearts));
+
+          const savedTheme = localStorage.getItem('wedding_theme_config');
+          if (savedTheme) setTheme(JSON.parse(savedTheme));
 
           // Mock Playlist
           const pl = [
@@ -407,6 +472,9 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
                   break;
               case 'heart_update':
                   setHeartCount(data.count);
+                  break;
+              case 'theme_sync':
+                  setTheme(data.payload);
                   break;
           }
       };
@@ -434,7 +502,7 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
 
       // 2. Track Own Position
       let watchId: number;
-      if (navigator.geolocation) {
+      if (isSharingLocation && navigator.geolocation) {
           watchId = navigator.geolocation.watchPosition(
               (position) => {
                    const { latitude, longitude } = position.coords;
@@ -464,7 +532,7 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
           channel.close();
           if(watchId) navigator.geolocation.clearWatch(watchId);
       }
-  }, [userName]);
+  }, [userName, isSharingLocation]);
 
   // --- Music Controls ---
   const togglePlay = () => {
@@ -593,10 +661,15 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
 
 
   return (
-    <div className="w-full h-full bg-[#1a0507] text-rose-50 font-serif flex flex-col relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-            <GoldDust opacity={0.2} />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_#4c0519_0%,_#1a0507_70%)] opacity-60"></div>
+    <div className={`w-full h-full text-rose-50 font-serif flex flex-col relative overflow-hidden transition-colors duration-1000 ${
+        theme.gradient === 'midnight' ? 'bg-gradient-to-b from-[#0f172a] via-[#1e1b4b] to-[#020617]' :
+        theme.gradient === 'sunset' ? 'bg-gradient-to-b from-[#4a0404] via-[#7c2d12] to-[#2d0a0d]' :
+        'bg-gradient-to-b from-[#1a0507] via-[#2d0a0d] to-[#0f0505]'
+    }`}>
+        <div className="absolute inset-0 pointer-events-none transition-opacity duration-1000">
+             {theme.effect === 'dust' && <GoldDust opacity={0.2} />}
+             {theme.effect === 'petals' && <FallingPetals />}
+             {theme.effect === 'lights' && <GodRays />}
         </div>
 
         {/* Header */}
@@ -702,10 +775,21 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
 
             {activeTab === 'map' && (
                 <div className="h-full flex flex-col animate-fade-in">
-                    <div className="flex justify-center p-2 bg-black/20 gap-2 z-20">
-                        <button onClick={() => setViewMode('venue')} className={`px-4 py-1 rounded-full text-xs font-bold ${viewMode === 'venue' ? 'bg-rose-600 text-white' : 'bg-white/10 text-stone-400'}`}>Venue View</button>
-                        <button onClick={() => setViewMode('google')} className={`px-4 py-1 rounded-full text-xs font-bold ${viewMode === 'google' ? 'bg-rose-600 text-white' : 'bg-white/10 text-stone-400'}`}>Map View</button>
+                     <div className="flex flex-col items-center gap-3 p-3 bg-black/20 z-20 border-b border-white/5 backdrop-blur-sm">
+                        <div className="flex gap-2">
+                            <button onClick={() => setViewMode('venue')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${viewMode === 'venue' ? 'bg-rose-600 text-white shadow-md' : 'bg-white/10 text-stone-400 hover:bg-white/20'}`}>Venue View</button>
+                            <button onClick={() => setViewMode('google')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${viewMode === 'google' ? 'bg-rose-600 text-white shadow-md' : 'bg-white/10 text-stone-400 hover:bg-white/20'}`}>Map View</button>
+                        </div>
+                        
+                        <button 
+                            onClick={() => setIsSharingLocation(!isSharingLocation)} 
+                            className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all border ${isSharingLocation ? 'bg-green-900/40 border-green-500 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'bg-white/5 border-white/10 text-stone-400 hover:bg-white/10'}`}
+                        >
+                            <div className={`w-2 h-2 rounded-full ${isSharingLocation ? 'bg-green-400 animate-pulse' : 'bg-stone-500'}`}></div>
+                            {isSharingLocation ? 'Sharing Live Location' : 'Location Hidden'}
+                        </button>
                     </div>
+
                     <div className="flex-grow relative overflow-hidden bg-[#0f0505]">
                         {viewMode === 'venue' ? (
                             <div className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden" {...handlers} style={style}>

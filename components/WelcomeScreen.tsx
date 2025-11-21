@@ -202,7 +202,7 @@ const GoldDust = () => {
 };
 
 const GodRays = () => (
-    <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+    <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden mix-blend-overlay">
         <div className="absolute top-[-20%] left-[-10%] w-[120%] h-[60%] bg-gradient-to-b from-gold-200/10 to-transparent rotate-12 blur-3xl transform origin-top-left animate-breathe"></div>
         <div className="absolute top-[-20%] right-[-10%] w-[120%] h-[60%] bg-gradient-to-b from-gold-400/5 to-transparent -rotate-12 blur-3xl transform origin-top-right animate-breathe delay-700"></div>
     </div>
@@ -280,6 +280,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
   const [mounted, setMounted] = useState(false);
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0 });
   const [config, setConfig] = useState({ coupleName: "Sneha & Aman", date: "2025-11-26" });
+  const [theme, setTheme] = useState<{gradient: string, effect: string}>({ gradient: 'royal', effect: 'dust' });
   const [welcomeMsg, setWelcomeMsg] = useState(DEFAULT_WELCOME);
   const [muted, setMuted] = useState(isAudioMuted());
   
@@ -300,19 +301,40 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-      // Listen for config updates from Admin
-      const checkConfig = () => {
+      // Listen for config/theme updates from Admin
+      const checkUpdates = () => {
           const savedConfig = localStorage.getItem('wedding_global_config');
           if (savedConfig) {
               setConfig(JSON.parse(savedConfig));
           }
           const msg = localStorage.getItem('wedding_welcome_msg');
           if (msg) setWelcomeMsg(msg);
+
+          const img = localStorage.getItem('wedding_couple_image');
+          if (img && img !== coupleImage) setCoupleImage(img);
+
+          const savedTheme = localStorage.getItem('wedding_theme_config');
+          if (savedTheme) {
+              setTheme(JSON.parse(savedTheme));
+          }
       };
-      checkConfig();
-      const interval = setInterval(checkConfig, 2000);
-      return () => clearInterval(interval);
-  }, []);
+      checkUpdates();
+      const interval = setInterval(checkUpdates, 2000);
+
+      const channel = new BroadcastChannel('wedding_portal_chat');
+      channel.onmessage = (event) => {
+          if (event.data.type === 'theme_sync') {
+              setTheme(event.data.payload);
+          } else if (event.data.type === 'config_sync') {
+              setConfig(event.data.payload);
+          }
+      };
+
+      return () => {
+          clearInterval(interval);
+          channel.close();
+      };
+  }, [coupleImage]);
 
   useEffect(() => {
     setMounted(true);
@@ -386,8 +408,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
 
       // Simulate network delay for security
       setTimeout(() => {
-          // Check against Base64 hash of '2025' (MjAyNQ==) for basic obfuscation
-          // To keep it simple yet better than plain text, we verify the hash.
+          // Check against Base64 hash of '2025' (MjAyNQ==)
           if (btoa(adminPin) === "MjAyNQ==") {
               setShowAdminLogin(false);
               localStorage.setItem('wedding_current_user_type', 'admin');
@@ -412,7 +433,6 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
   };
 
   const validatePhone = (phone: string) => {
-      // Strict 10 digit validation
       const re = /^\d{10}$/;
       return re.test(phone.replace(/[- ]/g, ""));
   };
@@ -471,16 +491,25 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
       `}</style>
       
       {/* --- Parallax Background Layers --- */}
-      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-gradient-to-b from-[#1a0507] via-[#2d0a0d] to-[#0f0505]">
-         <GodRays />
+      <div className={`absolute inset-0 z-0 pointer-events-none overflow-hidden transition-colors duration-1000 ${
+          theme.gradient === 'midnight' ? 'bg-gradient-to-b from-[#0f172a] via-[#1e1b4b] to-[#020617]' :
+          theme.gradient === 'sunset' ? 'bg-gradient-to-b from-[#4a0404] via-[#7c2d12] to-[#2d0a0d]' :
+          'bg-gradient-to-b from-[#1a0507] via-[#2d0a0d] to-[#0f0505]'
+      }`}>
+         <div className="opacity-50">{theme.effect === 'lights' && <GodRays />}</div>
+         
          <div ref={bgBackRef} className="absolute w-full h-[120%] -top-[10%] left-0 will-change-transform">
              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_#4a0e11_0%,_transparent_70%)] opacity-80"></div>
          </div>
          <div ref={bgMidRef} className="absolute w-full h-[120%] -top-[10%] left-0 will-change-transform">
-            <GoldDust />
+            <div className="transition-opacity duration-1000" style={{ opacity: theme.effect === 'dust' ? 1 : 0 }}>
+               <GoldDust />
+            </div>
          </div>
          <div ref={bgFrontRef} className="absolute w-full h-[120%] -top-[10%] left-0 will-change-transform">
-             <FallingPetals />
+             <div className="transition-opacity duration-1000" style={{ opacity: theme.effect === 'petals' ? 1 : 0 }}>
+                 <FallingPetals />
+             </div>
          </div>
          
          {/* Cinematic Fog at Bottom */}
