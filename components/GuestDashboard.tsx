@@ -646,6 +646,18 @@ const LiveMapModal = ({
 
     }, [activeUsers, userName, isOpen]);
 
+    // GPS Locate Function
+    const handleLocateMe = () => {
+        if (!mapInstance.current || !navigator.geolocation) return;
+        
+        navigator.geolocation.getCurrentPosition((pos) => {
+            const { latitude, longitude } = pos.coords;
+            mapInstance.current.flyTo([latitude, longitude], 18);
+        }, (err) => {
+            alert("Could not locate you. Please enable GPS.");
+        });
+    };
+
     if (!isOpen) return null;
 
     return (
@@ -671,6 +683,13 @@ const LiveMapModal = ({
 
             <div className="flex-grow relative">
                  <div ref={mapRef} className="w-full h-full bg-stone-200"></div>
+                 {/* GPS Button */}
+                 <button 
+                    onClick={handleLocateMe}
+                    className="absolute bottom-4 right-4 z-[500] bg-white text-black p-3 rounded-full shadow-xl active:scale-95 transition-transform"
+                 >
+                     <LocateFixed size={24} />
+                 </button>
             </div>
             <div className="p-4 bg-[#2d0a0d] text-center">
                 <p className="text-xs text-stone-400">Enable sharing to help friends find you at the venue!</p>
@@ -872,6 +891,13 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
         alert("Photo Shared to Gallery!");
     };
 
+    const handleClearCache = () => {
+        if(confirm("Reset app data and reload? This fixes most issues.")) {
+            localStorage.clear();
+            window.location.reload();
+        }
+    };
+
     return (
         <div className={`w-full h-full flex flex-col relative overflow-hidden transition-colors duration-1000 ${
             theme.gradient === 'midnight' ? 'bg-gradient-to-b from-[#0f172a] via-[#1e1b4b] to-[#020617]' :
@@ -895,9 +921,14 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                          <p className="text-[10px] text-gold-400 uppercase tracking-widest">Engagement Ceremony</p>
                      </div>
                  </div>
-                 <button onClick={onLogout} className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-stone-400 transition-colors">
-                     <LogOut size={18} />
-                 </button>
+                 <div className="flex items-center gap-2">
+                     <button onClick={handleClearCache} className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-stone-400 transition-colors" title="Reset App">
+                         <RefreshCw size={18} />
+                     </button>
+                     <button onClick={onLogout} className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-stone-400 transition-colors">
+                         <LogOut size={18} />
+                     </button>
+                 </div>
              </header>
 
              {/* Content Area */}

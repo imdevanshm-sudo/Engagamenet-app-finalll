@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, MessageSquare, Heart, Camera, X, Sparkles, Music, Gift, Smile, Send, Play, Pause, SkipForward, SkipBack, ExternalLink, LogOut, ChevronRight, Radio, Map, Navigation, Phone, Search, Compass, Globe, Plane, Hand, Plus, Minus, Users, Utensils, PhoneCall, MapPin, Lock, User, Film, Upload, Mic, ChevronLeft, LocateFixed, Volume2, VolumeX, ListMusic, Download, Check, Flower, Smartphone, PlusCircle, Disc, Wifi, Settings, CloudFog } from 'lucide-react';
+import { Home, MessageSquare, Heart, Camera, X, Sparkles, Music, Gift, Smile, Send, Play, Pause, SkipForward, SkipBack, ExternalLink, LogOut, ChevronRight, Radio, Map, Navigation, Phone, Search, Compass, Globe, Plane, Hand, Plus, Minus, Users, Utensils, PhoneCall, MapPin, Lock, User, Film, Upload, Mic, ChevronLeft, LocateFixed, Volume2, VolumeX, ListMusic, Download, Check, Flower, Smartphone, PlusCircle, Disc, Wifi, Settings, CloudFog, RefreshCw } from 'lucide-react';
 
 // --- Utility to Prevent XSS in Map Markers ---
 const escapeHtml = (unsafe: string) => {
@@ -659,6 +659,24 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
         });
   }, [activeUsers, viewMode]);
 
+  // GPS Locate Function
+  const handleLocateMe = () => {
+    if (!mapInstance.current || !navigator.geolocation) return;
+    
+    navigator.geolocation.getCurrentPosition((pos) => {
+        const { latitude, longitude } = pos.coords;
+        mapInstance.current.flyTo([latitude, longitude], 18);
+    }, (err) => {
+        alert("Could not locate you. Please enable GPS.");
+    });
+  };
+
+  const handleClearCache = () => {
+    if(confirm("Reset app data and reload? This fixes most issues.")) {
+        localStorage.clear();
+        window.location.reload();
+    }
+  };
 
   return (
     <div className={`w-full h-full text-rose-50 font-serif flex flex-col relative overflow-hidden transition-colors duration-1000 ${
@@ -685,9 +703,14 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
                     <p className="text-xs text-rose-400 uppercase tracking-widest">Control Center</p>
                 </div>
             </div>
-            <button onClick={onLogout} className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-rose-300 transition-colors">
-                <LogOut size={20} />
-            </button>
+            <div className="flex items-center gap-2">
+                 <button onClick={handleClearCache} className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-rose-300 transition-colors" title="Reset App">
+                    <RefreshCw size={20} />
+                </button>
+                <button onClick={onLogout} className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-rose-300 transition-colors">
+                    <LogOut size={20} />
+                </button>
+            </div>
         </header>
 
         {/* Tabs */}
@@ -818,7 +841,16 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
                                 </div>
                             </div>
                         ) : (
-                            <div ref={mapRef} className="w-full h-full bg-stone-200"></div>
+                            <div className="relative w-full h-full">
+                                <div ref={mapRef} className="w-full h-full bg-stone-200"></div>
+                                {/* GPS Button */}
+                                <button 
+                                    onClick={handleLocateMe}
+                                    className="absolute bottom-4 right-4 z-[500] bg-white text-black p-3 rounded-full shadow-xl active:scale-95 transition-transform"
+                                >
+                                    <LocateFixed size={24} />
+                                </button>
+                            </div>
                         )}
                     </div>
                 </div>

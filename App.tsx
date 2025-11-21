@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import WelcomeScreen from './components/WelcomeScreen';
 import GuestDashboard from './components/GuestDashboard';
 import CoupleDashboard from './components/CoupleDashboard';
 import AdminDashboard from './components/AdminDashboard';
-import { X, Cookie, RefreshCw, Bell, AlertTriangle } from 'lucide-react';
+import { X, Cookie, RefreshCw, Bell, AlertTriangle, Loader } from 'lucide-react';
 
 // Update this version string whenever you deploy a significant update to force a cache clear
 const APP_VERSION = '1.2.0';
@@ -16,6 +16,12 @@ const App: React.FC = () => {
   const [showCookieConsent, setShowCookieConsent] = useState(false);
   const [showUpdateToast, setShowUpdateToast] = useState(false);
   const [announcement, setAnnouncement] = useState<{title: string, msg: string} | null>(null);
+
+  // Pull to Refresh State
+  const [pullStartPoint, setPullStartPoint] = useState(0);
+  const [pullChange, setPullChange] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Version Check for Cache Busting
@@ -113,6 +119,35 @@ const App: React.FC = () => {
 
   }, [userName, currentView]);
 
+  // --- Pull to Refresh Logic ---
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (window.scrollY === 0) {
+      setPullStartPoint(e.targetTouches[0].clientY);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (pullStartPoint > 0 && window.scrollY === 0) {
+        const pullY = e.targetTouches[0].clientY - pullStartPoint;
+        if (pullY > 0) {
+            // Add resistance
+            setPullChange(pullY * 0.4);
+        }
+    }
+  };
+
+  const handleTouchEnd = () => {
+      if (pullChange > 100) { // Threshold to trigger refresh
+          setIsRefreshing(true);
+          setTimeout(() => {
+              window.location.reload();
+          }, 500);
+      } else {
+          setPullChange(0);
+      }
+      setPullStartPoint(0);
+  };
+
   const changeView = (view: typeof currentView) => {
       setIsTransitioning(true);
       setTimeout(() => {
@@ -146,8 +181,31 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="w-full h-full bg-[#2d0a0d] text-gold-100 font-serif overflow-hidden relative">
-      <div className={`w-full h-full transition-all duration-500 ease-out transform ${isTransitioning ? 'opacity-0 scale-[0.98] blur-sm' : 'opacity-100 scale-100 blur-0'}`}>
+    <div 
+        className="w-full h-full bg-[#2d0a0d] text-gold-100 font-serif overflow-hidden relative"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+    >
+      {/* Refresh Indicator */}
+      <div 
+        className="absolute top-0 left-0 right-0 flex justify-center items-center pointer-events-none z-[200]"
+        style={{ 
+            height: `${pullChange}px`, 
+            opacity: Math.min(pullChange / 100, 1),
+            transition: isRefreshing ? 'height 0.2s ease-in' : 'none'
+        }}
+      >
+          <div className="bg-gold-500 text-[#2d0a0d] rounded-full p-2 shadow-lg transform translate-y-4">
+              {isRefreshing ? <Loader className="animate-spin" size={24} /> : <RefreshCw size={24} style={{ transform: `rotate(${pullChange * 2}deg)` }} />}
+          </div>
+      </div>
+
+      <div 
+        ref={contentRef}
+        className={`w-full h-full transition-all duration-500 ease-out transform ${isTransitioning ? 'opacity-0 scale-[0.98] blur-sm' : 'opacity-100 scale-100 blur-0'}`}
+        style={{ transform: `translateY(${isRefreshing ? 50 : Math.min(pullChange, 150)}px)` }}
+      >
         {currentView === 'welcome' && (
             <WelcomeScreen onLoginSuccess={handleLoginSuccess} />
         )}
