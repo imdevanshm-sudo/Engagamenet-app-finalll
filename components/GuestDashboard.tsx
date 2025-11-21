@@ -577,7 +577,7 @@ const SettingsView = ({ onClose }: { onClose: () => void }) => {
 
 // --- Views ---
 
-const GuestBookView = ({ userName, messages, onSendMessage, heartCount, onHeartTrigger, isRomanticMode, gallery }: { userName: string, messages: Message[], onSendMessage: (text: string, stickerKey?: string) => void, heartCount: number, onHeartTrigger: () => void, isRomanticMode: boolean, gallery: MediaItem[] }) => {
+const GuestBookView = ({ userName, messages, onSendMessage, heartCount, onHeartTrigger, isRomanticMode, gallery, onUpload }: { userName: string, messages: Message[], onSendMessage: (text: string, stickerKey?: string) => void, heartCount: number, onHeartTrigger: () => void, isRomanticMode: boolean, gallery: MediaItem[], onUpload: () => void }) => {
     const [view, setView] = useState<'directory' | 'wishes' | 'gallery'>('directory');
     const [inputText, setInputText] = useState("");
     const [activeTab, setActiveTab] = useState<'emoji' | 'sticker' | null>(null);
@@ -681,6 +681,10 @@ const GuestBookView = ({ userName, messages, onSendMessage, heartCount, onHeartT
             {view === 'gallery' && (
                 <div className="flex-grow overflow-y-auto p-4 pb-32">
                     <div className="grid grid-cols-2 gap-3">
+                         <button onClick={onUpload} className="aspect-square rounded-xl border-2 border-dashed border-gold-500/30 flex flex-col items-center justify-center text-gold-400 gap-2 hover:bg-gold-500/10 transition-colors">
+                             <Camera size={24} />
+                             <span className="text-xs font-bold uppercase">Add Memory</span>
+                         </button>
                          {gallery.map(p => (
                              <div key={p.id} className="relative aspect-square rounded-xl overflow-hidden group bg-black/40">
                                  <img src={p.url} className="w-full h-full object-cover" loading="lazy" />
@@ -692,7 +696,6 @@ const GuestBookView = ({ userName, messages, onSendMessage, heartCount, onHeartT
                          ))}
                          {gallery.length === 0 && (
                              <div className="col-span-2 flex flex-col items-center justify-center py-10 text-stone-500 gap-2">
-                                 <Camera size={32} className="opacity-50"/>
                                  <p className="text-sm">No photos shared yet.</p>
                              </div>
                          )}
@@ -963,7 +966,8 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
   const [config, setConfig] = useState({ coupleName: "Sneha & Aman", date: "2025-11-26" });
   const [events, setEvents] = useState<WeddingEvent[]>(DEFAULT_EVENTS);
   const [isRomanticMode, setIsRomanticMode] = useState(false);
-  
+  const [showUploadModal, setShowUploadModal] = useState(false);
+
   // Music State
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -1065,6 +1069,12 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
       channel.close();
   };
 
+  const broadcastGalleryUpdate = (photos: MediaItem[]) => {
+      const channel = new BroadcastChannel('wedding_portal_chat');
+      channel.postMessage({ type: 'gallery_sync', payload: photos });
+      channel.close();
+  }
+
   const handleSendMessage = (text: string, stickerKey?: string) => {
       const newMessage: Message = {
           id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
@@ -1083,6 +1093,25 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
       const newCount = globalHeartCount + 1;
       setGlobalHeartCount(newCount);
       broadcastHeartUpdate(newCount);
+  };
+
+  const handlePhotoUpload = () => {
+      // Simulate uploading a photo
+      const newPhoto: MediaItem = {
+          id: Date.now().toString(),
+          url: `https://source.unsplash.com/random/800x800/?wedding,party&sig=${Math.random()}`, // Random placeholder
+          type: 'image',
+          caption: `Shared by ${userName}`,
+          timestamp: Date.now()
+      };
+      // Fallback for Unsplash deprecation in some envs, using consistent reliable placeholder logic if needed
+      newPhoto.url = 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80';
+
+      const updatedGallery = [newPhoto, ...gallery];
+      setGallery(updatedGallery);
+      localStorage.setItem('wedding_gallery_media', JSON.stringify(updatedGallery));
+      broadcastGalleryUpdate(updatedGallery);
+      setShowUploadModal(false);
   };
 
   useEffect(() => {
@@ -1307,6 +1336,7 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                     onHeartTrigger={triggerHeart}
                     isRomanticMode={isRomanticMode}
                     gallery={gallery}
+                    onUpload={() => setShowUploadModal(true)}
                  />
             </div>
         </div>
@@ -1317,6 +1347,24 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
       {isRsvpOpen && <CelebrationOverlay onClose={() => setIsRsvpOpen(false)} />}
       <LiveMapModal isOpen={isMapOpen} onClose={() => setIsMapOpen(false)} userName={userName} activeUsers={activeUsers} />
       
+      {/* Guest Upload Modal */}
+      {showUploadModal && (
+          <div className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+               <div className="bg-[#2d0a0d] border border-white/10 rounded-2xl p-6 w-full max-w-sm text-center animate-zoom-in">
+                   <h3 className="text-xl font-heading text-gold-100 mb-4">Share a Memory</h3>
+                   <div className="h-40 border-2 border-dashed border-stone-600 rounded-xl flex flex-col items-center justify-center gap-2 mb-4 bg-black/20">
+                        <Upload size={32} className="text-stone-500" />
+                        <p className="text-xs text-stone-500">Tap to select photo</p>
+                   </div>
+                   <input type="text" placeholder="Write a caption..." className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-white text-sm mb-4 focus:border-gold-500 focus:outline-none" />
+                   <div className="flex gap-3">
+                       <button onClick={() => setShowUploadModal(false)} className="flex-1 py-3 rounded-lg border border-white/10 text-stone-400">Cancel</button>
+                       <button onClick={handlePhotoUpload} className="flex-1 py-3 rounded-lg bg-gold-600 text-black font-bold">Post</button>
+                   </div>
+               </div>
+          </div>
+      )}
+
     </div>
   );
 };

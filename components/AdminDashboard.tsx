@@ -36,6 +36,18 @@ interface MediaItem {
     timestamp: number;
 }
 
+interface LocationUpdate {
+    type: 'location_update';
+    id: string;
+    name: string;
+    x: number;
+    y: number;
+    lat?: number;
+    lng?: number;
+    role: 'guest' | 'couple';
+    map: 'all' | 'venue' | 'google';
+}
+
 const DEFAULT_EVENTS: WeddingEvent[] = [
     { id: '1', title: "Mehndi Ceremony", time: "Dec 20, 4:00 PM", loc: "Poolside Gardens", icon: "🌿" },
     { id: '2', title: "Sangeet Night", time: "Dec 20, 7:30 PM", loc: "Grand Ballroom", icon: "💃" },
@@ -182,7 +194,7 @@ const usePanZoom = (initialScale = 1, minScale = 0.5, maxScale = 3) => {
 
 const AdminLiveMap: React.FC = () => {
     const { transform, handlers, style } = usePanZoom(1, 0.5, 3);
-    const [activeUsers, setActiveUsers] = useState<Record<string, {x: number, y: number, lat?: number, lng?: number, name: string, role: 'couple'|'guest', timestamp: number, map?: 'venue'|'google'}>>({});
+    const [activeUsers, setActiveUsers] = useState<Record<string, LocationUpdate>>({});
     const [viewMode, setViewMode] = useState<'venue' | 'google'>('venue');
     
     const mapRef = useRef<HTMLDivElement>(null);
@@ -201,11 +213,11 @@ const AdminLiveMap: React.FC = () => {
     useEffect(() => {
         const channel = new BroadcastChannel('wedding_live_map');
         channel.onmessage = (event) => {
-            const data = event.data;
+            const data = event.data as LocationUpdate;
             if (data.type === 'location_update') {
                 setActiveUsers(prev => ({
                     ...prev,
-                    [data.id]: { x: data.x, y: data.y, lat: data.lat, lng: data.lng, name: data.name, role: data.role, timestamp: Date.now(), map: data.map }
+                    [data.id]: data
                 }));
             }
         };
@@ -248,14 +260,14 @@ const AdminLiveMap: React.FC = () => {
         if (!mapInstance.current || viewMode !== 'google') return;
         const L = (window as any).L;
         
-        Object.values(activeUsers).forEach((user: any) => {
+        Object.values(activeUsers).forEach((user: LocationUpdate) => {
             if (user.lat && user.lng) {
-                 if (markersRef.current[user.name]) {
-                     markersRef.current[user.name].setLatLng([user.lat, user.lng]);
+                 if (markersRef.current[user.id]) {
+                     markersRef.current[user.id].setLatLng([user.lat, user.lng]);
                  } else {
                      const safeName = escapeHtml(user.name);
                      const marker = L.marker([user.lat, user.lng]).addTo(mapInstance.current).bindPopup(`${safeName} (${user.role})`);
-                     markersRef.current[user.name] = marker;
+                     markersRef.current[user.id] = marker;
                  }
             }
         });
@@ -294,7 +306,7 @@ const AdminLiveMap: React.FC = () => {
                                  <MapTree className="absolute top-[15%] left-[15%] w-24 h-24 opacity-80" />
                                  <MapTree className="absolute top-[15%] right-[15%] w-24 h-24 opacity-80" />
                                  
-                                 {Object.values(activeUsers).map((u: any, i) => (
+                                 {Object.values(activeUsers).map((u: LocationUpdate, i) => (
                                      <MapNode key={i} x={u.x} y={u.y} name={escapeHtml(u.name)} type={u.role} />
                                  ))}
                             </div>

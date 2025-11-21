@@ -157,6 +157,53 @@ const STICKER_MAP: Record<string, React.ReactNode> = {
     'gajraj': <StickerElephant />,
 };
 
+const AdoreMeter = ({ count, onTrigger }: { count: number, onTrigger: () => void }) => {
+    const fillPercent = Math.min(100, Math.max(10, (count * 0.1) % 110));
+    const [hearts, setHearts] = useState<Array<{id: number, type: 'heart'|'ring'|'diamond', x: number}>>([]);
+
+    const handleClick = () => {
+        onTrigger();
+        const id = Date.now();
+        const types: ('heart'|'ring'|'diamond')[] = ['heart', 'ring', 'diamond'];
+        const type = types[Math.floor(Math.random() * types.length)];
+        const x = Math.random() * 40 - 20; 
+        setHearts(prev => [...prev, { id, type, x }]);
+        setTimeout(() => setHearts(prev => prev.filter(h => h.id !== id)), 2000);
+    };
+
+    return (
+        <div className="flex flex-col items-center pointer-events-auto animate-fade-in delay-500 relative z-50" onClick={handleClick}>
+            <div className="absolute bottom-full w-24 h-40 pointer-events-none overflow-hidden -z-10 left-1/2 -translate-x-1/2">
+                 {hearts.map(h => (
+                     <div key={h.id} className="absolute bottom-0 left-1/2 animate-sidebar-float text-rose-500 drop-shadow-lg" style={{ '--x': `${h.x}px` } as React.CSSProperties}>
+                         {h.type === 'heart' && <Heart size={20} fill="currentColor" />}
+                         {h.type === 'ring' && <div className="w-5 h-5 border-2 border-yellow-400 rounded-full"></div>}
+                         {h.type === 'diamond' && <div className="w-4 h-4 bg-blue-400 rotate-45"></div>}
+                     </div>
+                 ))}
+            </div>
+
+            <div className="relative w-14 h-36 cursor-pointer group transition-transform active:scale-95 hover:scale-105 duration-300">
+                <div className="absolute inset-0 bg-black/20 backdrop-blur-md rounded-full border border-white/20 shadow-xl"></div>
+                <div className="absolute bottom-2 left-2 right-2 bg-stone-800/50 rounded-full overflow-hidden h-[80%] w-[calc(100%-16px)] ml-auto mr-auto z-10">
+                    <div 
+                        className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-rose-600 via-rose-500 to-rose-400 transition-all duration-700 ease-out flex items-start justify-center pt-1 shadow-[0_0_15px_rgba(225,29,72,0.6)]"
+                        style={{ height: `${fillPercent}%` }}
+                    >
+                         <div className="w-full h-2 bg-white/30 animate-pulse blur-[1px]"></div>
+                    </div>
+                </div>
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-gradient-to-br from-rose-500 to-rose-700 z-20 shadow-lg flex items-center justify-center border-2 border-rose-300">
+                    <Heart size={16} fill="#fcd34d" className="text-gold-300 animate-pulse" />
+                </div>
+            </div>
+            <div className="mt-2 px-3 py-1 bg-black/60 backdrop-blur-sm rounded-full text-[9px] font-bold text-gold-200 tracking-widest uppercase shadow-sm border border-gold-500/30 text-center">
+                Adore Meter<br/>{count}
+            </div>
+        </div>
+    );
+};
+
 const MapTree = ({ className }: { className?: string }) => (
     <svg viewBox="0 0 100 100" className={className}>
       <path d="M50,80 L50,100" stroke="#5D4037" strokeWidth="8" />
@@ -180,6 +227,288 @@ const MapElephant = ({ className, flip }: { className?: string, flip?: boolean }
         </defs>
     </svg>
 );
+
+const MapNode: React.FC<{ x: number; y: number; name: string; delay?: number; phone?: string; type?: 'guest' | 'couple' }> = ({ x, y, name, delay = 0, phone, type = 'guest' }) => {
+    return (
+        <div 
+            className="absolute flex flex-col items-center z-20 group animate-in zoom-in duration-700 fill-mode-backwards cursor-pointer transition-all duration-500"
+            style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)', animationDelay: `${delay}ms` }}
+        >
+            <div 
+              className={`relative rounded-full shadow-[0_25px_35px_-5px_rgba(0,0,0,0.7),0_0_0_2px_${type === 'couple' ? '#e11d48' : '#fbbf24'}] transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-4 w-16 h-16 p-[4px] ${type === 'couple' ? 'bg-rose-950' : 'bg-[#1a0405]'}`}
+              style={{ transform: 'perspective(500px) rotateX(10deg)' }}
+            >
+                <div className={`w-full h-full rounded-full border ${type === 'couple' ? 'border-rose-400' : 'border-gold-500/30'} overflow-hidden relative bg-[#2d0a0d] flex items-center justify-center`}>
+                    {type === 'couple' ? (
+                        <Heart size={24} className="text-rose-500 fill-rose-500 animate-pulse" />
+                    ) : (
+                        <Users size={24} className="text-gold-300 opacity-80" />
+                    )}
+                </div>
+                {type === 'couple' && (
+                     <div className="absolute inset-0 rounded-full border-2 border-rose-500 animate-ping opacity-50"></div>
+                )}
+            </div>
+            <div className={`mt-4 px-4 py-1 ${type === 'couple' ? 'bg-rose-900/90 border-rose-500' : 'bg-[#4a0e11]/90 border-[#f59e0b]/50'} backdrop-blur-md rounded-full border shadow-[0_8px_16px_rgba(0,0,0,0.6)] transform transition-transform group-hover:scale-105 group-hover:-translate-y-1`}>
+                <span className="text-[#fef3c7] text-xs sm:text-sm font-serif font-bold whitespace-nowrap tracking-wide drop-shadow-sm">{name}</span>
+            </div>
+            <div className="absolute top-[90%] left-1/2 w-1 h-8 bg-black/30 -translate-x-1/2 blur-[2px] origin-top transform skew-x-[20deg] z-[-1]"></div>
+        </div>
+    );
+};
+
+// --- Hooks ---
+
+const usePanZoom = (initialScale = 1, minScale = 0.5, maxScale = 3) => {
+    const [transform, setTransform] = useState({ x: 0, y: 0, scale: initialScale, rotate: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+    const lastPos = useRef({ x: 0, y: 0 });
+    const [pinchDist, setPinchDist] = useState<number | null>(null);
+    const [pinchCenter, setPinchCenter] = useState<{x: number, y: number} | null>(null);
+  
+    const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+  
+      if ('touches' in e && e.touches.length === 2) {
+         const dist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+         );
+         const center = {
+             x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+             y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+         };
+         setPinchDist(dist);
+         setPinchCenter(center);
+         return;
+      }
+  
+      setIsDragging(true);
+      lastPos.current = { x: clientX - transform.x, y: clientY - transform.y };
+    };
+  
+    const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
+      if ('touches' in e && e.touches.length === 2 && pinchDist !== null && pinchCenter !== null) {
+         e.preventDefault();
+         const dist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+         );
+         const center = {
+             x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+             y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+         };
+  
+         const deltaScale = dist - pinchDist;
+         const newScale = Math.min(maxScale, Math.max(minScale, transform.scale + deltaScale * 0.005));
+         
+         const deltaX = center.x - pinchCenter.x;
+         const deltaY = center.y - pinchCenter.y;
+  
+         setTransform(prev => ({ 
+             ...prev, 
+             scale: newScale,
+             x: prev.x + deltaX,
+             y: prev.y + deltaY
+         }));
+         setPinchDist(dist);
+         setPinchCenter(center);
+         return;
+      }
+  
+      if (!isDragging) return;
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      
+      if ('touches' in e) e.preventDefault(); 
+
+      setTransform(prev => ({
+         ...prev,
+         x: clientX - lastPos.current.x,
+         y: clientY - lastPos.current.y
+      }));
+    };
+  
+    const handleMouseUp = () => {
+        setIsDragging(false);
+        setPinchDist(null);
+        setPinchCenter(null);
+    };
+  
+    const handlers = {
+        onMouseDown: handleMouseDown,
+        onTouchStart: handleMouseDown,
+        onMouseMove: handleMouseMove,
+        onTouchMove: handleMouseMove,
+        onMouseUp: handleMouseUp,
+        onTouchEnd: handleMouseUp,
+        onMouseLeave: handleMouseUp
+    };
+    
+    const style: React.CSSProperties = { touchAction: 'none' };
+  
+    return { transform, isDragging, handlers, style };
+};
+
+// --- Live Map Modal Component ---
+
+const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: string; activeUsers: Record<string, LocationUpdate> }> = ({ isOpen, onClose, userName, activeUsers }) => {
+    const { transform, handlers, style } = usePanZoom(1, 0.5, 3);
+    const [viewMode, setViewMode] = useState<'venue' | 'google'>('venue');
+    const mapRef = useRef<HTMLDivElement>(null);
+    const mapInstance = useRef<any>(null);
+    const markersRef = useRef<Record<string, any>>({});
+    const venuePos = [26.7857, 83.0763];
+
+    // Leaflet Effect
+    useEffect(() => {
+        if (viewMode === 'google' && isOpen && mapRef.current && !mapInstance.current) {
+             const L = (window as any).L;
+             if (!L) return;
+             
+             mapInstance.current = L.map(mapRef.current).setView(venuePos, 13);
+             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+             }).addTo(mapInstance.current);
+
+             const venueIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div style="background-color: #be123c; color: #fff; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-size: 20px;">🏰</div>`,
+                iconSize: [40, 40],
+                iconAnchor: [20, 40]
+            });
+            L.marker(venuePos, { icon: venueIcon }).addTo(mapInstance.current).bindPopup("Hotel Soni International");
+        }
+        
+        if (viewMode !== 'google' && mapInstance.current) {
+             mapInstance.current.remove();
+             mapInstance.current = null;
+        }
+    }, [viewMode, isOpen]);
+
+    // Update Markers
+    useEffect(() => {
+        if (!mapInstance.current || viewMode !== 'google') return;
+        const L = (window as any).L;
+        
+        Object.values(activeUsers).forEach((user: LocationUpdate) => {
+            if (user.lat && user.lng) {
+                if (markersRef.current[user.id]) {
+                    markersRef.current[user.id].setLatLng([user.lat, user.lng]);
+                } else {
+                    const isMe = user.name === userName;
+                    const safeName = escapeHtml(user.name);
+                    const iconHtml = `
+                        <div class="relative flex flex-col items-center justify-center transition-all duration-500 transform hover:scale-110">
+                            <div class="w-8 h-8 rounded-full border-2 shadow-2xl flex items-center justify-center font-bold text-sm backdrop-blur-md ${
+                                user.role === 'couple' 
+                                    ? 'bg-rose-900/90 border-rose-400 text-rose-100 shadow-rose-500/50' 
+                                    : 'bg-amber-900/90 border-amber-400 text-amber-100 shadow-amber-500/30'
+                            }">
+                                ${user.role === 'couple' ? '❤️' : safeName.charAt(0)}
+                            </div>
+                             <div class="mt-1 px-2 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[8px] font-bold text-white whitespace-nowrap border border-white/10 shadow-lg">
+                                ${isMe ? 'You' : safeName}
+                            </div>
+                        </div>
+                    `;
+
+                    const icon = L.divIcon({
+                        className: 'bg-transparent border-none',
+                        html: iconHtml,
+                        iconSize: [40, 60],
+                        iconAnchor: [20, 20]
+                    });
+
+                    const marker = L.marker([user.lat, user.lng], { icon }).addTo(mapInstance.current);
+                    markersRef.current[user.id] = marker;
+                }
+            }
+        });
+    }, [activeUsers, viewMode]);
+
+    const VENUE_ZONES = [
+        { name: "Grand Stage", x: 50, y: 20, w: 30, h: 15, color: "#be123c" },
+        { name: "Mandap", x: 80, y: 50, w: 20, h: 20, color: "#b45309" },
+        { name: "Royal Dining", x: 20, y: 50, w: 25, h: 25, color: "#15803d" },
+        { name: "Entrance", x: 50, y: 90, w: 20, h: 10, color: "#4a0e11" },
+        { name: "Bar", x: 80, y: 80, w: 15, h: 15, color: "#1d4ed8" },
+    ];
+
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 z-[60] bg-[#2d0a0d] flex flex-col animate-in fade-in duration-300">
+             <div className="absolute top-0 left-0 right-0 z-30 p-4 flex justify-between items-start bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
+                 <div className="pointer-events-auto">
+                    <h2 className="text-gold-100 font-heading text-2xl drop-shadow-md">{viewMode === 'venue' ? 'Live Venue Tracker' : 'Realtime Google Maps'}</h2>
+                    <p className="text-gold-400 text-xs font-serif opacity-80">
+                        {viewMode === 'venue' ? 'See where guests are mingling.' : 'Tracking all guests live.'}
+                    </p>
+                 </div>
+                 <button onClick={onClose} className="text-white bg-white/10 p-2 rounded-full backdrop-blur-sm hover:bg-white/20 transition-colors pointer-events-auto"><X size={24}/></button>
+             </div>
+
+             {/* Toggle Switch */}
+             <div className="absolute top-20 left-0 right-0 z-30 flex justify-center pointer-events-none">
+                 <div className="bg-black/40 backdrop-blur-md rounded-full p-1 flex border border-gold-500/30 pointer-events-auto shadow-lg">
+                     <button 
+                        onClick={() => setViewMode('venue')}
+                        className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${viewMode === 'venue' ? 'bg-gold-500 text-[#2d0a0d] shadow-sm' : 'text-gold-300 hover:text-gold-100'}`}
+                     >
+                         Venue Tracker
+                     </button>
+                     <button 
+                        onClick={() => setViewMode('google')}
+                        className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${viewMode === 'google' ? 'bg-gold-500 text-[#2d0a0d] shadow-sm' : 'text-gold-300 hover:text-gold-100'}`}
+                     >
+                         Map View
+                     </button>
+                 </div>
+             </div>
+             
+             <div className="flex-grow overflow-hidden relative bg-[#1a0507]" style={{ touchAction: 'none' }}>
+                 {viewMode === 'venue' ? (
+                  <div className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden" {...handlers} style={style}>
+                      <div 
+                        className="absolute inset-0 w-full h-full origin-top-left transition-transform duration-75 ease-out"
+                        style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
+                      >
+                          <div className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 bg-[#f5f5f4] border-[20px] border-[#4a0e11] shadow-2xl overflow-hidden">
+                                  <>
+                                    <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#4a0e11 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+                                    
+                                    {VENUE_ZONES.map((zone, i) => (
+                                        <div key={i} className="absolute border-2 border-dashed flex items-center justify-center text-center p-2 opacity-60 hover:opacity-100 transition-opacity" 
+                                            style={{ 
+                                                left: `${zone.x}%`, top: `${zone.y}%`, width: `${zone.w}%`, height: `${zone.h}%`, 
+                                                transform: 'translate(-50%, -50%)',
+                                                borderColor: zone.color, backgroundColor: `${zone.color}10`
+                                            }}>
+                                            <span className="font-serif font-bold text-[10px] uppercase tracking-wider text-[#4a0e11] bg-white/80 px-2 py-1 rounded-full shadow-sm">{zone.name}</span>
+                                        </div>
+                                    ))}
+
+                                    <MapTree className="absolute top-[15%] left-[15%] w-24 h-24 opacity-80" />
+                                    <MapTree className="absolute top-[15%] right-[15%] w-24 h-24 opacity-80" />
+                                    <MapElephant className="absolute bottom-[20%] left-[10%] w-32 h-20 opacity-60" />
+                                    <MapElephant className="absolute bottom-[20%] right-[10%] w-32 h-20 opacity-60" flip />
+                                  </>
+                              
+                              {/* Render Users */}
+                              {Object.values(activeUsers).map((u: LocationUpdate, i) => {
+                                  return <MapNode key={i} x={u.x} y={u.y} name={u.name === userName ? 'You' : u.name} type={u.role} delay={i * 100} />;
+                              })}
+                          </div>
+                      </div>
+                  </div>
+                 ) : (
+                     <div id="guest-map" ref={mapRef} className="w-full h-full bg-stone-200"></div>
+                 )}
+             </div>
+        </div>
+    );
+};
 
 // --- Constants for Music ---
 
@@ -285,7 +614,12 @@ const CoupleDashboard: React.FC<{ userName: string, onLogout: () => void }> = ({
     const [photos, setPhotos] = useState<MediaItem[]>([]);
     const [isRomanticMode, setIsRomanticMode] = useState(false);
     const [showUploadModal, setShowUploadModal] = useState(false);
+    const [isMapOpen, setIsMapOpen] = useState(false);
     
+    // Chat State
+    const [inputText, setInputText] = useState("");
+    const scrollRef = useRef<HTMLDivElement>(null);
+
     // --- Music State ---
     const [spotifyConnected, setSpotifyConnected] = useState(false);
     const [musicQueue, setMusicQueue] = useState<Song[]>([]);
@@ -348,6 +682,12 @@ const CoupleDashboard: React.FC<{ userName: string, onLogout: () => void }> = ({
 
         return () => channel.close();
     }, []);
+
+    useEffect(() => {
+        if (activeTab === 'chat' && scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+    }, [messages, activeTab]);
 
     // --- Music Handlers ---
     
@@ -515,6 +855,31 @@ const CoupleDashboard: React.FC<{ userName: string, onLogout: () => void }> = ({
         channel.close();
     };
 
+    // --- Chat Handlers ---
+    const handleSendMessage = () => {
+        if (!inputText.trim()) return;
+        const newMessage: Message = {
+            id: Date.now().toString(),
+            text: inputText,
+            sender: userName,
+            isCouple: true,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            type: 'text'
+        };
+        const updatedMessages = [...messages, newMessage];
+        setMessages(updatedMessages);
+        localStorage.setItem('wedding_chat_messages', JSON.stringify(updatedMessages));
+        broadcastSync('message', newMessage);
+        setInputText("");
+    };
+    
+    const triggerHeart = () => {
+        const newCount = heartCount + 1;
+        setHeartCount(newCount);
+        localStorage.setItem('wedding_heart_count', newCount.toString());
+        broadcastSync('heart_update', { count: newCount });
+    };
+
     // --- Render Helpers ---
 
     const renderSpotifyView = () => {
@@ -626,8 +991,15 @@ const CoupleDashboard: React.FC<{ userName: string, onLogout: () => void }> = ({
     };
 
     const renderChat = () => (
-        <div className="flex flex-col h-full overflow-hidden">
-             <div className="flex-grow overflow-y-auto p-4 space-y-3">
+        <div className="flex flex-col h-full overflow-hidden relative">
+             {/* Adore Meter Inside Chat */}
+             <div className="absolute bottom-[5rem] right-4 z-40 pointer-events-none">
+                 <div className="pointer-events-auto">
+                    <AdoreMeter count={heartCount} onTrigger={triggerHeart} />
+                 </div>
+             </div>
+
+             <div ref={scrollRef} className="flex-grow overflow-y-auto p-4 space-y-3 pb-24">
                  {messages.map(m => (
                      <div key={m.id} className={`flex flex-col ${m.sender === userName ? 'items-end' : 'items-start'}`}>
                          <div className={`max-w-[85%] px-4 py-2 rounded-2xl backdrop-blur-sm border shadow-sm ${m.sender === userName ? 'bg-rose-900/80 text-rose-100 border-rose-500/30 rounded-tr-none' : 'bg-white/10 text-white border-white/10 rounded-tl-none'}`}>
@@ -641,6 +1013,23 @@ const CoupleDashboard: React.FC<{ userName: string, onLogout: () => void }> = ({
                      </div>
                  ))}
              </div>
+             
+             {/* Input Area */}
+             <div className="p-3 glass-deep border-t border-white/10 relative z-50">
+                <div className="flex items-center gap-2">
+                    <input 
+                        type="text" 
+                        value={inputText} 
+                        onChange={e => setInputText(e.target.value)}
+                        className="flex-grow bg-black/40 border border-white/10 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:border-rose-500/50 text-white placeholder-white/30 transition-colors shadow-inner"
+                        placeholder="Send a message..."
+                        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                    />
+                    <button onClick={handleSendMessage} disabled={!inputText.trim()} className="p-2.5 bg-rose-600 rounded-full text-white hover:bg-rose-500 transition-colors active:scale-95 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                        <Send size={20} />
+                    </button>
+                </div>
+             </div>
         </div>
     );
 
@@ -653,7 +1042,7 @@ const CoupleDashboard: React.FC<{ userName: string, onLogout: () => void }> = ({
              </button>
 
              {photos.map(p => (
-                 <div key={p.id} className="relative aspect-square rounded-xl overflow-hidden group">
+                 <div key={p.id} className="relative aspect-square rounded-xl overflow-hidden group bg-black/40">
                      <img src={p.url} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2">
                          <p className="text-white text-xs truncate">{p.caption}</p>
@@ -721,15 +1110,18 @@ const CoupleDashboard: React.FC<{ userName: string, onLogout: () => void }> = ({
                          </div>
 
                          {/* Location Map Mini View */}
-                         <div className="h-48 bg-stone-900 rounded-xl border border-white/10 overflow-hidden relative">
-                             <div className="absolute inset-0 opacity-30 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
+                         <div className="h-48 bg-stone-900 rounded-xl border border-white/10 overflow-hidden relative cursor-pointer group" onClick={() => setIsMapOpen(true)}>
+                             <div className="absolute inset-0 opacity-30 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] transition-opacity group-hover:opacity-50"></div>
                              <div className="absolute inset-0 flex items-center justify-center">
-                                 <div className="w-32 h-32 rounded-full border-4 border-rose-500/30 flex items-center justify-center animate-pulse">
+                                 <div className="w-32 h-32 rounded-full border-4 border-rose-500/30 flex items-center justify-center animate-pulse group-hover:scale-110 transition-transform">
                                      <div className="w-4 h-4 bg-rose-500 rounded-full shadow-[0_0_20px_rgba(244,63,94,0.8)]"></div>
                                  </div>
                              </div>
                              <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold text-white border border-white/10 flex items-center gap-2">
                                  <Users size={12} /> {Object.keys(activeUsers).length} Active Guests
+                             </div>
+                             <div className="absolute top-2 right-2 bg-rose-600 text-white p-1.5 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                                 <ExternalLink size={14} />
                              </div>
                          </div>
                      </div>
@@ -762,7 +1154,7 @@ const CoupleDashboard: React.FC<{ userName: string, onLogout: () => void }> = ({
                 <div className="flex justify-around items-center">
                      {[
                          { id: 'home', icon: Home, label: 'Home' },
-                         { id: 'chat', icon: MessageSquare, label: 'Wishes' },
+                         { id: 'chat', icon: MessageSquare, label: 'Chat' },
                          { id: 'music', icon: Music, label: 'Spotify' },
                          { id: 'gallery', icon: Camera, label: 'Gallery' },
                      ].map(tab => (
@@ -808,6 +1200,9 @@ const CoupleDashboard: React.FC<{ userName: string, onLogout: () => void }> = ({
                      </div>
                 </div>
             )}
+            
+            {/* Map Modal */}
+            <LiveMapModal isOpen={isMapOpen} onClose={() => setIsMapOpen(false)} userName={userName} activeUsers={activeUsers} />
         </div>
     );
 };
