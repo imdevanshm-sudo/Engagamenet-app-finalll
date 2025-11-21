@@ -153,6 +153,15 @@
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       .scroll-smooth { -webkit-overflow-scrolling: touch; }
       
+      /* Live Map Marker Smoothness */
+      .leaflet-marker-icon {
+        transition: transform 1.5s linear;
+      }
+      .custom-div-icon {
+        background: transparent;
+        border: none;
+      }
+      
       /* Global Keyframes */
       @keyframes petal-fall {
          0% { transform: translateY(-5vh) translateX(0) rotate(0deg) scale(var(--scale)); opacity: 0; }

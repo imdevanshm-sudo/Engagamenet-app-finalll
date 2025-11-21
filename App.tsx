@@ -4,7 +4,7 @@ import WelcomeScreen from './components/WelcomeScreen';
 import GuestDashboard from './components/GuestDashboard';
 import CoupleDashboard from './components/CoupleDashboard';
 import AdminDashboard from './components/AdminDashboard';
-import { X, Cookie, RefreshCw } from 'lucide-react';
+import { X, Cookie, RefreshCw, Bell, AlertTriangle } from 'lucide-react';
 
 // Update this version string whenever you deploy a significant update to force a cache clear
 const APP_VERSION = '1.2.0';
@@ -15,6 +15,7 @@ const App: React.FC = () => {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showCookieConsent, setShowCookieConsent] = useState(false);
   const [showUpdateToast, setShowUpdateToast] = useState(false);
+  const [announcement, setAnnouncement] = useState<{title: string, msg: string} | null>(null);
 
   useEffect(() => {
     // Version Check for Cache Busting
@@ -65,7 +66,52 @@ const App: React.FC = () => {
       setUserName('Admin');
       setCurrentView('admin-dashboard');
     }
-  }, []);
+
+    // --- Global Listeners for Admin Actions ---
+    const channel = new BroadcastChannel('wedding_portal_chat');
+    channel.onmessage = (event) => {
+        const data = event.data;
+        
+        // 1. Global Announcement
+        if (data.type === 'announcement') {
+            setAnnouncement({ title: "Royal Proclamation", msg: data.message });
+            // Auto dismiss after 8 seconds
+            setTimeout(() => setAnnouncement(null), 8000);
+            
+            // Play generic notification sound if context is allowed
+            try {
+               const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+               if (AudioContext) {
+                   const ctx = new AudioContext();
+                   const osc = ctx.createOscillator();
+                   const gain = ctx.createGain();
+                   osc.connect(gain);
+                   gain.connect(ctx.destination);
+                   osc.type = 'sine';
+                   osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+                   osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1);
+                   gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                   gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+                   osc.start();
+                   osc.stop(ctx.currentTime + 0.5);
+               }
+            } catch(e) {}
+        }
+
+        // 2. User Blocking Security Check
+        if (data.type === 'block_user') {
+            const blockedName = data.name;
+            // Check if I am the blocked user
+            if (userName === blockedName && currentView !== 'admin-dashboard') {
+                handleLogout();
+                alert("Access Revoked: Please contact the event administrator.");
+            }
+        }
+    };
+
+    return () => channel.close();
+
+  }, [userName, currentView]);
 
   const changeView = (view: typeof currentView) => {
       setIsTransitioning(true);
@@ -88,6 +134,9 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('wedding_current_user_type');
+    localStorage.removeItem('wedding_guest_name');
+    localStorage.removeItem('wedding_couple_name');
+    setUserName("");
     changeView('welcome');
   };
 
@@ -97,7 +146,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="w-full h-full bg-[#2d0a0d] text-gold-100 font-serif overflow-hidden">
+    <div className="w-full h-full bg-[#2d0a0d] text-gold-100 font-serif overflow-hidden relative">
       <div className={`w-full h-full transition-all duration-500 ease-out transform ${isTransitioning ? 'opacity-0 scale-[0.98] blur-sm' : 'opacity-100 scale-100 blur-0'}`}>
         {currentView === 'welcome' && (
             <WelcomeScreen onLoginSuccess={handleLoginSuccess} />
@@ -112,6 +161,25 @@ const App: React.FC = () => {
             <AdminDashboard onLogout={handleLogout} />
         )}
       </div>
+
+      {/* Global Announcement Toast */}
+      {announcement && (
+          <div className="fixed top-0 left-0 right-0 z-[200] flex items-start justify-center p-4 animate-slide-down pointer-events-none">
+              <div className="bg-gradient-to-r from-gold-600 to-gold-400 text-[#2d0a0d] p-[2px] rounded-xl shadow-2xl max-w-md w-full pointer-events-auto">
+                  <div className="bg-[#fffbf0] rounded-[10px] p-4 flex gap-4 items-start relative overflow-hidden">
+                       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-gold-500 to-transparent animate-shimmer"></div>
+                       <div className="p-3 bg-gold-100 rounded-full shrink-0">
+                           <Bell size={24} className="text-gold-600 animate-swing" />
+                       </div>
+                       <div className="flex-grow">
+                           <h4 className="font-heading font-bold text-lg text-gold-800 mb-1">{announcement.title}</h4>
+                           <p className="font-serif text-stone-700 leading-snug">{announcement.msg}</p>
+                       </div>
+                       <button onClick={() => setAnnouncement(null)} className="text-stone-400 hover:text-stone-600"><X size={18}/></button>
+                  </div>
+              </div>
+          </div>
+      )}
 
       {/* Cookie Consent Banner */}
       {showCookieConsent && (

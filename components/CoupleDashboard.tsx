@@ -53,7 +53,7 @@ type BroadcastEvent =
   | { type: 'config_sync'; payload: any };
 
 interface LocationUpdate {
-    type: 'location_update';
+    type: 'location_update' | 'location_request';
     id: string;
     name: string;
     x: number;
@@ -374,16 +374,17 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
 
              const venueIcon = L.divIcon({
                 className: 'custom-div-icon',
-                html: `<div style="background-color: #be123c; color: #fff; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-size: 20px;">🏰</div>`,
+                html: `<div style="background-color: #be123c; color: #fff; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-size: 20px; z-index: 1000;">🏰</div>`,
                 iconSize: [40, 40],
                 iconAnchor: [20, 40]
             });
-            L.marker(venuePos, { icon: venueIcon }).addTo(mapInstance.current).bindPopup("Hotel Soni International");
+            L.marker(venuePos, { icon: venueIcon, zIndexOffset: 1000 }).addTo(mapInstance.current).bindPopup("Hotel Soni International");
         }
         
         if (viewMode !== 'google' && mapInstance.current) {
              mapInstance.current.remove();
              mapInstance.current = null;
+             markersRef.current = {};
         }
     }, [viewMode, isOpen]);
 
@@ -400,7 +401,7 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
                     const isMe = user.name === userName;
                     const safeName = escapeHtml(user.name);
                     const iconHtml = `
-                        <div class="relative flex flex-col items-center justify-center transition-all duration-500 transform hover:scale-110">
+                        <div class="relative flex flex-col items-center justify-center transition-all duration-1000 transform hover:scale-110">
                             <div class="w-8 h-8 rounded-full border-2 shadow-2xl flex items-center justify-center font-bold text-sm backdrop-blur-md ${
                                 user.role === 'couple' 
                                     ? 'bg-rose-900/90 border-rose-400 text-rose-100 shadow-rose-500/50' 
@@ -415,7 +416,7 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
                     `;
 
                     const icon = L.divIcon({
-                        className: 'bg-transparent border-none',
+                        className: 'custom-div-icon',
                         html: iconHtml,
                         iconSize: [40, 60],
                         iconAnchor: [20, 20]
@@ -804,40 +805,59 @@ const CoupleDashboard: React.FC<{ userName: string, onLogout: () => void }> = ({
     }, [currentSong, isPlaying]);
 
 
-    // --- Map Location Tracking ---
+    // --- Map Location Tracking & Handshake ---
     useEffect(() => {
         const channel = new BroadcastChannel('wedding_live_map');
+
+        const broadcastLocation = (lat: number, lng: number) => {
+            const pseudoX = 80; // Couple stays near mandap in mock visual map
+            const pseudoY = 50; 
+            
+            const update: LocationUpdate = { 
+                type: 'location_update', 
+                id: userName, 
+                name: userName, 
+                x: pseudoX, y: pseudoY,
+                lat: lat,
+                lng: lng,
+                role: 'couple',
+                map: 'all'
+            };
+            channel.postMessage(update);
+            setActiveUsers(prev => ({ ...prev, [userName]: update }));
+        };
+
         channel.onmessage = (event) => {
             const data = event.data as LocationUpdate;
             if (data.type === 'location_update') {
                 setActiveUsers(prev => ({ ...prev, [data.id]: data }));
+            } else if (data.type === 'location_request') {
+                // Guests are asking where we are, reply immediately
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition((pos) => {
+                         broadcastLocation(pos.coords.latitude, pos.coords.longitude);
+                    });
+                }
             }
         };
 
         let watchId: number;
         if (navigator.geolocation) {
+            // Broadcast on mount
+            navigator.geolocation.getCurrentPosition((pos) => {
+                broadcastLocation(pos.coords.latitude, pos.coords.longitude);
+            });
+
             watchId = navigator.geolocation.watchPosition(
                 (position) => {
-                    const { latitude, longitude } = position.coords;
-                    const pseudoX = 80; // Couple stays near mandap in mock
-                    const pseudoY = 50; 
-                    
-                    const update: LocationUpdate = { 
-                        type: 'location_update', 
-                        id: userName, 
-                        name: userName, 
-                        x: pseudoX, y: pseudoY,
-                        lat: latitude,
-                        lng: longitude,
-                        role: 'couple',
-                        map: 'all'
-                    };
-                    channel.postMessage(update);
-                    setActiveUsers(prev => ({ ...prev, [userName]: update }));
+                    broadcastLocation(position.coords.latitude, position.coords.longitude);
                 },
                 (error) => console.warn(error),
                 { enableHighAccuracy: true }
             );
+            
+            // Also ask where guests are
+            channel.postMessage({ type: 'location_request' });
         }
         return () => {
             channel.close();
