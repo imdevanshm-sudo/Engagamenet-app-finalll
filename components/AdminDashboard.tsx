@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, Settings, Scroll, Calendar, Megaphone, Plus, Minus,
   FileText, Camera, MessageSquare, Home, Users, Folder, 
-  Trash2, Edit2, Check, X, Save, Search, Phone, MapPin, Upload, Image as ImageIcon, Film, ExternalLink, Map, Heart, Navigation, LocateFixed, Music, Clock, PenTool, Plane, LogOut, Send, Ban, BellRing, LayoutDashboard
+  Trash2, Edit2, Check, X, Save, Search, Phone, MapPin, Upload, Image as ImageIcon, Film, ExternalLink, Map, Heart, Navigation, LocateFixed, Music, Clock, PenTool, Plane, LogOut, Send, Ban, BellRing
 } from 'lucide-react';
 
 // --- Utility to Prevent XSS in Map Markers ---
@@ -37,421 +37,762 @@ interface MediaItem {
 }
 
 interface LocationUpdate {
-    type: 'location_update' | 'location_request';
+    type: 'location_update';
     id: string;
     name: string;
-    lat: number;
-    lng: number;
-    role: 'guest' | 'couple' | 'admin';
-    timestamp: number;
+    x: number;
+    y: number;
+    lat?: number;
+    lng?: number;
+    role: 'guest' | 'couple';
+    map: 'all' | 'venue' | 'google';
 }
 
 const DEFAULT_EVENTS: WeddingEvent[] = [
-    { id: '1', title: "Mehndi Ceremony", time: "Dec 20, 4:00 PM", loc: "Poolside Gardens", icon: "🌿" },
-    { id: '2', title: "Sangeet Night", time: "Dec 20, 7:30 PM", loc: "Grand Ballroom", icon: "💃" },
-    { id: '3', title: "Haldi", time: "Dec 21, 10:00 AM", loc: "Courtyard", icon: "✨" },
-    { id: '4', title: "The Wedding", time: "Dec 21, 6:00 PM", loc: "Grand Lawn", icon: "💍" },
+    { id: '1', title: "Welcome Lunch", time: "Nov 26, 12:30 PM", loc: "Spice Garden", icon: "🍲" },
+    { id: '2', title: "Ring Ceremony (Sagai)", time: "Nov 26, 5:00 PM", loc: "Royal Gardens", icon: "💍" },
+    { id: '3', title: "Engagement Dinner", time: "Nov 26, 8:00 PM", loc: "Grand Ballroom", icon: "🥂" },
+    { id: '4', title: "DJ & Dance", time: "Nov 26, 10:00 PM", loc: "Poolside", icon: "💃" },
 ];
 
-const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'events' | 'gallery' | 'map' | 'users'>('dashboard');
-    const [events, setEvents] = useState<WeddingEvent[]>(DEFAULT_EVENTS);
-    const [gallery, setGallery] = useState<MediaItem[]>([]);
-    const [announcement, setAnnouncement] = useState("");
-    const [messages, setMessages] = useState<any[]>([]);
+// --- Shared Map Components ---
+
+const MapTree = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 100 100" className={className}>
+    <path d="M50,80 L50,100" stroke="#5D4037" strokeWidth="8" />
+    <path d="M20,80 Q10,60 30,40 Q10,30 40,10 Q70,30 60,40 Q90,60 80,80 Q50,90 20,80 Z" fill="#4a7c59" stroke="#33523f" strokeWidth="2" />
+    <circle cx="30" cy="50" r="3" fill="#ef4444" opacity="0.6" />
+    <circle cx="60" cy="30" r="3" fill="#ef4444" opacity="0.6" />
+    <circle cx="70" cy="60" r="3" fill="#ef4444" opacity="0.6" />
+  </svg>
+);
+
+const MapNode: React.FC<{ x: number; y: number; name: string; delay?: number; phone?: string; type?: 'guest' | 'couple' }> = ({ x, y, name, delay = 0, phone, type = 'guest' }) => {
+    return (
+        <div 
+            className="absolute flex flex-col items-center z-20 group animate-in zoom-in duration-700 fill-mode-backwards cursor-pointer transition-all duration-500"
+            style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)', animationDelay: `${delay}ms` }}
+        >
+            <div 
+              className={`relative rounded-full shadow-[0_25px_35px_-5px_rgba(0,0,0,0.7),0_0_0_2px_${type === 'couple' ? '#e11d48' : '#fbbf24'}] transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-4 w-16 h-16 p-[4px] ${type === 'couple' ? 'bg-rose-950' : 'bg-[#1a0405]'}`}
+              style={{ transform: 'perspective(500px) rotateX(10deg)' }}
+            >
+                <div className={`w-full h-full rounded-full border ${type === 'couple' ? 'border-rose-400' : 'border-gold-500/30'} overflow-hidden relative bg-[#2d0a0d] flex items-center justify-center`}>
+                    {type === 'couple' ? (
+                        <Heart size={24} className="text-rose-500 fill-rose-500 animate-pulse" />
+                    ) : (
+                        <Users size={24} className="text-gold-300 opacity-80" />
+                    )}
+                </div>
+                {type === 'couple' && (
+                     <div className="absolute inset-0 rounded-full border-2 border-rose-500 animate-ping opacity-50"></div>
+                )}
+            </div>
+            <div className={`mt-4 px-4 py-1 ${type === 'couple' ? 'bg-rose-900/90 border-rose-500' : 'bg-[#4a0e11]/90 border-[#f59e0b]/50'} backdrop-blur-md rounded-full border shadow-[0_8px_16px_rgba(0,0,0,0.6)] transform transition-transform group-hover:scale-105 group-hover:-translate-y-1`}>
+                <span className="text-[#fef3c7] text-xs sm:text-sm font-serif font-bold whitespace-nowrap tracking-wide drop-shadow-sm">{name}</span>
+            </div>
+            <div className="absolute top-[90%] left-1/2 w-1 h-8 bg-black/30 -translate-x-1/2 blur-[2px] origin-top transform skew-x-[20deg] z-[-1]"></div>
+        </div>
+    );
+};
+
+// --- Hooks ---
+
+const usePanZoom = (initialScale = 1, minScale = 0.5, maxScale = 3) => {
+  const [transform, setTransform] = useState({ x: 0, y: 0, scale: initialScale, rotate: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const lastPos = useRef({ x: 0, y: 0 });
+  const [pinchDist, setPinchDist] = useState<number | null>(null);
+  const [pinchCenter, setPinchCenter] = useState<{x: number, y: number} | null>(null);
+
+  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    if ('touches' in e && e.touches.length === 2) {
+       const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+       );
+       const center = {
+           x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+           y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+       };
+       setPinchDist(dist);
+       setPinchCenter(center);
+       return;
+    }
+
+    setIsDragging(true);
+    lastPos.current = { x: clientX - transform.x, y: clientY - transform.y };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
+    if ('touches' in e && e.touches.length === 2 && pinchDist !== null && pinchCenter !== null) {
+       e.preventDefault();
+       const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+       );
+       const center = {
+           x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+           y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+       };
+
+       const deltaScale = dist - pinchDist;
+       const newScale = Math.min(maxScale, Math.max(minScale, transform.scale + deltaScale * 0.005));
+       
+       const deltaX = center.x - pinchCenter.x;
+       const deltaY = center.y - pinchCenter.y;
+
+       setTransform(prev => ({ 
+           ...prev, 
+           scale: newScale,
+           x: prev.x + deltaX,
+           y: prev.y + deltaY
+       }));
+       setPinchDist(dist);
+       setPinchCenter(center);
+       return;
+    }
+
+    if (!isDragging) return;
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     
-    // Map State
+    if ('touches' in e) e.preventDefault(); 
+
+    setTransform(prev => ({
+       ...prev,
+       x: clientX - lastPos.current.x,
+       y: clientY - lastPos.current.y
+    }));
+  };
+
+  const handleMouseUp = () => {
+      setIsDragging(false);
+      setPinchDist(null);
+      setPinchCenter(null);
+  };
+
+  const handlers = {
+      onMouseDown: handleMouseDown,
+      onTouchStart: handleMouseDown,
+      onMouseMove: handleMouseMove,
+      onTouchMove: handleMouseMove,
+      onMouseUp: handleMouseUp,
+      onTouchEnd: handleMouseUp,
+      onMouseLeave: handleMouseUp
+  };
+  
+  const style: React.CSSProperties = { touchAction: 'none' };
+
+  return { transform, isDragging, handlers, style };
+};
+
+// --- Admin Live Map Component ---
+
+const AdminLiveMap: React.FC = () => {
+    const { transform, handlers, style } = usePanZoom(1, 0.5, 3);
     const [activeUsers, setActiveUsers] = useState<Record<string, LocationUpdate>>({});
+    const [viewMode, setViewMode] = useState<'venue' | 'google'>('venue');
+    
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstance = useRef<any>(null);
     const markersRef = useRef<Record<string, any>>({});
-    const venuePos = [26.7857, 83.0763];
+    const venuePos = [26.7857, 83.0763]; // Hotel Soni International, Khalilabad
+    
+    const VENUE_ZONES = [
+        { name: "Grand Stage", x: 50, y: 20, w: 30, h: 15, color: "#be123c" },
+        { name: "Mandap", x: 80, y: 50, w: 20, h: 20, color: "#b45309" },
+        { name: "Royal Dining", x: 20, y: 50, w: 25, h: 25, color: "#15803d" },
+        { name: "Entrance", x: 50, y: 90, w: 20, h: 10, color: "#4a0e11" },
+        { name: "Bar", x: 80, y: 80, w: 15, h: 15, color: "#1d4ed8" },
+    ];
 
     useEffect(() => {
-        // Load Data
-        const savedEvents = localStorage.getItem('wedding_events');
-        if (savedEvents) setEvents(JSON.parse(savedEvents));
+        const channel = new BroadcastChannel('wedding_live_map');
         
-        const savedGallery = localStorage.getItem('wedding_gallery_media');
-        if (savedGallery) setGallery(JSON.parse(savedGallery));
+        // HANDSHAKE: Ask guests to report in
+        channel.postMessage({ type: 'location_request' });
 
-        const savedMsgs = localStorage.getItem('wedding_chat_messages');
-        if (savedMsgs) setMessages(JSON.parse(savedMsgs));
-
-        // Broadcast Channels
-        const chatChannel = new BroadcastChannel('wedding_portal_chat');
-        const mapChannel = new BroadcastChannel('wedding_live_map');
-
-        // --- Live Map Handshake Protocol ---
-        const broadcastLocation = (lat: number, lng: number) => {
-             const update: LocationUpdate = {
-                 type: 'location_update',
-                 id: 'admin_01',
-                 name: 'Event Admin',
-                 lat, lng,
-                 role: 'admin',
-                 timestamp: Date.now()
-             };
-             mapChannel.postMessage(update);
-             setActiveUsers(prev => ({...prev, ['admin_01']: update}));
-        };
-
-        let watchId: number;
-        if (navigator.geolocation) {
-             navigator.geolocation.getCurrentPosition(pos => {
-                 broadcastLocation(pos.coords.latitude, pos.coords.longitude);
-             });
-
-             watchId = navigator.geolocation.watchPosition(
-                 pos => {
-                     broadcastLocation(pos.coords.latitude, pos.coords.longitude);
-                 },
-                 err => console.warn(err),
-                 { enableHighAccuracy: true }
-             );
-             
-             // Initiate Handshake: "Where is everyone?"
-             mapChannel.postMessage({ type: 'location_request' });
-        }
-
-        mapChannel.onmessage = (event) => {
+        channel.onmessage = (event) => {
             const data = event.data as LocationUpdate;
             if (data.type === 'location_update') {
-                setActiveUsers(prev => ({...prev, [data.id]: data}));
-            } else if (data.type === 'location_request') {
-                // Respond immediately to new joiners
-                if (navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition(pos => {
-                        broadcastLocation(pos.coords.latitude, pos.coords.longitude);
-                    });
-                }
+                setActiveUsers(prev => ({
+                    ...prev,
+                    [data.id]: data
+                }));
             }
         };
-
-        chatChannel.onmessage = (event) => {
-            const data = event.data;
-            if (data.type === 'message') {
-                 setMessages(prev => [...prev, data.payload]);
-            } else if (data.type === 'gallery_sync') {
-                 setGallery(data.payload);
-            }
-        };
-
-        return () => {
-            chatChannel.close();
-            mapChannel.close();
-            if (watchId) navigator.geolocation.clearWatch(watchId);
-        };
+        return () => channel.close();
     }, []);
 
-    // --- Map Rendering Logic ---
+    // Leaflet Setup for Google Mode
     useEffect(() => {
-        if (activeTab !== 'map' || !mapRef.current) return;
-        
+        if (viewMode !== 'google') {
+            if (mapInstance.current) {
+                mapInstance.current.remove();
+                mapInstance.current = null;
+                markersRef.current = {};
+            }
+            return;
+        }
+
+        if (!mapRef.current || mapInstance.current) return;
+
         const L = (window as any).L;
         if (!L) return;
 
-        if (!mapInstance.current) {
-            mapInstance.current = L.map(mapRef.current).setView(venuePos, 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap'
-            }).addTo(mapInstance.current);
+        mapInstance.current = L.map(mapRef.current).setView(venuePos, 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(mapInstance.current);
+        
+        L.marker(venuePos).addTo(mapInstance.current).bindPopup("Hotel Soni International").openPopup();
 
-            const venueIcon = L.divIcon({
-                className: 'custom-div-icon',
-                html: `<div style="background-color: #be123c; color: #fff; border-radius: 50%; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border: 3px solid #fcd34d; box-shadow: 0 4px 10px rgba(0,0,0,0.5); font-size: 24px; z-index: 1000;">🏰</div>`,
-                iconSize: [48, 48],
-                iconAnchor: [24, 48]
-            });
-            L.marker(venuePos, { icon: venueIcon }).addTo(mapInstance.current).bindPopup("Hotel Soni International");
+        return () => {
+            if(mapInstance.current) {
+                mapInstance.current.remove();
+                mapInstance.current = null;
+            }
         }
+    }, [viewMode]);
 
-        // Update Markers
+    // Update Leaflet Markers
+    useEffect(() => {
+        if (!mapInstance.current || viewMode !== 'google') return;
+        const L = (window as any).L;
+        
         Object.values(activeUsers).forEach((user: LocationUpdate) => {
             if (user.lat && user.lng) {
-                if (markersRef.current[user.id]) {
-                    markersRef.current[user.id].setLatLng([user.lat, user.lng]);
-                } else {
-                    const safeName = escapeHtml(user.name);
-                    const isCouple = user.role === 'couple';
-                    const isAdmin = user.role === 'admin';
-                    
-                    const bgColor = isCouple ? 'bg-rose-600' : isAdmin ? 'bg-blue-600' : 'bg-amber-500';
-                    const symbol = isCouple ? '❤️' : isAdmin ? '🛡️' : safeName.charAt(0);
-
-                    const iconHtml = `
+                 if (markersRef.current[user.id]) {
+                     markersRef.current[user.id].setLatLng([user.lat, user.lng]);
+                 } else {
+                     const safeName = escapeHtml(user.name);
+                     const iconHtml = `
                         <div class="relative flex flex-col items-center justify-center">
-                            <div class="w-10 h-10 rounded-full border-2 border-white shadow-lg flex items-center justify-center font-bold text-white ${bgColor}">
-                                ${symbol}
+                            <div class="w-8 h-8 rounded-full border-2 shadow-lg flex items-center justify-center font-bold text-xs backdrop-blur-md ${
+                                user.role === 'couple'
+                                    ? 'bg-rose-900/90 border-rose-400 text-rose-100' 
+                                    : 'bg-amber-900/90 border-amber-400 text-amber-100'
+                            }">
+                                ${safeName.charAt(0)}
                             </div>
-                             <div class="mt-1 px-2 py-0.5 rounded bg-black/80 text-[10px] font-bold text-white whitespace-nowrap border border-white/10">
-                                ${safeName}
+                             <div class="mt-1 px-2 py-0.5 rounded bg-black/60 text-[8px] font-bold text-white whitespace-nowrap border border-white/10">
+                                ${user.role === 'couple' ? 'Couple' : safeName}
                             </div>
                         </div>
                     `;
-                    
                     const icon = L.divIcon({
-                        className: 'custom-div-icon',
+                        className: 'bg-transparent border-none',
                         html: iconHtml,
-                        iconSize: [40, 60],
+                        iconSize: [40, 50],
                         iconAnchor: [20, 20]
                     });
-
-                    const marker = L.marker([user.lat, user.lng], { icon }).addTo(mapInstance.current);
-                    markersRef.current[user.id] = marker;
-                }
+                     const marker = L.marker([user.lat, user.lng], { icon }).addTo(mapInstance.current);
+                     markersRef.current[user.id] = marker;
+                 }
             }
         });
-
-        // Cleanup stale markers
-        Object.keys(markersRef.current).forEach(id => {
-            if (!activeUsers[id]) {
-                markersRef.current[id].remove();
-                delete markersRef.current[id];
-            }
-        });
-
-        // Re-render fixes
-        setTimeout(() => {
-             if (mapInstance.current) mapInstance.current.invalidateSize();
-        }, 100);
-
-    }, [activeTab, activeUsers]);
-
-    // --- Actions ---
-    const handleSendAnnouncement = () => {
-        if (!announcement.trim()) return;
-        const channel = new BroadcastChannel('wedding_portal_chat');
-        channel.postMessage({ type: 'announcement', message: announcement });
-        channel.close();
-        alert("Announcement Broadcasted!");
-        setAnnouncement("");
-    };
-
-    const deleteMessage = (id: string) => {
-        const updated = messages.filter(m => m.id !== id);
-        setMessages(updated);
-        localStorage.setItem('wedding_chat_messages', JSON.stringify(updated));
-        const channel = new BroadcastChannel('wedding_portal_chat');
-        channel.postMessage({ type: 'message_sync', payload: updated });
-        channel.close();
-    };
-
-    const deletePhoto = (id: string) => {
-        const updated = gallery.filter(m => m.id !== id);
-        setGallery(updated);
-        localStorage.setItem('wedding_gallery_media', JSON.stringify(updated));
-        const channel = new BroadcastChannel('wedding_portal_chat');
-        channel.postMessage({ type: 'gallery_sync', payload: updated });
-        channel.close();
-    };
-
-    const blockUser = (name: string) => {
-        if (confirm(`Are you sure you want to block ${name}? This will log them out.`)) {
-             const channel = new BroadcastChannel('wedding_portal_chat');
-             channel.postMessage({ type: 'block_user', name: name });
-             channel.close();
-        }
-    };
+    }, [activeUsers, viewMode]);
 
     return (
-        <div className="w-full h-full flex flex-col bg-stone-900 text-stone-100 font-sans">
-            {/* Header */}
-            <header className="h-16 border-b border-stone-800 bg-stone-950 flex items-center justify-between px-6 shrink-0">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center shadow-lg">
-                        <Settings size={18} className="text-white animate-spin-slow" />
-                    </div>
-                    <h1 className="font-bold text-lg tracking-tight">Admin Console</h1>
+        <div className="h-full flex flex-col">
+            <div className="flex justify-between items-center p-2 bg-black/20">
+                <h3 className="text-gold-200 font-bold text-sm">Live Tracking ({Object.keys(activeUsers).length} Active)</h3>
+                <div className="flex gap-2">
+                    <button onClick={() => setViewMode('venue')} className={`px-3 py-1 rounded text-xs ${viewMode === 'venue' ? 'bg-gold-500 text-black' : 'bg-white/10 text-white'}`}>Venue</button>
+                    <button onClick={() => setViewMode('google')} className={`px-3 py-1 rounded text-xs ${viewMode === 'google' ? 'bg-gold-500 text-black' : 'bg-white/10 text-white'}`}>Map</button>
                 </div>
-                <div className="flex items-center gap-4">
-                    <button onClick={onLogout} className="text-stone-400 hover:text-red-400 transition-colors flex items-center gap-2 text-sm font-medium px-3 py-1.5 hover:bg-red-500/10 rounded-md">
-                        <LogOut size={16} /> Logout
-                    </button>
-                </div>
-            </header>
-
-            <div className="flex flex-grow overflow-hidden">
-                {/* Sidebar */}
-                <aside className="w-64 bg-stone-950 border-r border-stone-800 flex flex-col shrink-0">
-                    <nav className="flex-grow p-4 space-y-2">
-                        {[
-                            { id: 'dashboard', icon: LayoutDashboard, label: 'Overview' },
-                            { id: 'events', icon: Calendar, label: 'Events Schedule' },
-                            { id: 'gallery', icon: Image as any, label: 'Media Gallery' },
-                            { id: 'map', icon: Map, label: 'Live Tracking' },
-                            { id: 'users', icon: Users, label: 'User Management' },
-                        ].map(item => (
-                            <button 
-                                key={item.id}
-                                onClick={() => setActiveTab(item.id as any)}
-                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === item.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'text-stone-400 hover:bg-stone-900 hover:text-stone-200'}`}
-                            >
-                                <item.icon size={18} /> {item.label}
-                            </button>
-                        ))}
-                    </nav>
-                    <div className="p-4 border-t border-stone-800">
-                         <div className="bg-stone-900 rounded-xl p-4 border border-stone-800">
-                             <h3 className="text-xs font-bold text-stone-500 uppercase mb-3 flex items-center gap-2"><Megaphone size={12}/> Global Broadcast</h3>
-                             <textarea 
-                                value={announcement}
-                                onChange={e => setAnnouncement(e.target.value)}
-                                className="w-full bg-black/40 rounded-lg p-2 text-xs text-stone-200 border border-stone-700 focus:outline-none focus:border-blue-500 mb-2 resize-none h-20"
-                                placeholder="Type alert message..."
-                             ></textarea>
-                             <button onClick={handleSendAnnouncement} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors">
-                                 <Send size={12} /> Send to All
-                             </button>
-                         </div>
-                    </div>
-                </aside>
-
-                {/* Content Area */}
-                <main className="flex-grow bg-stone-900 overflow-hidden relative">
-                    {activeTab === 'dashboard' && (
-                        <div className="p-8 overflow-y-auto h-full">
-                            <h2 className="text-2xl font-bold mb-6 text-white">System Overview</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                                <div className="bg-stone-800 p-6 rounded-2xl border border-stone-700 shadow-xl">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="p-3 bg-blue-500/20 text-blue-400 rounded-xl"><Users size={24} /></div>
-                                        <span className="text-xs font-mono text-stone-500 bg-stone-900 px-2 py-1 rounded">REALTIME</span>
-                                    </div>
-                                    <div className="text-4xl font-bold text-white mb-1">{Object.keys(activeUsers).length}</div>
-                                    <p className="text-sm text-stone-400">Active Guests Tracked</p>
-                                </div>
-                                <div className="bg-stone-800 p-6 rounded-2xl border border-stone-700 shadow-xl">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="p-3 bg-green-500/20 text-green-400 rounded-xl"><MessageSquare size={24} /></div>
-                                        <span className="text-xs font-mono text-stone-500 bg-stone-900 px-2 py-1 rounded">TOTAL</span>
-                                    </div>
-                                    <div className="text-4xl font-bold text-white mb-1">{messages.length}</div>
-                                    <p className="text-sm text-stone-400">Wishes & Messages</p>
-                                </div>
-                                <div className="bg-stone-800 p-6 rounded-2xl border border-stone-700 shadow-xl">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="p-3 bg-purple-500/20 text-purple-400 rounded-xl"><Camera size={24} /></div>
-                                        <span className="text-xs font-mono text-stone-500 bg-stone-900 px-2 py-1 rounded">GALLERY</span>
-                                    </div>
-                                    <div className="text-4xl font-bold text-white mb-1">{gallery.length}</div>
-                                    <p className="text-sm text-stone-400">Shared Moments</p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab === 'map' && (
-                        <div className="w-full h-full relative flex flex-col">
-                            <div className="absolute top-4 left-4 z-[1000] bg-stone-900/80 backdrop-blur p-3 rounded-lg border border-stone-700 shadow-lg">
-                                <h3 className="text-sm font-bold text-white flex items-center gap-2"><MapPin size={16} className="text-blue-500"/> Live Tracking Active</h3>
-                                <p className="text-[10px] text-stone-400 mt-1">Updating positions in real-time</p>
-                            </div>
-                            <div ref={mapRef} className="w-full h-full z-0"></div>
-                        </div>
-                    )}
-
-                    {activeTab === 'users' && (
-                         <div className="p-8 overflow-y-auto h-full">
-                            <h2 className="text-2xl font-bold mb-6 text-white">User Management</h2>
-                            <div className="bg-stone-800 rounded-2xl border border-stone-700 overflow-hidden">
-                                <table className="w-full text-left">
-                                    <thead className="bg-stone-900 border-b border-stone-700">
-                                        <tr>
-                                            <th className="p-4 text-xs font-bold text-stone-500 uppercase">User Name</th>
-                                            <th className="p-4 text-xs font-bold text-stone-500 uppercase">Role</th>
-                                            <th className="p-4 text-xs font-bold text-stone-500 uppercase">Status</th>
-                                            <th className="p-4 text-xs font-bold text-stone-500 uppercase text-right">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {Object.values(activeUsers).map((user: LocationUpdate) => (
-                                            <tr key={user.id} className="border-b border-stone-700 hover:bg-stone-700/50 transition-colors">
-                                                <td className="p-4 text-sm font-medium text-white">{user.name}</td>
-                                                <td className="p-4">
-                                                    <span className={`text-xs px-2 py-1 rounded-full border ${
-                                                        user.role === 'couple' ? 'bg-rose-900/30 border-rose-500/30 text-rose-400' : 
-                                                        user.role === 'admin' ? 'bg-blue-900/30 border-blue-500/30 text-blue-400' : 
-                                                        'bg-stone-700 text-stone-300 border-stone-600'
-                                                    }`}>
-                                                        {user.role.toUpperCase()}
-                                                    </span>
-                                                </td>
-                                                <td className="p-4">
-                                                    <span className="flex items-center gap-2 text-xs text-green-400">
-                                                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Online
-                                                    </span>
-                                                </td>
-                                                <td className="p-4 text-right">
-                                                    {user.role === 'guest' && (
-                                                        <button 
-                                                            onClick={() => blockUser(user.name)}
-                                                            className="text-xs bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white px-3 py-1.5 rounded transition-all border border-red-500/30"
-                                                        >
-                                                            Block Access
-                                                        </button>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        {Object.keys(activeUsers).length === 0 && (
-                                            <tr>
-                                                <td colSpan={4} className="p-8 text-center text-stone-500 italic">No active users detected yet.</td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                         </div>
-                    )}
-
-                    {activeTab === 'events' && (
-                        <div className="p-8 overflow-y-auto h-full">
-                            <h2 className="text-2xl font-bold mb-6 text-white">Event Schedule</h2>
-                            <div className="space-y-4">
-                                {events.map((evt, i) => (
-                                    <div key={evt.id} className="bg-stone-800 p-4 rounded-xl border border-stone-700 flex items-center justify-between">
-                                        <div className="flex items-center gap-4">
-                                            <div className="text-3xl">{evt.icon}</div>
-                                            <div>
-                                                <div className="font-bold text-white">{evt.title}</div>
-                                                <div className="text-sm text-stone-400">{evt.time} • {evt.loc}</div>
-                                            </div>
-                                        </div>
-                                        <button className="p-2 hover:bg-stone-700 rounded-lg text-stone-400 hover:text-white"><Edit2 size={18} /></button>
-                                    </div>
-                                ))}
-                                <button className="w-full py-4 border-2 border-dashed border-stone-700 rounded-xl text-stone-500 hover:border-blue-500 hover:text-blue-500 transition-colors flex items-center justify-center gap-2">
-                                    <Plus size={20} /> Add New Event
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                    
-                    {activeTab === 'gallery' && (
-                        <div className="p-8 overflow-y-auto h-full">
-                             <h2 className="text-2xl font-bold mb-6 text-white">Content Moderation</h2>
-                             <div className="grid grid-cols-4 gap-4">
-                                 {gallery.map(item => (
-                                     <div key={item.id} className="relative group rounded-xl overflow-hidden bg-stone-950 border border-stone-700">
-                                          <img src={item.url} className="w-full h-48 object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-                                          <div className="absolute top-2 right-2">
-                                              <button onClick={() => deletePhoto(item.id)} className="bg-red-600 text-white p-2 rounded-full shadow-lg hover:scale-110 transition-transform">
-                                                  <Trash2 size={14} />
-                                              </button>
-                                          </div>
-                                          <div className="p-3">
-                                              <p className="text-xs text-stone-400 truncate">{item.caption || "No Caption"}</p>
-                                          </div>
+            </div>
+            <div className="flex-grow relative overflow-hidden bg-[#2d0a0d]">
+                 {viewMode === 'venue' ? (
+                     <div className="w-full h-full cursor-move relative overflow-hidden" {...handlers} style={style}>
+                        <div 
+                            className="absolute inset-0 w-full h-full origin-top-left transition-transform duration-75 ease-out"
+                            style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
+                        >
+                            <div className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 bg-[#f5f5f4] border-[20px] border-[#4a0e11] shadow-2xl overflow-hidden">
+                                 <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#4a0e11 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+                                 
+                                 {VENUE_ZONES.map((zone, i) => (
+                                     <div key={i} className="absolute border-2 border-dashed flex items-center justify-center text-center p-2 opacity-60" 
+                                         style={{ 
+                                             left: `${zone.x}%`, top: `${zone.y}%`, width: `${zone.w}%`, height: `${zone.h}%`, 
+                                             transform: 'translate(-50%, -50%)',
+                                             borderColor: zone.color, backgroundColor: `${zone.color}10`
+                                         }}>
+                                         <span className="font-serif font-bold text-[10px] uppercase tracking-wider text-[#4a0e11] bg-white/80 px-2 py-1 rounded-full shadow-sm">{zone.name}</span>
                                      </div>
                                  ))}
-                             </div>
+                                 
+                                 <MapTree className="absolute top-[15%] left-[15%] w-24 h-24 opacity-80" />
+                                 <MapTree className="absolute top-[15%] right-[15%] w-24 h-24 opacity-80" />
+                                 
+                                 {Object.values(activeUsers).map((u: LocationUpdate, i) => (
+                                     <MapNode key={i} x={u.x} y={u.y} name={escapeHtml(u.name)} type={u.role} />
+                                 ))}
+                            </div>
                         </div>
-                    )}
-                </main>
+                     </div>
+                 ) : (
+                     <div ref={mapRef} className="w-full h-full"></div>
+                 )}
             </div>
         </div>
     );
+}
+
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
+  const [activeTab, setActiveTab] = useState<'overview' | 'highlights' | 'gallery' | 'messages' | 'config' | 'map'>('overview');
+  const [config, setConfig] = useState({ coupleName: "", date: "", welcomeMsg: "" });
+  const [guestCount, setGuestCount] = useState(0);
+  const [msgCount, setMsgCount] = useState(0);
+  const [heartCount, setHeartCount] = useState(0);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [events, setEvents] = useState<WeddingEvent[]>(DEFAULT_EVENTS);
+  const [photos, setPhotos] = useState<MediaItem[]>([]);
+  
+  // Event Form State
+  const [newEvent, setNewEvent] = useState({ title: '', time: '', loc: '', icon: '✨' });
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Photo editing state
+  const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
+  const [editCaption, setEditCaption] = useState("");
+
+  // Announcement State
+  const [announceMsg, setAnnounceMsg] = useState("");
+
+  // Broadcast Helper
+  const broadcastSync = (type: string, payload: any) => {
+      const channel = new BroadcastChannel('wedding_portal_chat');
+      channel.postMessage({ type, payload });
+      channel.close();
+  };
+  
+  // Unique Admin Action: Send Broadcast Announcement
+  const handleBroadcast = () => {
+      if (!announceMsg.trim()) return;
+      const channel = new BroadcastChannel('wedding_portal_chat');
+      channel.postMessage({ type: 'announcement', message: announceMsg });
+      channel.close();
+      setAnnounceMsg("");
+      alert("Announcement Sent to All Active Guests!");
+  };
+
+  const handleBlockUser = (name: string) => {
+      if(confirm(`Are you sure you want to BLOCK ${name} from the app? They will be logged out instantly.`)) {
+          const channel = new BroadcastChannel('wedding_portal_chat');
+          channel.postMessage({ type: 'block_user', name: name });
+          channel.close();
+          // Also delete their messages
+          const newMessages = messages.filter(m => m.sender !== name);
+          setMessages(newMessages);
+          setMsgCount(newMessages.length);
+          localStorage.setItem('wedding_chat_messages', JSON.stringify(newMessages));
+          broadcastSync('message_sync', newMessages);
+      }
+  };
+
+  useEffect(() => {
+      // Initial Load
+      const loadData = () => {
+        const savedConfig = localStorage.getItem('wedding_global_config');
+        if (savedConfig) setConfig(JSON.parse(savedConfig));
+        else setConfig({ coupleName: "Sneha & Aman", date: "2025-11-26", welcomeMsg: "Welcome to our Engagement!" });
+
+        // Count guests (rough estimate from local keys)
+        let gCount = 0;
+        for (let i = 0; i < localStorage.length; i++) {
+            if (localStorage.key(i)?.startsWith('wedding_guest_name')) gCount++;
+        }
+        setGuestCount(gCount + 200); // Mock baseline
+
+        const msgs = localStorage.getItem('wedding_chat_messages');
+        if (msgs) {
+            const parsed = JSON.parse(msgs);
+            setMessages(parsed);
+            setMsgCount(parsed.length);
+        }
+
+        const hearts = localStorage.getItem('wedding_heart_count');
+        if(hearts) setHeartCount(parseInt(hearts));
+        
+        const savedEvents = localStorage.getItem('wedding_events');
+        if(savedEvents) setEvents(JSON.parse(savedEvents));
+
+        const savedPhotos = localStorage.getItem('wedding_gallery_media');
+        if(savedPhotos) setPhotos(JSON.parse(savedPhotos));
+      };
+      loadData();
+
+      // Listen for Updates from other tabs
+      const channel = new BroadcastChannel('wedding_portal_chat');
+      channel.onmessage = (event) => {
+          const data = event.data;
+          switch(data.type) {
+              case 'message': 
+                  setMessages(prev => {
+                      const newState = [...prev, data.payload];
+                      setMsgCount(newState.length);
+                      return newState;
+                  });
+                  break;
+              case 'message_sync':
+                  setMessages(data.payload);
+                  setMsgCount(data.payload.length);
+                  break;
+              case 'heart_update':
+                  setHeartCount(data.count);
+                  break;
+              case 'gallery_sync':
+                  setPhotos(data.payload);
+                  break;
+              case 'event_sync':
+                  setEvents(data.payload);
+                  break;
+          }
+      };
+
+      return () => channel.close();
+  }, []);
+
+  const handleSaveConfig = () => {
+      localStorage.setItem('wedding_global_config', JSON.stringify(config));
+      localStorage.setItem('wedding_welcome_msg', config.welcomeMsg);
+      broadcastSync('config_sync', config);
+      alert("Configuration Saved & Broadcasted!");
+  };
+
+  const handleClearData = () => {
+      if (confirm("Are you sure? This will clear all local data.")) {
+          localStorage.clear();
+          window.location.reload();
+      }
+  };
+  
+  // --- Events Management ---
+  const handleAddOrUpdateEvent = () => {
+      if(!newEvent.title || !newEvent.time) return;
+      
+      let updated;
+      if (editingId) {
+          updated = events.map(e => e.id === editingId ? { ...newEvent, id: editingId } : e);
+          setEditingId(null);
+      } else {
+          updated = [...events, { ...newEvent, id: Date.now().toString() }];
+      }
+      
+      setEvents(updated);
+      localStorage.setItem('wedding_events', JSON.stringify(updated));
+      broadcastSync('event_sync', updated);
+      setNewEvent({ title: '', time: '', loc: '', icon: '✨' });
+  };
+
+  const handleEditClick = (evt: WeddingEvent) => {
+      setNewEvent(evt);
+      setEditingId(evt.id);
+  };
+
+  const handleCancelEdit = () => {
+      setNewEvent({ title: '', time: '', loc: '', icon: '✨' });
+      setEditingId(null);
+  };
+  
+  const handleDeleteEvent = (id: string) => {
+      if(confirm("Delete this event?")) {
+          const updated = events.filter(e => e.id !== id);
+          setEvents(updated);
+          localStorage.setItem('wedding_events', JSON.stringify(updated));
+          broadcastSync('event_sync', updated);
+          if (editingId === id) handleCancelEdit();
+      }
+  };
+
+  // --- Messages Management ---
+  const handleDeleteMessage = (id: string) => {
+      const updated = messages.filter(m => m.id !== id);
+      setMessages(updated);
+      setMsgCount(updated.length);
+      localStorage.setItem('wedding_chat_messages', JSON.stringify(updated));
+      broadcastSync('message_sync', updated);
+  };
+
+  // --- Gallery Management ---
+  const handleDeletePhoto = (id: string) => {
+      if(confirm("Delete this photo?")) {
+          const updated = photos.filter(p => p.id !== id);
+          setPhotos(updated);
+          localStorage.setItem('wedding_gallery_media', JSON.stringify(updated));
+          broadcastSync('gallery_sync', updated);
+      }
+  };
+
+  const handleEditPhotoClick = (photo: MediaItem) => {
+      setEditingPhotoId(photo.id);
+      setEditCaption(photo.caption || "");
+  };
+
+  const handleSavePhotoCaption = (id: string) => {
+      const updated = photos.map(p => p.id === id ? { ...p, caption: editCaption } : p);
+      setPhotos(updated);
+      localStorage.setItem('wedding_gallery_media', JSON.stringify(updated));
+      broadcastSync('gallery_sync', updated);
+      setEditingPhotoId(null);
+  };
+
+  return (
+    <div className="w-full h-full flex flex-col bg-[#1a0507] text-gold-100 font-serif">
+      {/* Header */}
+      <header className="p-4 bg-[#2d0a0d] border-b border-gold-500/20 flex justify-between items-center shadow-lg z-20">
+          <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gold-500 text-[#2d0a0d] rounded-lg flex items-center justify-center font-bold shadow-md">
+                  <Settings size={20} />
+              </div>
+              <div>
+                  <h1 className="font-heading text-xl text-gold-100">Admin Panel</h1>
+                  <p className="text-[10px] text-stone-400 uppercase tracking-widest">Engagement Control Center</p>
+              </div>
+          </div>
+          <button onClick={onLogout} className="p-2 hover:bg-white/5 rounded-lg text-stone-400 hover:text-white transition-colors">
+              <LogOut size={20} />
+          </button>
+      </header>
+
+      <div className="flex flex-grow overflow-hidden">
+          {/* Sidebar */}
+          <aside className="w-20 bg-[#2d0a0d]/50 border-r border-white/5 flex flex-col items-center py-4 gap-4 z-10">
+              {[
+                  { id: 'overview', icon: Home, label: 'Home' },
+                  { id: 'highlights', icon: Calendar, label: 'Events' },
+                  { id: 'gallery', icon: Camera, label: 'Media' },
+                  { id: 'messages', icon: MessageSquare, label: 'Chat' },
+                  { id: 'map', icon: Map, label: 'Map' },
+                  { id: 'config', icon: Edit2, label: 'Config' },
+              ].map((item) => (
+                  <button 
+                    key={item.id} 
+                    onClick={() => setActiveTab(item.id as any)}
+                    className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center gap-1 transition-all ${activeTab === item.id ? 'bg-gold-500 text-[#2d0a0d] shadow-lg shadow-gold-500/20' : 'text-stone-500 hover:bg-white/5 hover:text-stone-300'}`}
+                  >
+                      <item.icon size={20} />
+                  </button>
+              ))}
+          </aside>
+
+          {/* Content */}
+          <main className="flex-grow overflow-y-auto p-6 bg-[#0f0505]">
+              {activeTab === 'overview' && (
+                  <div className="space-y-6 animate-fade-in">
+                      <h2 className="text-2xl font-heading text-gold-200 mb-4">Dashboard Overview</h2>
+                      <div className="grid grid-cols-3 gap-4">
+                          <div className="bg-[#2d0a0d] p-5 rounded-xl border border-white/10 shadow-lg">
+                              <div className="flex items-center justify-between mb-2">
+                                  <span className="text-stone-400 text-xs uppercase tracking-wider">Total Guests</span>
+                                  <Users size={16} className="text-gold-500" />
+                              </div>
+                              <div className="text-3xl font-bold text-white">{guestCount}</div>
+                          </div>
+                          <div className="bg-[#2d0a0d] p-5 rounded-xl border border-white/10 shadow-lg">
+                              <div className="flex items-center justify-between mb-2">
+                                  <span className="text-stone-400 text-xs uppercase tracking-wider">Messages</span>
+                                  <MessageSquare size={16} className="text-rose-500" />
+                              </div>
+                              <div className="text-3xl font-bold text-white">{msgCount}</div>
+                          </div>
+                          <div className="bg-[#2d0a0d] p-5 rounded-xl border border-white/10 shadow-lg">
+                              <div className="flex items-center justify-between mb-2">
+                                  <span className="text-stone-400 text-xs uppercase tracking-wider">Total Hearts</span>
+                                  <Heart size={16} className="text-rose-500" fill="currentColor" />
+                              </div>
+                              <div className="text-3xl font-bold text-white">{heartCount}</div>
+                          </div>
+                      </div>
+                      
+                      {/* Announcement Widget */}
+                      <div className="bg-gradient-to-r from-gold-900/30 to-gold-700/10 p-6 rounded-xl border border-gold-500/30">
+                          <div className="flex items-center gap-2 mb-4">
+                               <Megaphone className="text-gold-400" size={20} />
+                               <h3 className="font-bold text-gold-100">Make a Royal Announcement</h3>
+                          </div>
+                          <div className="flex gap-3">
+                              <input 
+                                type="text" 
+                                value={announceMsg}
+                                onChange={e => setAnnounceMsg(e.target.value)}
+                                className="flex-grow bg-black/40 border border-gold-500/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-gold-500"
+                                placeholder="e.g. The Ring Ceremony begins in 10 minutes!"
+                              />
+                              <button onClick={handleBroadcast} className="bg-gold-500 text-[#2d0a0d] font-bold px-6 py-3 rounded-lg shadow-lg hover:bg-gold-400 transition-all flex items-center gap-2">
+                                  <Send size={18}/> Broadcast
+                              </button>
+                          </div>
+                      </div>
+
+                      <div className="bg-[#2d0a0d] p-6 rounded-xl border border-white/10">
+                          <h3 className="font-bold text-gold-100 mb-4">System Actions</h3>
+                          <button onClick={handleClearData} className="w-full py-3 rounded-lg border border-red-500/50 text-red-400 hover:bg-red-900/20 transition-colors flex items-center justify-center gap-2">
+                              <Trash2 size={16} /> Reset All App Data
+                          </button>
+                      </div>
+                  </div>
+              )}
+              
+              {activeTab === 'highlights' && (
+                  <div className="space-y-6 animate-fade-in">
+                       <h2 className="text-2xl font-heading text-gold-200">Manage Events</h2>
+                       <div className="bg-[#2d0a0d] p-4 rounded-xl border border-white/10">
+                           <div className="flex justify-between items-center mb-4">
+                               <h3 className="text-sm font-bold text-gold-400 uppercase">{editingId ? 'Edit Event' : 'Add New Event'}</h3>
+                               {editingId && <button onClick={handleCancelEdit} className="text-xs text-red-400 hover:text-red-300">Cancel</button>}
+                           </div>
+                           <div className="grid grid-cols-2 gap-4 mb-4">
+                               <input type="text" placeholder="Event Title" value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} className="bg-black/30 border border-white/10 rounded p-2 text-white" />
+                               <input type="text" placeholder="Time (e.g. Dec 20, 4PM)" value={newEvent.time} onChange={e => setNewEvent({...newEvent, time: e.target.value})} className="bg-black/30 border border-white/10 rounded p-2 text-white" />
+                               <input type="text" placeholder="Location" value={newEvent.loc} onChange={e => setNewEvent({...newEvent, loc: e.target.value})} className="bg-black/30 border border-white/10 rounded p-2 text-white" />
+                               <input type="text" placeholder="Icon (Emoji)" value={newEvent.icon} onChange={e => setNewEvent({...newEvent, icon: e.target.value})} className="bg-black/30 border border-white/10 rounded p-2 text-white" />
+                           </div>
+                           <button onClick={handleAddOrUpdateEvent} className={`px-4 py-2 rounded font-bold flex items-center gap-2 transition-colors ${editingId ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-gold-600 hover:bg-gold-500 text-black'}`}>
+                               {editingId ? <><Save size={16}/> Update Event</> : <><Plus size={16}/> Add Event</>}
+                           </button>
+                       </div>
+                       <div className="space-y-2">
+                           {events.map(evt => (
+                               <div key={evt.id} className={`flex items-center justify-between p-3 border rounded-lg transition-colors ${editingId === evt.id ? 'bg-blue-900/20 border-blue-500/50' : 'bg-[#1a0507] border-white/5'}`}>
+                                   <div className="flex items-center gap-3">
+                                       <span className="text-2xl">{evt.icon}</span>
+                                       <div>
+                                           <div className="font-bold text-white">{evt.title}</div>
+                                           <div className="text-xs text-stone-500">{evt.time} • {evt.loc}</div>
+                                       </div>
+                                   </div>
+                                   <div className="flex gap-2">
+                                       <button onClick={() => handleEditClick(evt)} className="text-blue-400 hover:text-blue-300 p-2"><Edit2 size={18}/></button>
+                                       <button onClick={() => handleDeleteEvent(evt.id)} className="text-red-400 hover:text-red-300 p-2"><Trash2 size={18}/></button>
+                                   </div>
+                               </div>
+                           ))}
+                       </div>
+                  </div>
+              )}
+              
+              {activeTab === 'gallery' && (
+                   <div className="space-y-6 animate-fade-in">
+                       <h2 className="text-2xl font-heading text-gold-200">Media Gallery</h2>
+                       <div className="grid grid-cols-3 gap-4">
+                           {photos.map(photo => (
+                               <div key={photo.id} className="relative group aspect-square rounded-lg overflow-hidden border border-white/10 bg-black/40">
+                                   <img src={photo.url} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" alt="Gallery" />
+                                   
+                                   {/* Overlay Controls */}
+                                   <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-2">
+                                       <button onClick={() => handleEditPhotoClick(photo)} className="text-blue-400 bg-white/10 p-2 rounded-full hover:bg-white/20"><Edit2 size={20}/></button>
+                                       <button onClick={() => handleDeletePhoto(photo.id)} className="text-red-400 bg-white/10 p-2 rounded-full hover:bg-white/20"><Trash2 size={20}/></button>
+                                   </div>
+
+                                   {/* Caption Display / Edit Mode */}
+                                   <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/80 min-h-[40px] flex items-center">
+                                       {editingPhotoId === photo.id ? (
+                                           <div className="flex w-full gap-1">
+                                               <input 
+                                                  type="text" 
+                                                  value={editCaption} 
+                                                  onChange={e => setEditCaption(e.target.value)} 
+                                                  className="w-full bg-white/10 border border-white/20 rounded px-1 text-[10px] text-white"
+                                                  autoFocus
+                                               />
+                                               <button onClick={() => handleSavePhotoCaption(photo.id)} className="text-green-400"><Check size={14}/></button>
+                                               <button onClick={() => setEditingPhotoId(null)} className="text-red-400"><X size={14}/></button>
+                                           </div>
+                                       ) : (
+                                           <p className="text-[10px] text-white truncate w-full text-center">{photo.caption || 'No Caption'}</p>
+                                       )}
+                                   </div>
+                               </div>
+                           ))}
+                           {photos.length === 0 && <p className="col-span-3 text-stone-500 italic">No photos uploaded yet.</p>}
+                       </div>
+                   </div>
+              )}
+
+              {activeTab === 'messages' && (
+                  <div className="space-y-4 animate-fade-in">
+                      <h2 className="text-2xl font-heading text-gold-200">Message Log & Moderation</h2>
+                      <div className="space-y-2">
+                          {messages.map((m, i) => (
+                              <div key={i} className="bg-[#2d0a0d] p-3 rounded-lg border border-white/5 flex justify-between items-start">
+                                  <div>
+                                      <div className="flex items-center gap-2 mb-1">
+                                          <span className={`font-bold text-sm ${m.isCouple ? 'text-rose-400' : 'text-gold-100'}`}>{m.sender} {m.isCouple && '(Couple)'}</span>
+                                          <span className="text-[10px] text-stone-500">{m.timestamp}</span>
+                                      </div>
+                                      <p className="text-stone-300 text-sm">{m.text || '[Sticker]'}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                      {!m.isCouple && m.sender !== 'Admin' && (
+                                          <button onClick={() => handleBlockUser(m.sender)} title="Block User" className="text-stone-600 hover:text-red-500 p-1">
+                                              <Ban size={14} />
+                                          </button>
+                                      )}
+                                      <button onClick={() => handleDeleteMessage(m.id)} className="text-stone-500 hover:text-red-400 p-1"><Trash2 size={16}/></button>
+                                  </div>
+                              </div>
+                          ))}
+                          {messages.length === 0 && <p className="text-stone-500 italic">No messages yet.</p>}
+                      </div>
+                  </div>
+              )}
+
+              {activeTab === 'config' && (
+                  <div className="space-y-6 animate-fade-in max-w-md">
+                      <h2 className="text-2xl font-heading text-gold-200">Wedding Configuration</h2>
+                      
+                      <div className="space-y-4">
+                          <div>
+                              <label className="block text-xs text-stone-400 uppercase tracking-widest mb-2">Couple Name</label>
+                              <input 
+                                type="text" 
+                                value={config.coupleName} 
+                                onChange={e => setConfig({...config, coupleName: e.target.value})}
+                                className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-gold-500 focus:outline-none"
+                              />
+                          </div>
+                          <div>
+                              <label className="block text-xs text-stone-400 uppercase tracking-widest mb-2">Wedding Date</label>
+                              <input 
+                                type="date" 
+                                value={config.date} 
+                                onChange={e => setConfig({...config, date: e.target.value})}
+                                className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-gold-500 focus:outline-none"
+                              />
+                          </div>
+                          <div>
+                              <label className="block text-xs text-stone-400 uppercase tracking-widest mb-2">Welcome Message</label>
+                              <textarea 
+                                rows={4}
+                                value={config.welcomeMsg} 
+                                onChange={e => setConfig({...config, welcomeMsg: e.target.value})}
+                                className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-gold-500 focus:outline-none"
+                              />
+                          </div>
+                          <button onClick={handleSaveConfig} className="w-full bg-gold-600 text-black font-bold py-3 rounded-lg hover:bg-gold-500 transition-colors flex items-center justify-center gap-2">
+                              <Save size={18} /> Save Changes
+                          </button>
+                      </div>
+                  </div>
+              )}
+
+              {activeTab === 'map' && (
+                  <div className="h-full rounded-xl overflow-hidden border border-white/10 shadow-xl animate-fade-in">
+                      <AdminLiveMap />
+                  </div>
+              )}
+          </main>
+      </div>
+    </div>
+  );
 };
 
 export default AdminDashboard;

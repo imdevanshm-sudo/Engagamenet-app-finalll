@@ -1,6 +1,6 @@
 {
-  "name": "Copy of Royal Wedding Portal",
-  "description": "A traditional Indian wedding engagement welcome and login page featuring elegant design patterns and gradients.",
+  "name": "Royal Engagement Portal",
+  "description": "A traditional Indian engagement welcome and login page featuring elegant design patterns and gradients.",
   "requestFramePermissions": [
     "geolocation"
   ]

@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -7,7 +6,7 @@
     <meta name="theme-color" content="#2d0a0d" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="description" content="A royal wedding experience">
+    <meta name="description" content="A royal engagement experience">
     <link rel="manifest" href="/manifest.json">
     
     <!-- Cache Control for regular updates -->
@@ -15,7 +14,7 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
 
-    <title>Wedding Portal</title>
+    <title>Engagement Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -153,15 +152,6 @@
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       .scroll-smooth { -webkit-overflow-scrolling: touch; }
       
-      /* Live Map Marker Smoothness */
-      .leaflet-marker-icon {
-        transition: transform 1.5s linear;
-      }
-      .custom-div-icon {
-        background: transparent;
-        border: none;
-      }
-      
       /* Global Keyframes */
       @keyframes petal-fall {
          0% { transform: translateY(-5vh) translateX(0) rotate(0deg) scale(var(--scale)); opacity: 0; }
@@ -192,6 +182,12 @@
         pointer-events: none;
         z-index: 9999;
         background: radial-gradient(circle, transparent 60%, rgba(10, 0, 0, 0.7) 100%);
+      }
+
+      /* Leaflet Marker Transition */
+      .leaflet-marker-icon,
+      .leaflet-marker-shadow {
+        transition: transform 0.5s linear;
       }
 
       /* Advanced Glassmorphism */
