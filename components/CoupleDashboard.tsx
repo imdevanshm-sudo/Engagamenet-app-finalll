@@ -242,6 +242,7 @@ const usePanZoom = (initialScale = 1, minScale = 0.5, maxScale = 3) => {
   };
 
   const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
+    // Pinch Zoom Logic
     if ('touches' in e && e.touches.length === 2 && pinchDist !== null && pinchCenter !== null) {
        e.preventDefault();
        const dist = Math.hypot(
@@ -254,17 +255,27 @@ const usePanZoom = (initialScale = 1, minScale = 0.5, maxScale = 3) => {
        };
 
        const deltaScale = dist - pinchDist;
-       const newScale = Math.min(maxScale, Math.max(minScale, transform.scale + deltaScale * 0.005));
+       // Adjusted sensitivity for smoother zoom
+       const scaleFactor = 1 + deltaScale * 0.003;
        
-       const deltaX = center.x - pinchCenter.x;
-       const deltaY = center.y - pinchCenter.y;
+       let newScale = transform.scale * scaleFactor;
+       newScale = Math.min(maxScale, Math.max(minScale, newScale));
+       
+       const scaleRatio = newScale / transform.scale;
+       
+       // Pan compensation to keep pinch center fixed
+       const panX = center.x - pinchCenter.x;
+       const panY = center.y - pinchCenter.y;
+       
+       const newX = center.x - (center.x - transform.x) * scaleRatio + panX;
+       const newY = center.y - (center.y - transform.y) * scaleRatio + panY;
 
-       setTransform(prev => ({ 
-           ...prev, 
+       setTransform({ 
            scale: newScale,
-           x: prev.x + deltaX,
-           y: prev.y + deltaY
-       }));
+           x: newX,
+           y: newY,
+           rotate: 0
+       });
        setPinchDist(dist);
        setPinchCenter(center);
        return;
@@ -307,6 +318,13 @@ const usePanZoom = (initialScale = 1, minScale = 0.5, maxScale = 3) => {
 // --- Map Components ---
 
 const MapNode: React.FC<{ x: number; y: number; name: string; delay?: number; phone?: string; type?: 'guest' | 'couple' }> = ({ x, y, name, delay = 0, phone, type = 'guest' }) => {
+    const getProfileImage = (name: string) => {
+        // Simple consistent hash for placeholder image
+        const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        // Using pravatar for realistic placeholder photos
+        return `https://i.pravatar.cc/150?u=${hash}`;
+    };
+
     return (
         <div 
             className="absolute flex flex-col items-center z-20 group animate-in zoom-in duration-700 fill-mode-backwards cursor-pointer transition-all duration-500"
@@ -320,7 +338,7 @@ const MapNode: React.FC<{ x: number; y: number; name: string; delay?: number; ph
                     {type === 'couple' ? (
                         <Heart size={24} className="text-rose-500 fill-rose-500 animate-pulse" />
                     ) : (
-                        <Users size={24} className="text-gold-300 opacity-80" />
+                        <img src={getProfileImage(name)} alt={name} className="w-full h-full object-cover opacity-90 hover:opacity-100 transition-opacity" />
                     )}
                 </div>
                 {type === 'couple' && (
@@ -483,7 +501,7 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
     const mapInstance = useRef<any>(null);
     const markersRef = useRef<Record<string, any>>({});
     const linesRef = useRef<Record<string, any>>({});
-    const venuePos = [19.0436, 72.8193];
+    const venuePos = [26.7857, 83.0763];
 
     // Couple can update location by clicking too on Venue View
     const handleVenueMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -521,7 +539,7 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
                 iconSize: [40, 40],
                 iconAnchor: [20, 40]
             });
-            L.marker(venuePos, { icon: venueIcon }).addTo(mapInstance.current).bindPopup("Taj Lands End");
+            L.marker(venuePos, { icon: venueIcon }).addTo(mapInstance.current).bindPopup("Hotel Soni International");
         }
         
         if (viewMode !== 'google' && mapInstance.current) {
@@ -544,19 +562,34 @@ const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: s
                     const isMe = user.name === userName;
                     const isCouple = user.role === 'couple';
                     
-                    const iconHtml = isCouple 
-                        ? `<div style="background-color: #be123c; width: 32px; height: 32px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">❤️</div>`
-                        : `<div style="background-color: #b45309; width: 30px; height: 30px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 12px;">${user.name.charAt(0)}</div>`;
+                    const iconHtml = `
+                        <div class="relative flex flex-col items-center justify-center transition-all duration-500 transform hover:scale-110">
+                            <div class="w-10 h-10 rounded-full border-2 shadow-2xl flex items-center justify-center font-bold text-lg backdrop-blur-md ${
+                                isCouple 
+                                    ? 'bg-rose-900/90 border-rose-400 text-rose-100 shadow-rose-500/50' 
+                                    : isMe 
+                                        ? 'bg-green-900/90 border-green-400 text-green-100 shadow-green-500/50' 
+                                        : 'bg-amber-900/90 border-amber-400 text-amber-100 shadow-amber-500/30'
+                            }">
+                                ${isCouple ? '👑' : user.name.charAt(0)}
+                                ${isCouple ? '<div class="absolute -inset-3 rounded-full border border-rose-500/40 animate-ping pointer-events-none"></div>' : ''}
+                                ${isMe ? '<div class="absolute -inset-1 rounded-full border border-green-500/40 animate-pulse pointer-events-none"></div>' : ''}
+                            </div>
+                            <div class="mt-1 px-2 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[10px] font-bold text-white whitespace-nowrap border border-white/10 shadow-lg">
+                                ${isMe ? 'You' : user.name}
+                            </div>
+                            <div class="absolute top-full w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-black/60 -mt-1"></div>
+                        </div>
+                    `;
 
                     const icon = L.divIcon({
-                        className: 'custom-user-icon',
+                        className: 'bg-transparent border-none',
                         html: iconHtml,
-                        iconSize: [32, 32],
-                        iconAnchor: [16, 32]
+                        iconSize: [40, 60],
+                        iconAnchor: [20, 20]
                     });
 
-                    const marker = L.marker([user.lat, user.lng], { icon }).addTo(mapInstance.current)
-                     .bindPopup(isMe ? "You" : user.name);
+                    const marker = L.marker([user.lat, user.lng], { icon }).addTo(mapInstance.current);
                     markersRef.current[user.id] = marker;
                 }
 

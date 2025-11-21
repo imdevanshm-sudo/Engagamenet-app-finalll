@@ -4,7 +4,7 @@ import {
   Home, Calendar, MessageSquare, Heart, Camera, MapPin, Clock, 
   ChevronRight, LogOut, Sparkles, Map, Send, 
   Smile, Upload, Phone, Download, Lock, Search, ExternalLink, Contact,
-  User, Music, Info, MailCheck, X, Navigation, Share2, Check, LocateFixed, Compass, Flower, Settings, Bell, ToggleLeft, ToggleRight, Trash2, RefreshCw, Battery, Wifi, WifiOff, Smartphone
+  User, Music, Info, MailCheck, X, Navigation, Share2, Check, LocateFixed, Compass, Flower, Settings, Bell, ToggleLeft, ToggleRight, Trash2, RefreshCw, Battery, Wifi, WifiOff, Smartphone, Users, Plus, Minus
 } from 'lucide-react';
 
 // --- Types ---
@@ -37,9 +37,12 @@ interface LocationUpdate {
     type: 'location_update';
     id: string;
     name: string;
-    lat: number;
-    lng: number;
+    x: number;
+    y: number;
+    lat?: number;
+    lng?: number;
     role: 'guest' | 'couple';
+    map: 'all' | 'venue' | 'google';
 }
 
 // --- Assets & Stickers ---
@@ -146,6 +149,153 @@ const STICKER_MAP: Record<string, React.ReactNode> = {
     'shehnai': <StickerShehnai />,
     'gajraj': <StickerElephant />,
 };
+
+const MapTree = ({ className }: { className?: string }) => (
+    <svg viewBox="0 0 100 100" className={className}>
+      <path d="M50,80 L50,100" stroke="#5D4037" strokeWidth="8" />
+      <path d="M20,80 Q10,60 30,40 Q10,30 40,10 Q70,30 60,40 Q90,60 80,80 Q50,90 20,80 Z" fill="#4a7c59" stroke="#33523f" strokeWidth="2" />
+      <circle cx="30" cy="50" r="3" fill="#ef4444" opacity="0.6" />
+      <circle cx="60" cy="30" r="3" fill="#ef4444" opacity="0.6" />
+      <circle cx="70" cy="60" r="3" fill="#ef4444" opacity="0.6" />
+    </svg>
+  );
+  
+const MapElephant = ({ className, flip }: { className?: string, flip?: boolean }) => (
+    <svg viewBox="0 0 100 60" className={className} style={{ transform: flip ? 'scaleX(-1)' : 'none' }}>
+        <path d="M20,40 C10,40 10,20 30,15 C40,10 60,10 75,20 C85,25 90,40 90,50 L85,50 L85,40 L75,40 L75,50 L65,50 L65,40 L40,40" fill="#5D4037" />
+        <path d="M20,40 Q25,50 15,55" stroke="#5D4037" strokeWidth="3" fill="none" />
+        <rect x="40" y="15" width="25" height="20" fill="#c05621" rx="2" />
+        <path d="M40,15 L65,15 L65,35 L40,35 Z" fill="url(#elephantPattern)" fillOpacity="0.5" />
+        <defs>
+        <pattern id="elephantPattern" width="4" height="4" patternUnits="userSpaceOnUse">
+            <circle cx="2" cy="2" r="1" fill="#fcd34d" />
+        </pattern>
+        </defs>
+    </svg>
+);
+
+const MapNode: React.FC<{ x: number; y: number; name: string; delay?: number; phone?: string; type?: 'guest' | 'couple' }> = ({ x, y, name, delay = 0, phone, type = 'guest' }) => {
+    return (
+        <div 
+            className="absolute flex flex-col items-center z-20 group animate-in zoom-in duration-700 fill-mode-backwards cursor-pointer transition-all duration-500"
+            style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)', animationDelay: `${delay}ms` }}
+        >
+            <div 
+              className={`relative rounded-full shadow-[0_25px_35px_-5px_rgba(0,0,0,0.7),0_0_0_2px_${type === 'couple' ? '#e11d48' : '#fbbf24'}] transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-4 w-16 h-16 p-[4px] ${type === 'couple' ? 'bg-rose-950' : 'bg-[#1a0405]'}`}
+              style={{ transform: 'perspective(500px) rotateX(10deg)' }}
+            >
+                <div className={`w-full h-full rounded-full border ${type === 'couple' ? 'border-rose-400' : 'border-gold-500/30'} overflow-hidden relative bg-[#2d0a0d] flex items-center justify-center`}>
+                    {type === 'couple' ? (
+                        <Heart size={24} className="text-rose-500 fill-rose-500 animate-pulse" />
+                    ) : (
+                        <Users size={24} className="text-gold-300 opacity-80" />
+                    )}
+                </div>
+                {type === 'couple' && (
+                     <div className="absolute inset-0 rounded-full border-2 border-rose-500 animate-ping opacity-50"></div>
+                )}
+            </div>
+            <div className={`mt-4 px-4 py-1 ${type === 'couple' ? 'bg-rose-900/90 border-rose-500' : 'bg-[#4a0e11]/90 border-[#f59e0b]/50'} backdrop-blur-md rounded-full border shadow-[0_8px_16px_rgba(0,0,0,0.6)] transform transition-transform group-hover:scale-105 group-hover:-translate-y-1`}>
+                <span className="text-[#fef3c7] text-xs sm:text-sm font-serif font-bold whitespace-nowrap tracking-wide drop-shadow-sm">{name}</span>
+            </div>
+            <div className="absolute top-[90%] left-1/2 w-1 h-8 bg-black/30 -translate-x-1/2 blur-[2px] origin-top transform skew-x-[20deg] z-[-1]"></div>
+        </div>
+    );
+};
+
+// --- Hooks ---
+
+const usePanZoom = (initialScale = 1, minScale = 0.5, maxScale = 3) => {
+    const [transform, setTransform] = useState({ x: 0, y: 0, scale: initialScale, rotate: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+    const lastPos = useRef({ x: 0, y: 0 });
+    const [pinchDist, setPinchDist] = useState<number | null>(null);
+    const [pinchCenter, setPinchCenter] = useState<{x: number, y: number} | null>(null);
+  
+    const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+  
+      if ('touches' in e && e.touches.length === 2) {
+         const dist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+         );
+         const center = {
+             x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+             y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+         };
+         setPinchDist(dist);
+         setPinchCenter(center);
+         return;
+      }
+  
+      setIsDragging(true);
+      lastPos.current = { x: clientX - transform.x, y: clientY - transform.y };
+    };
+  
+    const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
+      if ('touches' in e && e.touches.length === 2 && pinchDist !== null && pinchCenter !== null) {
+         e.preventDefault();
+         const dist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+         );
+         const center = {
+             x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+             y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+         };
+  
+         const deltaScale = dist - pinchDist;
+         const newScale = Math.min(maxScale, Math.max(minScale, transform.scale + deltaScale * 0.005));
+         
+         const deltaX = center.x - pinchCenter.x;
+         const deltaY = center.y - pinchCenter.y;
+  
+         setTransform(prev => ({ 
+             ...prev, 
+             scale: newScale,
+             x: prev.x + deltaX,
+             y: prev.y + deltaY
+         }));
+         setPinchDist(dist);
+         setPinchCenter(center);
+         return;
+      }
+  
+      if (!isDragging) return;
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      
+      if ('touches' in e) e.preventDefault(); 
+  
+      setTransform(prev => ({
+         ...prev,
+         x: clientX - lastPos.current.x,
+         y: clientY - lastPos.current.y
+      }));
+    };
+  
+    const handleMouseUp = () => {
+        setIsDragging(false);
+        setPinchDist(null);
+        setPinchCenter(null);
+    };
+  
+    const handlers = {
+        onMouseDown: handleMouseDown,
+        onTouchStart: handleMouseDown,
+        onMouseMove: handleMouseMove,
+        onTouchMove: handleMouseMove,
+        onMouseUp: handleMouseUp,
+        onTouchEnd: handleMouseUp,
+        onMouseLeave: handleMouseUp
+    };
+    
+    const style: React.CSSProperties = { touchAction: 'none' };
+  
+    return { transform, isDragging, handlers, style };
+  };
 
 // --- Sub-Components ---
 
@@ -571,8 +721,18 @@ const MapView = ({ userName }: { userName: string }) => {
     const [activeUsers, setActiveUsers] = useState<Record<string, LocationUpdate>>({});
     const markersRef = useRef<Record<string, any>>({});
     const linesRef = useRef<Record<string, any>>({});
-    const venuePos = [19.0436, 72.8193]; // Taj Lands End, Mumbai
+    const venuePos = [26.7857, 83.0763]; // Hotel Soni International, Khalilabad
     const [isTracking, setIsTracking] = useState(() => localStorage.getItem('wedding_setting_location') === 'true');
+    const [viewMode, setViewMode] = useState<'venue' | 'google'>('venue');
+    const { transform, handlers, style } = usePanZoom(1, 0.5, 3);
+
+    const VENUE_ZONES = [
+        { name: "Grand Stage", x: 50, y: 20, w: 30, h: 15, color: "#be123c" },
+        { name: "Mandap", x: 80, y: 50, w: 20, h: 20, color: "#b45309" },
+        { name: "Royal Dining", x: 20, y: 50, w: 25, h: 25, color: "#15803d" },
+        { name: "Entrance", x: 50, y: 90, w: 20, h: 10, color: "#4a0e11" },
+        { name: "Bar", x: 80, y: 80, w: 15, h: 15, color: "#1d4ed8" },
+    ];
 
     // Setup Live Location with settings check
     useEffect(() => {
@@ -589,13 +749,22 @@ const MapView = ({ userName }: { userName: string }) => {
 
         const watchId = navigator.geolocation.watchPosition(
             (pos) => {
+                const { latitude, longitude } = pos.coords;
+                // Calculate pseudo coordinates for the artistic map
+                // Using absolute value and modulo to generate deterministic position on map from real coords
+                const pseudoX = (Math.abs(longitude * 10000) % 80) + 10; 
+                const pseudoY = (Math.abs(latitude * 10000) % 80) + 10;
+
                 const update: LocationUpdate = {
                     type: 'location_update',
                     id: userName,
                     name: userName,
-                    lat: pos.coords.latitude,
-                    lng: pos.coords.longitude,
-                    role: 'guest'
+                    lat: latitude,
+                    lng: longitude,
+                    x: pseudoX,
+                    y: pseudoY,
+                    role: 'guest',
+                    map: 'all'
                 };
                 channel.postMessage(update);
                 setActiveUsers(prev => ({ ...prev, [userName]: update }));
@@ -612,6 +781,15 @@ const MapView = ({ userName }: { userName: string }) => {
 
     // Initialize Leaflet Map
     useEffect(() => {
+        if (viewMode !== 'google') {
+             if (mapInstance.current) {
+                mapInstance.current.remove();
+                mapInstance.current = null;
+                markersRef.current = {};
+                linesRef.current = {};
+             }
+             return;
+        }
         if (!mapRef.current || mapInstance.current) return;
 
         const L = (window as any).L;
@@ -632,7 +810,7 @@ const MapView = ({ userName }: { userName: string }) => {
         });
 
         const venueMarker = L.marker(venuePos, { icon: venueIcon }).addTo(mapInstance.current);
-        venueMarker.bindPopup("<b>Taj Lands End</b><br>The Royal Wedding Venue").openPopup();
+        venueMarker.bindPopup("<b>Hotel Soni International</b><br>The Royal Wedding Venue").openPopup();
 
         return () => {
             if (mapInstance.current) {
@@ -640,83 +818,163 @@ const MapView = ({ userName }: { userName: string }) => {
                 mapInstance.current = null;
             }
         };
-    }, []);
+    }, [viewMode]);
 
-    // Update Markers & Lines
+    // Update Markers & Lines (Google Maps Mode) with RPG Theme
     useEffect(() => {
-        if (!mapInstance.current) return;
+        if (!mapInstance.current || viewMode !== 'google') return;
         const L = (window as any).L;
         
         Object.values(activeUsers).forEach((user: LocationUpdate) => {
-            // Update Marker
-            if (markersRef.current[user.id]) {
-                markersRef.current[user.id].setLatLng([user.lat, user.lng]);
-            } else {
-                const isMe = user.name === userName;
-                const isCouple = user.role === 'couple';
-                
-                const iconHtml = isCouple 
-                    ? `<div style="background-color: #be123c; width: 32px; height: 32px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">❤️</div>`
-                    : `<div style="background-color: ${isMe ? '#15803d' : '#b45309'}; width: 30px; height: 30px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 12px;">${user.name.charAt(0)}</div>`;
+            if (user.lat && user.lng) {
+                // Update Marker
+                if (markersRef.current[user.id]) {
+                    markersRef.current[user.id].setLatLng([user.lat, user.lng]);
+                } else {
+                    const isMe = user.name === userName;
+                    const isCouple = user.role === 'couple';
+                    
+                    const iconHtml = `
+                        <div class="relative flex flex-col items-center justify-center transition-all duration-500 transform hover:scale-110">
+                            <div class="w-10 h-10 rounded-full border-2 shadow-2xl flex items-center justify-center font-bold text-lg backdrop-blur-md ${
+                                isCouple 
+                                    ? 'bg-rose-900/90 border-rose-400 text-rose-100 shadow-rose-500/50' 
+                                    : isMe 
+                                        ? 'bg-green-900/90 border-green-400 text-green-100 shadow-green-500/50' 
+                                        : 'bg-amber-900/90 border-amber-400 text-amber-100 shadow-amber-500/30'
+                            }">
+                                ${isCouple ? '👑' : user.name.charAt(0)}
+                                ${isCouple ? '<div class="absolute -inset-3 rounded-full border border-rose-500/40 animate-ping pointer-events-none"></div>' : ''}
+                                ${isMe ? '<div class="absolute -inset-1 rounded-full border border-green-500/40 animate-pulse pointer-events-none"></div>' : ''}
+                            </div>
+                            <div class="mt-1 px-2 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[10px] font-bold text-white whitespace-nowrap border border-white/10 shadow-lg">
+                                ${isMe ? 'You' : user.name}
+                            </div>
+                            <div class="absolute top-full w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-black/60 -mt-1"></div>
+                        </div>
+                    `;
 
-                const icon = L.divIcon({
-                    className: 'custom-user-icon',
-                    html: iconHtml,
-                    iconSize: [32, 32],
-                    iconAnchor: [16, 32]
-                });
+                    const icon = L.divIcon({
+                        className: 'bg-transparent border-none',
+                        html: iconHtml,
+                        iconSize: [40, 60],
+                        iconAnchor: [20, 20]
+                    });
 
-                const marker = L.marker([user.lat, user.lng], { icon }).addTo(mapInstance.current);
-                marker.bindPopup(isMe ? "You are here" : user.name);
-                markersRef.current[user.id] = marker;
-            }
+                    const marker = L.marker([user.lat, user.lng], { icon }).addTo(mapInstance.current);
+                    markersRef.current[user.id] = marker;
+                }
 
-            // Update Line to Venue for EVERYONE to show convergence
-            if (linesRef.current[user.id]) {
-                linesRef.current[user.id].setLatLngs([[user.lat, user.lng], venuePos]);
-            } else {
-                const isCouple = user.role === 'couple';
-                const line = L.polyline([[user.lat, user.lng], venuePos], {
-                    color: isCouple ? '#be123c' : '#15803d',
-                    weight: 2,
-                    dashArray: '10, 10', 
-                    opacity: 0.5
-                }).addTo(mapInstance.current);
-                linesRef.current[user.id] = line;
+                // Update Line to Venue for EVERYONE to show convergence
+                if (linesRef.current[user.id]) {
+                    linesRef.current[user.id].setLatLngs([[user.lat, user.lng], venuePos]);
+                } else {
+                    const isCouple = user.role === 'couple';
+                    const line = L.polyline([[user.lat, user.lng], venuePos], {
+                        color: isCouple ? '#be123c' : '#15803d',
+                        weight: 2,
+                        dashArray: '10, 10', 
+                        opacity: 0.5
+                    }).addTo(mapInstance.current);
+                    linesRef.current[user.id] = line;
+                }
             }
         });
 
-    }, [activeUsers]);
+    }, [activeUsers, viewMode]);
 
     return (
         <div className="flex flex-col h-full bg-transparent">
-            <div className="glass-deep p-4 text-white shadow-lg z-20 shrink-0 flex justify-between items-center border-b border-white/10">
-                <h2 className="font-serif font-bold text-xl flex items-center gap-2 text-gold-100"><Map size={20} className="text-gold-400"/> Live Map</h2>
-                <div className="flex items-center gap-2">
-                     {isTracking ? (
-                         <div className="text-[10px] bg-white/10 px-2 py-1 rounded border border-white/20 text-green-400 flex items-center gap-1">
-                             <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> Sharing
-                         </div>
-                     ) : (
-                         <div className="text-[10px] bg-white/10 px-2 py-1 rounded border border-white/20 text-red-400 flex items-center gap-1">
-                             <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span> Hidden
-                         </div>
-                     )}
+            <div className="glass-deep p-4 text-white shadow-lg z-20 shrink-0 flex flex-col gap-2 border-b border-white/10">
+                <div className="flex justify-between items-center">
+                    <h2 className="font-serif font-bold text-xl flex items-center gap-2 text-gold-100"><Map size={20} className="text-gold-400"/> Live Map</h2>
+                    <div className="flex items-center gap-2">
+                         {isTracking ? (
+                             <div className="text-[10px] bg-white/10 px-2 py-1 rounded border border-white/20 text-green-400 flex items-center gap-1">
+                                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> Sharing
+                             </div>
+                         ) : (
+                             <div className="text-[10px] bg-white/10 px-2 py-1 rounded border border-white/20 text-red-400 flex items-center gap-1">
+                                 <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span> Hidden
+                             </div>
+                         )}
+                    </div>
+                </div>
+                <div className="flex gap-2">
+                     <button 
+                        onClick={() => setViewMode('venue')}
+                        className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-all border border-transparent ${viewMode === 'venue' ? 'bg-gold-500 text-[#2d0a0d] shadow-lg' : 'bg-white/10 text-gold-200 hover:bg-white/20'}`}
+                     >
+                         Venue Map
+                     </button>
+                     <button 
+                        onClick={() => setViewMode('google')}
+                        className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-all border border-transparent ${viewMode === 'google' ? 'bg-gold-500 text-[#2d0a0d] shadow-lg' : 'bg-white/10 text-gold-200 hover:bg-white/20'}`}
+                     >
+                         Google Map
+                     </button>
                 </div>
             </div>
-            <div className="flex-grow relative z-10">
-                <div id="map" ref={mapRef} className="w-full h-full z-0 rounded-b-xl opacity-90"></div>
-                
-                {/* Overlay Info */}
-                <div className="absolute bottom-24 left-4 right-4 glass-deep p-4 rounded-xl shadow-lg z-[1000] pointer-events-none">
-                     <div className="flex items-start gap-3">
-                         <div className="bg-green-900/50 p-2 rounded-full text-green-400 border border-green-500/30"><Navigation size={20} /></div>
-                         <div>
-                             <h3 className="font-bold text-gold-100 text-sm">Traveling to Taj Lands End</h3>
-                             <p className="text-xs text-white/60">Everyone is traveling to the common venue point.</p>
-                         </div>
-                     </div>
-                </div>
+            <div className="flex-grow relative z-10 overflow-hidden">
+                {viewMode === 'venue' ? (
+                  <div className="w-full h-full cursor-move relative overflow-hidden bg-[#2d0a0d]" {...handlers} style={style}>
+                      <div 
+                        className="absolute inset-0 w-full h-full origin-top-left transition-transform duration-75 ease-out"
+                        style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
+                      >
+                          <div className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 bg-[#f5f5f4] border-[20px] border-[#4a0e11] shadow-2xl overflow-hidden">
+                                  <>
+                                    <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#4a0e11 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+                                    
+                                    {VENUE_ZONES.map((zone, i) => (
+                                        <div key={i} className="absolute border-2 border-dashed flex items-center justify-center text-center p-2 opacity-60" 
+                                            style={{ 
+                                                left: `${zone.x}%`, top: `${zone.y}%`, width: `${zone.w}%`, height: `${zone.h}%`, 
+                                                transform: 'translate(-50%, -50%)',
+                                                borderColor: zone.color, backgroundColor: `${zone.color}10`
+                                            }}>
+                                            <span className="font-serif font-bold text-[10px] uppercase tracking-wider text-[#4a0e11] bg-white/80 px-2 py-1 rounded-full shadow-sm">{zone.name}</span>
+                                        </div>
+                                    ))}
+
+                                    <MapTree className="absolute top-[15%] left-[15%] w-24 h-24 opacity-80" />
+                                    <MapTree className="absolute top-[15%] right-[15%] w-24 h-24 opacity-80" />
+                                    <MapElephant className="absolute bottom-[20%] left-[10%] w-32 h-20 opacity-60" />
+                                    <MapElephant className="absolute bottom-[20%] right-[10%] w-32 h-20 opacity-60" flip />
+                                  </>
+                              
+                              {/* Render Users */}
+                              {Object.values(activeUsers).map((u, i) => {
+                                  // For venue map we use x and y
+                                  return <MapNode key={i} x={u.x || 50} y={u.y || 50} name={u.name === userName ? 'You' : u.name} type={u.role} delay={i * 100} />;
+                              })}
+                          </div>
+                      </div>
+                      {/* Overlay Info */}
+                      <div className="absolute bottom-24 left-4 right-4 pointer-events-none">
+                           <div className="glass-deep p-3 rounded-xl shadow-lg inline-flex items-center gap-3 max-w-full">
+                               <div className="bg-gold-500/20 p-2 rounded-full text-gold-400 border border-gold-500/30"><Navigation size={16} /></div>
+                               <div>
+                                   <h3 className="font-bold text-gold-100 text-xs">Live Venue Tracking</h3>
+                                   <p className="text-[10px] text-white/60">Pinch to zoom, drag to move.</p>
+                               </div>
+                           </div>
+                      </div>
+                  </div>
+                ) : (
+                    <>
+                        <div id="map" ref={mapRef} className="w-full h-full z-0 opacity-90"></div>
+                        <div className="absolute bottom-24 left-4 right-4 glass-deep p-4 rounded-xl shadow-lg z-[1000] pointer-events-none">
+                             <div className="flex items-start gap-3">
+                                 <div className="bg-green-900/50 p-2 rounded-full text-green-400 border border-green-500/30"><Navigation size={20} /></div>
+                                 <div>
+                                     <h3 className="font-bold text-gold-100 text-sm">Traveling to Hotel Soni International</h3>
+                                     <p className="text-xs text-white/60">Everyone is traveling to the common venue point.</p>
+                                 </div>
+                             </div>
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     );

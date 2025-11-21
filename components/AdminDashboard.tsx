@@ -170,7 +170,7 @@ const AdminLiveMap: React.FC = () => {
     const mapInstance = useRef<any>(null);
     const markersRef = useRef<Record<string, any>>({});
     const linesRef = useRef<Record<string, any>>({});
-    const venuePos = [19.0436, 72.8193]; // Taj Lands End
+    const venuePos = [26.7857, 83.0763]; // Hotel Soni International, Khalilabad
 
     useEffect(() => {
         const channel = new BroadcastChannel('wedding_live_map');
@@ -205,7 +205,7 @@ const AdminLiveMap: React.FC = () => {
                 iconSize: [40, 40],
                 iconAnchor: [20, 40]
             });
-            L.marker(venuePos, { icon: venueIcon }).addTo(mapInstance.current).bindPopup("Taj Lands End");
+            L.marker(venuePos, { icon: venueIcon }).addTo(mapInstance.current).bindPopup("Hotel Soni International");
         }
         
         return () => {
@@ -218,7 +218,7 @@ const AdminLiveMap: React.FC = () => {
         };
     }, [viewMode]);
 
-     // Update Markers on Google Map
+     // Update Markers on Google Map with RPG Style
      useEffect(() => {
         if (!mapInstance.current || viewMode !== 'google') return;
         const L = (window as any).L;
@@ -231,18 +231,31 @@ const AdminLiveMap: React.FC = () => {
                 if (markersRef.current[id]) {
                     markersRef.current[id].setLatLng([user.lat, user.lng]);
                 } else {
-                    const iconHtml = isCouple 
-                        ? `<div style="background-color: #be123c; width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">❤️</div>`
-                        : `<div style="background-color: #b45309; width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 10px;">${user.name.charAt(0)}</div>`;
+                    const iconHtml = `
+                        <div class="relative flex flex-col items-center justify-center transition-all duration-500 transform hover:scale-110">
+                            <div class="w-10 h-10 rounded-full border-2 shadow-2xl flex items-center justify-center font-bold text-lg backdrop-blur-md ${
+                                isCouple 
+                                    ? 'bg-rose-900/90 border-rose-400 text-rose-100 shadow-rose-500/50' 
+                                    : 'bg-amber-900/90 border-amber-400 text-amber-100 shadow-amber-500/30'
+                            }">
+                                ${isCouple ? '👑' : user.name.charAt(0)}
+                                ${isCouple ? '<div class="absolute -inset-3 rounded-full border border-rose-500/40 animate-ping pointer-events-none"></div>' : ''}
+                            </div>
+                            <div class="mt-1 px-2 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[10px] font-bold text-white whitespace-nowrap border border-white/10 shadow-lg">
+                                ${user.name}
+                            </div>
+                            <div class="absolute top-full w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-black/60 -mt-1"></div>
+                        </div>
+                    `;
 
                     const icon = L.divIcon({
-                        className: 'custom-user-icon',
+                        className: 'bg-transparent border-none',
                         html: iconHtml,
-                        iconSize: [24, 24],
-                        iconAnchor: [12, 24]
+                        iconSize: [40, 60],
+                        iconAnchor: [20, 20]
                     });
 
-                    const marker = L.marker([user.lat, user.lng], { icon }).addTo(mapInstance.current).bindPopup(user.name);
+                    const marker = L.marker([user.lat, user.lng], { icon }).addTo(mapInstance.current);
                     markersRef.current[id] = marker;
                 }
 
@@ -311,7 +324,7 @@ const AdminLiveMap: React.FC = () => {
 
             <div className="flex-grow relative overflow-hidden bg-[#f5f5f4]">
                 {viewMode === 'venue' ? (
-                    <div className="w-full h-full cursor-move" {...handlers} style={style}>
+                    <div className="w-full h-full cursor-move bg-[#2d0a0d]" {...handlers} style={style}>
                         <div className="absolute inset-0 w-full h-full origin-top-left transition-transform duration-75 ease-out"
                             style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}>
                             <div className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 bg-[#f5f5f4] border-[20px] border-[#4a0e11] shadow-2xl">
@@ -332,7 +345,7 @@ const AdminLiveMap: React.FC = () => {
                                     <MapElephant className="absolute bottom-[20%] right-[10%] w-32 h-20 opacity-60" flip />
                                 
                                 {Object.values(activeUsers).map((u, i) => {
-                                    return <MapNode key={i} x={u.x} y={u.y} name={u.name} type={u.role} delay={0} />;
+                                    return <MapNode key={i} x={u.x || 50} y={u.y || 50} name={u.name} type={u.role} delay={0} />;
                                 })}
                             </div>
                         </div>
@@ -387,381 +400,158 @@ const AdminLiveMap: React.FC = () => {
     );
 };
 
-// --- Main Admin Dashboard ---
-
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
-  const [activeView, setActiveView] = useState<'home' | 'guests' | 'content' | 'gallery' | 'map' | 'config'>('home');
-  
-  // Stats
-  const [guestCount, setGuestCount] = useState(142);
-  const [photoCount, setPhotoCount] = useState(856);
-  const [messageCount, setMessageCount] = useState(324);
-  
-  // Guest Management State
-  const [guests, setGuests] = useState([
-    { id: 1, name: "Ravi Sharma", phone: "9876543210", rsvp: true, status: "Checked In" },
-    { id: 2, name: "Priya Patel", phone: "9876543211", rsvp: true, status: "Pending" },
-    { id: 3, name: "Amit Singh", phone: "9876543212", rsvp: false, status: "Not Coming" },
-    { id: 4, name: "Sneha's Parents", phone: "9876543213", rsvp: true, status: "Checked In" },
-  ]);
-
-  // Config State
-  const [config, setConfig] = useState({
-      coupleName: "Sneha & Aman",
-      date: "2025-11-26",
-      venue: "Taj Lands End, Mumbai",
-      primaryColor: "#4a0e11",
-      secondaryColor: "#fcd34d"
-  });
-
-  // Content Management State
-  const [welcomeMsg, setWelcomeMsg] = useState(() => {
-      return localStorage.getItem('wedding_welcome_msg') || "Our hearts are overflowing with joy as we invite you to the beginning of our journey. Your presence makes our story complete. Welcome to our festivities!";
-  });
-  const [loveStory, setLoveStory] = useState(() => {
-      return localStorage.getItem('wedding_love_story') || "From the first glance to forever... it started with a simple coffee that turned into endless conversations.";
-  });
-  const [highlights, setHighlights] = useState(() => {
-      const saved = localStorage.getItem('wedding_highlights');
-      return saved ? JSON.parse(saved) : [
-          { id: 1, title: "Mehndi & Sangeet", time: "Dec 20th, 6:00 PM", location: "The Grand Ballroom", type: "Music" },
-          { id: 2, title: "Engagement Ceremony", time: "Dec 21st, 7:30 PM", location: "The Shanti Gardens", type: "Rings" }
-      ];
-  });
-  const [newHighlight, setNewHighlight] = useState({ title: "", time: "", location: "", type: "Star" });
-
-  useEffect(() => {
-      // Persist Content changes
-      localStorage.setItem('wedding_welcome_msg', welcomeMsg);
-      localStorage.setItem('wedding_love_story', loveStory);
-      localStorage.setItem('wedding_highlights', JSON.stringify(highlights));
-      localStorage.setItem('wedding_global_config', JSON.stringify(config));
-  }, [welcomeMsg, loveStory, highlights, config]);
-
-  const handleSaveConfig = () => {
-      localStorage.setItem('wedding_global_config', JSON.stringify(config));
-      alert("Configuration Saved!");
-  };
-
-  const handleAddHighlight = () => {
-      if(!newHighlight.title) return;
-      setHighlights([...highlights, { ...newHighlight, id: Date.now() }]);
-      setNewHighlight({ title: "", time: "", location: "", type: "Star" });
-  };
-
-  const handleDeleteHighlight = (id: number) => {
-      setHighlights(highlights.filter((h: any) => h.id !== id));
-  };
-
-  const handleAddGuest = () => {
-      const name = prompt("Enter Guest Name:");
-      if (!name) return;
-      const phone = prompt("Enter Phone Number:") || "";
-      const newGuest = {
-          id: Date.now(),
-          name,
-          phone,
-          rsvp: true,
-          status: "Pending"
-      };
-      setGuests([...guests, newGuest]);
-      setGuestCount(prev => prev + 1);
-  };
-
-  const handleDeleteGuest = (id: number) => {
-      if (confirm("Are you sure you want to remove this guest?")) {
-          setGuests(guests.filter(g => g.id !== id));
-          setGuestCount(prev => prev - 1);
-      }
-  };
-
-  const handleToggleRSVP = (id: number) => {
-      setGuests(guests.map(g => 
-          g.id === id ? { ...g, rsvp: !g.rsvp } : g
-      ));
-  }
+  const [activeTab, setActiveTab] = useState<'overview' | 'guests' | 'map' | 'config'>('overview');
 
   return (
-    <div className="w-full h-full bg-[#fffbf5] flex overflow-hidden font-serif text-[#2d0a0d]">
-      
+    <div className="flex h-full w-full bg-[#f5f5f4] text-[#4a0e11] font-serif overflow-hidden absolute inset-0 z-50">
       {/* Sidebar */}
-      <div className="w-20 sm:w-64 bg-[#2d0a0d] flex flex-col border-r border-gold-500/30 shadow-2xl relative z-20">
-          <div className="p-6 flex items-center justify-center sm:justify-start gap-3 border-b border-gold-500/20">
-              <Settings className="text-gold-400 animate-spin-slow" size={24} />
-              <h1 className="hidden sm:block text-gold-100 font-heading text-xl tracking-widest">Admin</h1>
-          </div>
-          
-          <nav className="flex-grow p-4 space-y-2">
-              {[
-                  { id: 'home', label: 'Overview', icon: Home },
-                  { id: 'guests', label: 'Guest List', icon: Users },
-                  { id: 'content', label: 'App Content', icon: PenTool },
-                  { id: 'map', label: 'Live Map', icon: Map },
-                  { id: 'gallery', label: 'Gallery', icon: Camera },
-                  { id: 'config', label: 'Settings', icon: FileText },
-              ].map((item) => (
-                  <button 
-                    key={item.id}
-                    onClick={() => setActiveView(item.id as any)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-300 ${activeView === item.id ? 'bg-gold-500 text-[#2d0a0d] shadow-lg shadow-gold-500/20 font-bold' : 'text-gold-400 hover:bg-white/5 hover:text-gold-200'}`}
-                  >
-                      <item.icon size={20} />
-                      <span className="hidden sm:block text-sm tracking-wide">{item.label}</span>
-                  </button>
-              ))}
-          </nav>
+      <aside className="w-64 bg-[#2d0a0d] text-gold-100 flex flex-col border-r border-gold-500/20 flex-shrink-0 z-50 shadow-xl">
+        <div className="p-6 border-b border-white/10">
+          <h1 className="font-heading text-2xl text-gold-300">Admin Portal</h1>
+          <p className="text-xs text-gold-500/60 uppercase tracking-widest mt-1">Royal Wedding Manager</p>
+        </div>
+        
+        <nav className="flex-grow p-4 space-y-2 overflow-y-auto">
+          <button 
+            onClick={() => setActiveTab('overview')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'overview' ? 'bg-gold-600 text-[#2d0a0d] font-bold shadow-lg' : 'text-stone-400 hover:bg-white/5 hover:text-gold-200'}`}
+          >
+            <Home size={18} /> Overview
+          </button>
+          <button 
+            onClick={() => setActiveTab('guests')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'guests' ? 'bg-gold-600 text-[#2d0a0d] font-bold shadow-lg' : 'text-stone-400 hover:bg-white/5 hover:text-gold-200'}`}
+          >
+            <Users size={18} /> Guest List
+          </button>
+          <button 
+            onClick={() => setActiveTab('map')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'map' ? 'bg-gold-600 text-[#2d0a0d] font-bold shadow-lg' : 'text-stone-400 hover:bg-white/5 hover:text-gold-200'}`}
+          >
+            <Map size={18} /> Live Map
+          </button>
+          <button 
+            onClick={() => setActiveTab('config')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'config' ? 'bg-gold-600 text-[#2d0a0d] font-bold shadow-lg' : 'text-stone-400 hover:bg-white/5 hover:text-gold-200'}`}
+          >
+            <Settings size={18} /> Configuration
+          </button>
+        </nav>
 
-          <div className="p-4 border-t border-gold-500/20">
-              <button onClick={onLogout} className="w-full flex items-center gap-3 p-3 rounded-xl text-rose-400 hover:bg-rose-900/20 transition-colors">
-                  <ArrowLeft size={20} />
-                  <span className="hidden sm:block text-sm font-bold">Logout</span>
-              </button>
-          </div>
-      </div>
+        <div className="p-4 border-t border-white/10">
+          <button onClick={onLogout} className="w-full flex items-center gap-2 justify-center px-4 py-2 rounded-lg border border-white/10 text-stone-400 hover:bg-white/5 hover:text-rose-400 transition-colors text-sm">
+            <ArrowLeft size={16} /> Logout
+          </button>
+        </div>
+      </aside>
 
       {/* Main Content */}
-      <div className="flex-grow flex flex-col h-full overflow-hidden relative">
-          {/* Top Bar */}
-          <header className="bg-white border-b border-gold-200 h-16 flex items-center justify-between px-8 shadow-sm relative z-10">
-              <h2 className="text-2xl font-heading text-[#4a0e11]">
-                  {activeView === 'home' && 'Dashboard Overview'}
-                  {activeView === 'guests' && 'Guest Management'}
-                  {activeView === 'map' && 'Live Venue Tracking'}
-                  {activeView === 'gallery' && 'Media Gallery'}
-                  {activeView === 'content' && 'Content Management'}
-                  {activeView === 'config' && 'Global Settings'}
-              </h2>
-              <div className="flex items-center gap-4">
-                  <div className="bg-gold-100 text-gold-800 px-3 py-1 rounded-full text-xs font-bold border border-gold-300">
-                      Admin Access
-                  </div>
-                  <div className="w-8 h-8 bg-[#4a0e11] rounded-full flex items-center justify-center text-gold-400">
-                      <Settings size={16} />
-                  </div>
-              </div>
-          </header>
+      <main className="flex-grow bg-[#f5f5f4] p-0 sm:p-6 lg:p-8 overflow-hidden flex flex-col">
+         <div className="w-full h-full flex flex-col">
+            <header className="mb-6 flex justify-between items-center flex-shrink-0 px-4 sm:px-0">
+                <h2 className="text-2xl sm:text-3xl font-heading text-[#4a0e11]">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h2>
+                <div className="flex items-center gap-4">
+                    <div className="text-right hidden sm:block">
+                        <p className="text-sm font-bold text-[#4a0e11]">Admin User</p>
+                        <p className="text-xs text-stone-500">Super Admin</p>
+                    </div>
+                    <div className="w-10 h-10 bg-[#4a0e11] rounded-full flex items-center justify-center text-gold-300">
+                        <Settings size={20} />
+                    </div>
+                </div>
+            </header>
 
-          {/* Content Area */}
-          <main className="flex-grow overflow-y-auto p-8 bg-[#f5f5f4] overscroll-contain">
-              
-              {activeView === 'home' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                      {[
-                          { label: 'Total Guests', value: guestCount, icon: Users, color: 'bg-blue-50 text-blue-600' },
-                          { label: 'Photos Uploaded', value: photoCount, icon: Camera, color: 'bg-purple-50 text-purple-600' },
-                          { label: 'Messages', value: messageCount, icon: MessageSquare, color: 'bg-pink-50 text-pink-600' },
-                          { label: 'Days To Go', value: 42, icon: Calendar, color: 'bg-amber-50 text-amber-600' },
-                      ].map((stat, i) => (
-                          <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 hover:shadow-md transition-shadow">
-                              <div className="flex justify-between items-start mb-4">
-                                  <div className={`p-3 rounded-xl ${stat.color}`}>
-                                      <stat.icon size={24} />
-                                  </div>
-                                  <span className="text-stone-400 bg-stone-50 px-2 py-1 rounded text-xs font-bold">+12%</span>
-                              </div>
-                              <h3 className="text-3xl font-bold text-stone-800 mb-1">{stat.value}</h3>
-                              <p className="text-stone-500 text-sm font-medium">{stat.label}</p>
-                          </div>
-                      ))}
+            <div className="flex-grow bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden relative">
+                {activeTab === 'overview' && (
+                    <div className="p-8 overflow-y-auto h-full">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="bg-rose-50 p-6 rounded-xl border border-rose-100">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="p-3 bg-rose-100 rounded-lg text-rose-600"><Users size={24}/></div>
+                                    <span className="text-xs font-bold text-rose-600 bg-rose-100 px-2 py-1 rounded">Total</span>
+                                </div>
+                                <h3 className="text-4xl font-heading text-[#4a0e11] mb-1">142</h3>
+                                <p className="text-stone-500 text-sm">Guests Confirmed</p>
+                            </div>
+                            <div className="bg-gold-50 p-6 rounded-xl border border-gold-100">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="p-3 bg-gold-100 rounded-lg text-gold-700"><MessageSquare size={24}/></div>
+                                    <span className="text-xs font-bold text-gold-700 bg-gold-100 px-2 py-1 rounded">Live</span>
+                                </div>
+                                <h3 className="text-4xl font-heading text-[#4a0e11] mb-1">856</h3>
+                                <p className="text-stone-500 text-sm">Wishes Received</p>
+                            </div>
+                            <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="p-3 bg-blue-100 rounded-lg text-blue-600"><Camera size={24}/></div>
+                                    <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded">New</span>
+                                </div>
+                                <h3 className="text-4xl font-heading text-[#4a0e11] mb-1">24</h3>
+                                <p className="text-stone-500 text-sm">Photos Uploaded</p>
+                            </div>
+                        </div>
+                        
+                        <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div className="border border-stone-100 rounded-xl p-6 shadow-sm">
+                                <h3 className="font-bold text-lg mb-4 text-[#4a0e11]">Recent Activities</h3>
+                                <div className="space-y-4">
+                                    {[1,2,3,4].map(i => (
+                                        <div key={i} className="flex gap-3 items-start border-b border-stone-50 pb-3 last:border-0">
+                                            <div className="w-2 h-2 mt-2 rounded-full bg-gold-500 flex-shrink-0"></div>
+                                            <div>
+                                                <p className="text-sm font-bold text-stone-700">New Guest Registration</p>
+                                                <p className="text-xs text-stone-500">Rahul Kumar joined via Invite Link</p>
+                                                <p className="text-[10px] text-stone-400 mt-1">2 mins ago</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="border border-stone-100 rounded-xl p-6 shadow-sm bg-stone-50">
+                                <h3 className="font-bold text-lg mb-4 text-[#4a0e11]">System Health</h3>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-stone-600">Server Status</span>
+                                        <span className="text-green-600 font-bold">Operational</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-stone-600">Database Load</span>
+                                        <span className="text-stone-800 font-bold">12%</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-stone-600">Active Sessions</span>
+                                        <span className="text-stone-800 font-bold">45</span>
+                                    </div>
+                                    <div className="mt-4 p-3 bg-blue-100 text-blue-800 text-xs rounded-lg">
+                                        System running optimally. Last backup: 1 hour ago.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
-                      <div className="col-span-1 md:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
-                          <h3 className="font-heading text-lg mb-4 flex items-center gap-2"><Megaphone size={20} className="text-gold-600"/> Recent Activity</h3>
-                          <div className="space-y-4">
-                              {[1,2,3].map((_, i) => (
-                                  <div key={i} className="flex items-center gap-4 p-3 hover:bg-stone-50 rounded-xl transition-colors border border-transparent hover:border-stone-200">
-                                      <div className="w-10 h-10 rounded-full bg-stone-200 flex items-center justify-center text-stone-500 font-bold">GK</div>
-                                      <div>
-                                          <p className="text-sm font-bold text-stone-800">Guest "Ravi" just checked in.</p>
-                                          <p className="text-xs text-stone-400">2 minutes ago</p>
-                                      </div>
-                                  </div>
-                              ))}
-                          </div>
-                      </div>
-                      
-                      <div className="col-span-1 md:col-span-2 bg-[#4a0e11] p-6 rounded-2xl shadow-lg text-gold-100 relative overflow-hidden">
-                          <div className="relative z-10">
-                              <h3 className="font-heading text-lg mb-2">Quick Broadcast</h3>
-                              <p className="text-gold-400/80 text-sm mb-6">Send a push notification to all guests instantly.</p>
-                              <div className="flex gap-2">
-                                  <input type="text" placeholder="Type message..." className="flex-grow bg-white/10 border border-gold-500/30 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-gold-400 placeholder-gold-500/30"/>
-                                  <button className="bg-gold-500 text-[#4a0e11] px-4 py-2 rounded-lg font-bold text-sm hover:bg-gold-400 transition-colors">Send</button>
-                              </div>
-                          </div>
-                          <div className="absolute -right-10 -bottom-10 opacity-10">
-                              <Megaphone size={150} />
-                          </div>
-                      </div>
-                  </div>
-              )}
+                {activeTab === 'map' && <div className="h-full w-full"><AdminLiveMap /></div>}
+                
+                {activeTab === 'guests' && (
+                    <div className="p-8 text-center text-stone-400 h-full flex flex-col items-center justify-center">
+                        <Users size={64} className="mx-auto mb-4 opacity-20"/>
+                        <h3 className="text-xl font-bold text-stone-600">Guest Management</h3>
+                        <p className="max-w-md mx-auto mt-2">Manage guest lists, RSVPs, and room allocations here. Feature currently in maintenance.</p>
+                    </div>
+                )}
 
-              {activeView === 'guests' && (
-                  <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden animate-in fade-in duration-500">
-                      <div className="p-6 border-b border-stone-100 flex justify-between items-center">
-                          <div className="relative">
-                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
-                              <input type="text" placeholder="Search guests..." className="pl-10 pr-4 py-3 bg-stone-50 border border-stone-200 rounded-lg text-sm w-64 focus:outline-none focus:border-gold-400"/>
-                          </div>
-                          <button onClick={handleAddGuest} className="bg-[#4a0e11] text-gold-100 px-6 py-3 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-[#5e181f] transition-colors shadow-lg">
-                              <Plus size={16} /> Add Guest
-                          </button>
-                      </div>
-                      <table className="w-full text-sm text-left">
-                          <thead className="bg-stone-50 text-stone-500 font-bold uppercase text-xs">
-                              <tr>
-                                  <th className="px-6 py-5">Guest Name</th>
-                                  <th className="px-6 py-5">Phone</th>
-                                  <th className="px-6 py-5">RSVP Status</th>
-                                  <th className="px-6 py-5">Status</th>
-                                  <th className="px-6 py-5 text-right">Actions</th>
-                              </tr>
-                          </thead>
-                          <tbody className="divide-y divide-stone-100">
-                              {guests.map((guest) => (
-                                  <tr key={guest.id} className="hover:bg-stone-50 transition-colors">
-                                      <td className="px-6 py-6 font-medium text-stone-800 text-base">{guest.name}</td>
-                                      <td className="px-6 py-6 text-stone-600">{guest.phone}</td>
-                                      <td className="px-6 py-6">
-                                          <button onClick={() => handleToggleRSVP(guest.id)} className={`px-3 py-1 rounded-full text-xs font-bold cursor-pointer ${guest.rsvp ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                              {guest.rsvp ? 'Attending' : 'Not Attending'}
-                                          </button>
-                                      </td>
-                                      <td className="px-6 py-6">
-                                          <span className="flex items-center gap-2 text-stone-600">
-                                              <span className={`w-2 h-2 rounded-full ${guest.status === 'Checked In' ? 'bg-green-500' : 'bg-stone-300'}`}></span>
-                                              {guest.status}
-                                          </span>
-                                      </td>
-                                      <td className="px-6 py-6 text-right space-x-3">
-                                          <button className="p-2 hover:bg-stone-200 rounded text-stone-500"><Edit2 size={18}/></button>
-                                          <button onClick={() => handleDeleteGuest(guest.id)} className="p-2 hover:bg-red-50 rounded text-red-500"><Trash2 size={18}/></button>
-                                      </td>
-                                  </tr>
-                              ))}
-                          </tbody>
-                      </table>
-                  </div>
-              )}
-              
-              {activeView === 'map' && (
-                  <div className="h-[calc(100vh-10rem)] animate-in fade-in zoom-in duration-500">
-                       <AdminLiveMap />
-                  </div>
-              )}
-
-              {activeView === 'gallery' && (
-                  <div className="grid grid-cols-4 gap-6 animate-in fade-in duration-500">
-                      <div className="col-span-4 bg-white p-6 rounded-xl mb-4 flex justify-between items-center shadow-sm border border-stone-100">
-                           <h3 className="font-bold text-stone-800 text-lg">Moderation Queue (3 Pending)</h3>
-                           <button className="text-sm text-blue-600 font-bold hover:underline">Review All</button>
-                      </div>
-                      {Array.from({ length: 8 }).map((_, i) => (
-                          <div key={i} className="aspect-square bg-stone-200 rounded-xl overflow-hidden relative group shadow-sm">
-                              <img src={`https://source.unsplash.com/random/400x400?wedding,indian&sig=${i}`} className="w-full h-full object-cover" alt="Gallery" />
-                              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                                   <button className="p-3 bg-white rounded-full text-stone-900 hover:bg-red-500 hover:text-white transition-colors shadow-lg"><Trash2 size={18}/></button>
-                                   <button className="p-3 bg-white rounded-full text-stone-900 hover:bg-blue-500 hover:text-white transition-colors shadow-lg"><ExternalLink size={18}/></button>
-                              </div>
-                          </div>
-                      ))}
-                  </div>
-              )}
-
-              {activeView === 'content' && (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in slide-in-from-bottom-8 duration-500">
-                      <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
-                          <h3 className="font-heading text-lg mb-4 flex items-center gap-2 text-[#4a0e11]"><FileText size={18}/> Welcome Screen Message</h3>
-                          <textarea 
-                              className="w-full h-32 p-4 bg-stone-50 border border-stone-200 rounded-xl text-stone-700 focus:outline-none focus:border-gold-400 text-sm leading-relaxed"
-                              value={welcomeMsg}
-                              onChange={(e) => setWelcomeMsg(e.target.value)}
-                              placeholder="Enter the welcome message shown to all guests..."
-                          ></textarea>
-                          <p className="text-xs text-stone-400 mt-2">This text appears on the main welcome card.</p>
-                      </div>
-                      
-                      <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
-                          <h3 className="font-heading text-lg mb-4 flex items-center gap-2 text-[#4a0e11]"><Heart size={18}/> Our Love Story</h3>
-                          <textarea 
-                              className="w-full h-32 p-4 bg-stone-50 border border-stone-200 rounded-xl text-stone-700 focus:outline-none focus:border-gold-400 text-sm leading-relaxed"
-                              value={loveStory}
-                              onChange={(e) => setLoveStory(e.target.value)}
-                              placeholder="Tell your story..."
-                          ></textarea>
-                          <p className="text-xs text-stone-400 mt-2">This text appears in the 'Our Love Story' modal.</p>
-                      </div>
-
-                      <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 col-span-1 lg:col-span-2">
-                          <h3 className="font-heading text-lg mb-4 flex items-center gap-2 text-[#4a0e11]"><Calendar size={18}/> Manage Highlights</h3>
-                          <div className="mb-4 grid grid-cols-1 sm:grid-cols-4 gap-4 p-4 bg-stone-50 rounded-xl border border-stone-200">
-                               <input placeholder="Event Title" className="p-2 rounded border border-stone-200 text-sm" value={newHighlight.title} onChange={e=>setNewHighlight({...newHighlight, title: e.target.value})} />
-                               <input placeholder="Time (e.g. 6:00 PM)" className="p-2 rounded border border-stone-200 text-sm" value={newHighlight.time} onChange={e=>setNewHighlight({...newHighlight, time: e.target.value})} />
-                               <input placeholder="Location" className="p-2 rounded border border-stone-200 text-sm" value={newHighlight.location} onChange={e=>setNewHighlight({...newHighlight, location: e.target.value})} />
-                               <button onClick={handleAddHighlight} className="bg-gold-500 text-[#4a0e11] font-bold rounded py-2 text-sm hover:bg-gold-400 flex items-center justify-center gap-2"><Plus size={14}/> Add Event</button>
-                          </div>
-                          <div className="space-y-3">
-                              {highlights.map((h: any) => (
-                                  <div key={h.id} className="flex items-center justify-between p-4 bg-white border border-stone-200 rounded-xl shadow-sm hover:shadow-md transition-shadow">
-                                      <div>
-                                          <h4 className="font-bold text-[#4a0e11]">{h.title}</h4>
-                                          <p className="text-xs text-stone-500 flex gap-3 mt-1">
-                                              <span className="flex items-center gap-1"><Clock size={10}/> {h.time}</span>
-                                              <span className="flex items-center gap-1"><MapPin size={10}/> {h.location}</span>
-                                          </p>
-                                      </div>
-                                      <button onClick={() => handleDeleteHighlight(h.id)} className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-full"><Trash2 size={16}/></button>
-                                  </div>
-                              ))}
-                          </div>
-                      </div>
-                  </div>
-              )}
-
-              {activeView === 'config' && (
-                  <div className="bg-white max-w-2xl mx-auto rounded-2xl shadow-sm border border-stone-100 p-8 animate-in slide-in-from-bottom-8 duration-500">
-                      <h3 className="font-heading text-xl mb-6 border-b border-stone-100 pb-4">Global Settings</h3>
-                      <div className="space-y-6">
-                          <div className="grid grid-cols-2 gap-6">
-                              <div>
-                                  <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Couple Name</label>
-                                  <input type="text" value={config.coupleName} onChange={e => setConfig({...config, coupleName: e.target.value})} className="w-full p-3 bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:border-gold-400"/>
-                              </div>
-                              <div>
-                                  <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Event Date</label>
-                                  <input type="date" value={config.date} onChange={e => setConfig({...config, date: e.target.value})} className="w-full p-3 bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:border-gold-400"/>
-                              </div>
-                          </div>
-                          <div>
-                              <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Venue Name</label>
-                              <input type="text" value={config.venue} onChange={e => setConfig({...config, venue: e.target.value})} className="w-full p-3 bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:border-gold-400"/>
-                          </div>
-                          <div className="grid grid-cols-2 gap-6">
-                              <div>
-                                  <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Primary Color</label>
-                                  <div className="flex items-center gap-3">
-                                      <input type="color" value={config.primaryColor} onChange={e => setConfig({...config, primaryColor: e.target.value})} className="h-10 w-10 rounded cursor-pointer border-0"/>
-                                      <span className="text-sm font-mono text-stone-600">{config.primaryColor}</span>
-                                  </div>
-                              </div>
-                              <div>
-                                  <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Accent Color</label>
-                                  <div className="flex items-center gap-3">
-                                      <input type="color" value={config.secondaryColor} onChange={e => setConfig({...config, secondaryColor: e.target.value})} className="h-10 w-10 rounded cursor-pointer border-0"/>
-                                      <span className="text-sm font-mono text-stone-600">{config.secondaryColor}</span>
-                                  </div>
-                              </div>
-                          </div>
-                          <div className="pt-6 border-t border-stone-100 flex justify-end">
-                              <button onClick={handleSaveConfig} className="bg-[#4a0e11] text-gold-100 px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-[#5e181f] transition-all shadow-lg shadow-maroon-900/20">
-                                  <Save size={18} /> Save Changes
-                              </button>
-                          </div>
-                      </div>
-                  </div>
-              )}
-
-          </main>
-      </div>
+                 {activeTab === 'config' && (
+                    <div className="p-8 text-center text-stone-400 h-full flex flex-col items-center justify-center">
+                        <Settings size={64} className="mx-auto mb-4 opacity-20"/>
+                        <h3 className="text-xl font-bold text-stone-600">App Configuration</h3>
+                        <p className="max-w-md mx-auto mt-2">Update wedding details, theme settings, and feature toggles. Feature currently in maintenance.</p>
+                    </div>
+                )}
+            </div>
+         </div>
+      </main>
     </div>
   );
 };

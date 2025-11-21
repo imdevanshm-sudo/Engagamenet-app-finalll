@@ -67,38 +67,12 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const handleUpdate = () => {
-    const storedVersion = localStorage.getItem('wedding_app_version');
-    console.log(`App updated from ${storedVersion} to ${APP_VERSION}. Cleaning stale data.`);
-
-    // Preserve session data to avoid logging users out unnecessarily
-    const userType = localStorage.getItem('wedding_current_user_type');
-    const guestName = localStorage.getItem('wedding_guest_name');
-    const guestPhone = localStorage.getItem('wedding_guest_phone');
-    const coupleName = localStorage.getItem('wedding_couple_name');
-    const couplePhone = localStorage.getItem('wedding_couple_phone');
-
-    // Clear all local storage to remove stale state/caches
-    localStorage.clear();
-
-    // Restore session data
-    if (userType) localStorage.setItem('wedding_current_user_type', userType);
-    if (guestName) localStorage.setItem('wedding_guest_name', guestName);
-    if (guestPhone) localStorage.setItem('wedding_guest_phone', guestPhone);
-    if (coupleName) localStorage.setItem('wedding_couple_name', coupleName);
-    if (couplePhone) localStorage.setItem('wedding_couple_phone', couplePhone);
-
-    // Set new version
-    localStorage.setItem('wedding_app_version', APP_VERSION);
-    window.location.reload();
-  };
-
   const changeView = (view: typeof currentView) => {
       setIsTransitioning(true);
       setTimeout(() => {
           setCurrentView(view);
           setIsTransitioning(false);
-      }, 300); // Faster, smoother transition
+      }, 500); // Slower transition for a more royal feel
   };
 
   const handleLoginSuccess = (type: 'guest' | 'couple' | 'admin', name: string) => {
@@ -124,7 +98,7 @@ const App: React.FC = () => {
 
   return (
     <div className="w-full h-full bg-[#2d0a0d] text-gold-100 font-serif overflow-hidden">
-      <div className={`w-full h-full transition-all duration-300 ease-in-out transform ${isTransitioning ? 'opacity-0 scale-[0.98] blur-sm' : 'opacity-100 scale-100 blur-0'}`}>
+      <div className={`w-full h-full transition-all duration-500 ease-out transform ${isTransitioning ? 'opacity-0 scale-[0.98] blur-sm' : 'opacity-100 scale-100 blur-0'}`}>
         {currentView === 'welcome' && (
             <WelcomeScreen onLoginSuccess={handleLoginSuccess} />
         )}
