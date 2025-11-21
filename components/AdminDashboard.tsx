@@ -3,12 +3,45 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, Settings, Scroll, Calendar, Megaphone, Plus, Minus,
   FileText, Camera, MessageSquare, Home, Users, Folder, 
-  Trash2, Edit2, Check, X, Save, Search, Phone, MapPin, Upload, Image as ImageIcon, Film, ExternalLink, Map, Heart, Navigation, LocateFixed, Music, Clock, PenTool, Plane
+  Trash2, Edit2, Check, X, Save, Search, Phone, MapPin, Upload, Image as ImageIcon, Film, ExternalLink, Map, Heart, Navigation, LocateFixed, Music, Clock, PenTool, Plane, LogOut
 } from 'lucide-react';
+
+// --- Utility to Prevent XSS in Map Markers ---
+const escapeHtml = (unsafe: string) => {
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+ }
 
 interface AdminDashboardProps {
   onLogout: () => void;
 }
+
+interface WeddingEvent {
+    id: string;
+    title: string;
+    time: string;
+    loc: string;
+    icon: string;
+}
+
+interface MediaItem {
+    id: string;
+    url: string;
+    type: 'image' | 'video';
+    caption?: string;
+    timestamp: number;
+}
+
+const DEFAULT_EVENTS: WeddingEvent[] = [
+    { id: '1', title: "Mehndi Ceremony", time: "Dec 20, 4:00 PM", loc: "Poolside Gardens", icon: "🌿" },
+    { id: '2', title: "Sangeet Night", time: "Dec 20, 7:30 PM", loc: "Grand Ballroom", icon: "💃" },
+    { id: '3', title: "Haldi", time: "Dec 21, 10:00 AM", loc: "Courtyard", icon: "✨" },
+    { id: '4', title: "The Wedding", time: "Dec 21, 6:00 PM", loc: "Grand Lawn", icon: "💍" },
+];
 
 // --- Shared Map Components ---
 
@@ -19,20 +52,6 @@ const MapTree = ({ className }: { className?: string }) => (
     <circle cx="30" cy="50" r="3" fill="#ef4444" opacity="0.6" />
     <circle cx="60" cy="30" r="3" fill="#ef4444" opacity="0.6" />
     <circle cx="70" cy="60" r="3" fill="#ef4444" opacity="0.6" />
-  </svg>
-);
-
-const MapElephant = ({ className, flip }: { className?: string, flip?: boolean }) => (
-  <svg viewBox="0 0 100 60" className={className} style={{ transform: flip ? 'scaleX(-1)' : 'none' }}>
-     <path d="M20,40 C10,40 10,20 30,15 C40,10 60,10 75,20 C85,25 90,40 90,50 L85,50 L85,40 L75,40 L75,50 L65,50 L65,40 L40,40" fill="#5D4037" />
-     <path d="M20,40 Q25,50 15,55" stroke="#5D4037" strokeWidth="3" fill="none" />
-     <rect x="40" y="15" width="25" height="20" fill="#c05621" rx="2" />
-     <path d="M40,15 L65,15 L65,35 L40,35 Z" fill="url(#elephantPattern)" fillOpacity="0.5" />
-     <defs>
-       <pattern id="elephantPattern" width="4" height="4" patternUnits="userSpaceOnUse">
-         <circle cx="2" cy="2" r="1" fill="#fcd34d" />
-       </pattern>
-     </defs>
   </svg>
 );
 
@@ -169,8 +188,15 @@ const AdminLiveMap: React.FC = () => {
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstance = useRef<any>(null);
     const markersRef = useRef<Record<string, any>>({});
-    const linesRef = useRef<Record<string, any>>({});
     const venuePos = [26.7857, 83.0763]; // Hotel Soni International, Khalilabad
+    
+    const VENUE_ZONES = [
+        { name: "Grand Stage", x: 50, y: 20, w: 30, h: 15, color: "#be123c" },
+        { name: "Mandap", x: 80, y: 50, w: 20, h: 20, color: "#b45309" },
+        { name: "Royal Dining", x: 20, y: 50, w: 25, h: 25, color: "#15803d" },
+        { name: "Entrance", x: 50, y: 90, w: 20, h: 10, color: "#4a0e11" },
+        { name: "Bar", x: 80, y: 80, w: 15, h: 15, color: "#1d4ed8" },
+    ];
 
     useEffect(() => {
         const channel = new BroadcastChannel('wedding_live_map');
@@ -186,372 +212,495 @@ const AdminLiveMap: React.FC = () => {
         return () => channel.close();
     }, []);
 
-    // Leaflet Logic
+    // Leaflet Setup for Google Mode
     useEffect(() => {
-        if (viewMode === 'google' && mapRef.current && !mapInstance.current) {
-             const L = (window as any).L;
-             if (!L) return;
-             
-             // Initialize with zoomControl: false to use custom controls
-             mapInstance.current = L.map(mapRef.current, { zoomControl: false }).setView(venuePos, 13);
-             
-             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap'
-             }).addTo(mapInstance.current);
-
-             const venueIcon = L.divIcon({
-                className: 'custom-div-icon',
-                html: `<div style="background-color: #be123c; color: #fff; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-size: 20px;">🏰</div>`,
-                iconSize: [40, 40],
-                iconAnchor: [20, 40]
-            });
-            L.marker(venuePos, { icon: venueIcon }).addTo(mapInstance.current).bindPopup("Hotel Soni International");
-        }
-        
-        return () => {
-            if (viewMode !== 'google' && mapInstance.current) {
-                 mapInstance.current.remove();
-                 mapInstance.current = null;
-                 markersRef.current = {};
-                 linesRef.current = {};
+        if (viewMode !== 'google') {
+            if (mapInstance.current) {
+                mapInstance.current.remove();
+                mapInstance.current = null;
+                markersRef.current = {};
             }
-        };
+            return;
+        }
+
+        if (!mapRef.current || mapInstance.current) return;
+
+        const L = (window as any).L;
+        if (!L) return;
+
+        mapInstance.current = L.map(mapRef.current).setView(venuePos, 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(mapInstance.current);
+        
+        L.marker(venuePos).addTo(mapInstance.current).bindPopup("Hotel Soni International").openPopup();
+
+        return () => {
+            if(mapInstance.current) {
+                mapInstance.current.remove();
+                mapInstance.current = null;
+            }
+        }
     }, [viewMode]);
 
-     // Update Markers on Google Map with RPG Style
-     useEffect(() => {
+    // Update Leaflet Markers
+    useEffect(() => {
         if (!mapInstance.current || viewMode !== 'google') return;
         const L = (window as any).L;
-
-        Object.entries(activeUsers).forEach(([id, user]) => {
+        
+        Object.values(activeUsers).forEach((user: any) => {
             if (user.lat && user.lng) {
-                const isCouple = user.role === 'couple';
-                
-                // Update or Create Marker
-                if (markersRef.current[id]) {
-                    markersRef.current[id].setLatLng([user.lat, user.lng]);
-                } else {
-                    const iconHtml = `
-                        <div class="relative flex flex-col items-center justify-center transition-all duration-500 transform hover:scale-110">
-                            <div class="w-10 h-10 rounded-full border-2 shadow-2xl flex items-center justify-center font-bold text-lg backdrop-blur-md ${
-                                isCouple 
-                                    ? 'bg-rose-900/90 border-rose-400 text-rose-100 shadow-rose-500/50' 
-                                    : 'bg-amber-900/90 border-amber-400 text-amber-100 shadow-amber-500/30'
-                            }">
-                                ${isCouple ? '👑' : user.name.charAt(0)}
-                                ${isCouple ? '<div class="absolute -inset-3 rounded-full border border-rose-500/40 animate-ping pointer-events-none"></div>' : ''}
-                            </div>
-                            <div class="mt-1 px-2 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[10px] font-bold text-white whitespace-nowrap border border-white/10 shadow-lg">
-                                ${user.name}
-                            </div>
-                            <div class="absolute top-full w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-black/60 -mt-1"></div>
-                        </div>
-                    `;
-
-                    const icon = L.divIcon({
-                        className: 'bg-transparent border-none',
-                        html: iconHtml,
-                        iconSize: [40, 60],
-                        iconAnchor: [20, 20]
-                    });
-
-                    const marker = L.marker([user.lat, user.lng], { icon }).addTo(mapInstance.current);
-                    markersRef.current[id] = marker;
-                }
-
-                // Update or Create Line to Venue
-                if (linesRef.current[id]) {
-                    linesRef.current[id].setLatLngs([[user.lat, user.lng], venuePos]);
-                } else {
-                    const line = L.polyline([[user.lat, user.lng], venuePos], {
-                        color: isCouple ? '#be123c' : '#15803d',
-                        weight: 2,
-                        dashArray: '5, 8', 
-                        opacity: 0.5
-                    }).addTo(mapInstance.current);
-                    linesRef.current[id] = line;
-                }
+                 if (markersRef.current[user.name]) {
+                     markersRef.current[user.name].setLatLng([user.lat, user.lng]);
+                 } else {
+                     const safeName = escapeHtml(user.name);
+                     const marker = L.marker([user.lat, user.lng]).addTo(mapInstance.current).bindPopup(`${safeName} (${user.role})`);
+                     markersRef.current[user.name] = marker;
+                 }
             }
         });
     }, [activeUsers, viewMode]);
 
-    const handleZoomIn = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (mapInstance.current) mapInstance.current.zoomIn();
-    };
-    
-    const handleZoomOut = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (mapInstance.current) mapInstance.current.zoomOut();
-    };
-    
-    const handleCenterVenue = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (mapInstance.current) {
-            mapInstance.current.flyTo(venuePos, 15, {
-                animate: true,
-                duration: 1.5
-            });
-        }
-    };
-
-    const VENUE_ZONES = [
-        { name: "Grand Stage", x: 50, y: 20, w: 30, h: 15, color: "#be123c" },
-        { name: "Mandap", x: 80, y: 50, w: 20, h: 20, color: "#b45309" },
-        { name: "Royal Dining", x: 20, y: 50, w: 25, h: 25, color: "#15803d" },
-        { name: "Entrance", x: 50, y: 90, w: 20, h: 10, color: "#4a0e11" },
-        { name: "Bar", x: 80, y: 80, w: 15, h: 15, color: "#1d4ed8" },
-    ];
-
     return (
-        <div className="h-full flex flex-col bg-[#fffbf5] rounded-xl overflow-hidden shadow-inner border border-gold-200 relative animate-in fade-in duration-500">
-            <div className="absolute top-4 left-0 right-0 z-20 flex justify-center pointer-events-none">
-                 <div className="bg-white/90 backdrop-blur-md rounded-full p-1 flex border border-gold-500/30 pointer-events-auto shadow-lg">
-                     <button 
-                        onClick={() => setViewMode('venue')}
-                        className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${viewMode === 'venue' ? 'bg-gold-500 text-[#2d0a0d] shadow-sm' : 'text-gold-600 hover:text-gold-800'}`}
-                     >
-                         Venue Tracker
-                     </button>
-                     <button 
-                        onClick={() => setViewMode('google')}
-                        className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${viewMode === 'google' ? 'bg-gold-500 text-[#2d0a0d] shadow-sm' : 'text-gold-600 hover:text-gold-800'}`}
-                     >
-                         Google Maps
-                     </button>
-                 </div>
+        <div className="h-full flex flex-col">
+            <div className="flex justify-between items-center p-2 bg-black/20">
+                <h3 className="text-gold-200 font-bold text-sm">Live Tracking ({Object.keys(activeUsers).length} Active)</h3>
+                <div className="flex gap-2">
+                    <button onClick={() => setViewMode('venue')} className={`px-3 py-1 rounded text-xs ${viewMode === 'venue' ? 'bg-gold-500 text-black' : 'bg-white/10 text-white'}`}>Venue</button>
+                    <button onClick={() => setViewMode('google')} className={`px-3 py-1 rounded text-xs ${viewMode === 'google' ? 'bg-gold-500 text-black' : 'bg-white/10 text-white'}`}>Map</button>
+                </div>
             </div>
-
-            <div className="flex-grow relative overflow-hidden bg-[#f5f5f4]">
-                {viewMode === 'venue' ? (
-                    <div className="w-full h-full cursor-move bg-[#2d0a0d]" {...handlers} style={style}>
-                        <div className="absolute inset-0 w-full h-full origin-top-left transition-transform duration-75 ease-out"
-                            style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}>
-                            <div className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 bg-[#f5f5f4] border-[20px] border-[#4a0e11] shadow-2xl">
-                                    <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#4a0e11 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
-                                    {VENUE_ZONES.map((zone, i) => (
-                                            <div key={i} className="absolute border-2 border-dashed flex items-center justify-center text-center p-2 opacity-60" 
-                                                style={{ 
-                                                left: `${zone.x}%`, top: `${zone.y}%`, width: `${zone.w}%`, height: `${zone.h}%`, 
-                                                transform: 'translate(-50%, -50%)',
-                                                borderColor: zone.color, backgroundColor: `${zone.color}10`
-                                                }}>
-                                                <span className="font-serif font-bold text-[10px] uppercase tracking-wider text-[#4a0e11] bg-white/80 px-2 py-1 rounded-full shadow-sm">{zone.name}</span>
-                                            </div>
-                                    ))}
-                                    <MapTree className="absolute top-[15%] left-[15%] w-24 h-24 opacity-80" />
-                                    <MapTree className="absolute top-[15%] right-[15%] w-24 h-24 opacity-80" />
-                                    <MapElephant className="absolute bottom-[20%] left-[10%] w-32 h-20 opacity-60" />
-                                    <MapElephant className="absolute bottom-[20%] right-[10%] w-32 h-20 opacity-60" flip />
-                                
-                                {Object.values(activeUsers).map((u, i) => {
-                                    return <MapNode key={i} x={u.x || 50} y={u.y || 50} name={u.name} type={u.role} delay={0} />;
-                                })}
+            <div className="flex-grow relative overflow-hidden bg-[#2d0a0d]">
+                 {viewMode === 'venue' ? (
+                     <div className="w-full h-full cursor-move relative overflow-hidden" {...handlers} style={style}>
+                        <div 
+                            className="absolute inset-0 w-full h-full origin-top-left transition-transform duration-75 ease-out"
+                            style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
+                        >
+                            <div className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 bg-[#f5f5f4] border-[20px] border-[#4a0e11] shadow-2xl overflow-hidden">
+                                 <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#4a0e11 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+                                 
+                                 {VENUE_ZONES.map((zone, i) => (
+                                     <div key={i} className="absolute border-2 border-dashed flex items-center justify-center text-center p-2 opacity-60" 
+                                         style={{ 
+                                             left: `${zone.x}%`, top: `${zone.y}%`, width: `${zone.w}%`, height: `${zone.h}%`, 
+                                             transform: 'translate(-50%, -50%)',
+                                             borderColor: zone.color, backgroundColor: `${zone.color}10`
+                                         }}>
+                                         <span className="font-serif font-bold text-[10px] uppercase tracking-wider text-[#4a0e11] bg-white/80 px-2 py-1 rounded-full shadow-sm">{zone.name}</span>
+                                     </div>
+                                 ))}
+                                 
+                                 <MapTree className="absolute top-[15%] left-[15%] w-24 h-24 opacity-80" />
+                                 <MapTree className="absolute top-[15%] right-[15%] w-24 h-24 opacity-80" />
+                                 
+                                 {Object.values(activeUsers).map((u: any, i) => (
+                                     <MapNode key={i} x={u.x} y={u.y} name={escapeHtml(u.name)} type={u.role} />
+                                 ))}
                             </div>
                         </div>
-                    </div>
-                ) : (
-                    <div className="relative w-full h-full">
-                         <div id="admin-map-full" ref={mapRef} className="w-full h-full bg-stone-200"></div>
-                         
-                         {/* Custom Controls Overlay */}
-                         <div className="absolute bottom-8 right-6 flex flex-col gap-3 z-[400]">
-                             <button 
-                                 onClick={handleCenterVenue}
-                                 className="bg-white p-3 rounded-full shadow-lg text-rose-600 hover:bg-rose-50 transition-transform hover:scale-105 border border-rose-100"
-                                 title="Go to Venue"
-                             >
-                                 <MapPin size={20} />
-                             </button>
-                             <div className="flex flex-col bg-white rounded-full shadow-lg border border-stone-100 overflow-hidden">
-                                 <button 
-                                     onClick={handleZoomIn}
-                                     className="p-3 hover:bg-stone-50 text-stone-600 border-b border-stone-100"
-                                     title="Zoom In"
-                                 >
-                                     <Plus size={20} />
-                                 </button>
-                                 <button 
-                                     onClick={handleZoomOut}
-                                     className="p-3 hover:bg-stone-50 text-stone-600"
-                                     title="Zoom Out"
-                                 >
-                                     <Minus size={20} />
-                                 </button>
-                             </div>
-                         </div>
-
-                         <div className="absolute bottom-8 left-6 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg border border-white/50 z-[400] text-xs font-bold text-stone-600 flex items-center gap-2">
-                             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                             Live Tracking Active
-                         </div>
-                    </div>
-                )}
-            </div>
-            
-            <div className="p-3 bg-white border-t border-gold-200 flex justify-between items-center text-xs font-bold text-stone-600">
-                 <div className="flex gap-4">
-                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> Couple Live</span>
-                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gold-500"></span> Guests ({Object.values(activeUsers).filter(u => u.role === 'guest').length})</span>
-                 </div>
-                 <span>Real-time Monitor</span>
+                     </div>
+                 ) : (
+                     <div ref={mapRef} className="w-full h-full"></div>
+                 )}
             </div>
         </div>
     );
-};
+}
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'guests' | 'map' | 'config'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'highlights' | 'gallery' | 'messages' | 'config' | 'map'>('overview');
+  const [config, setConfig] = useState({ coupleName: "", date: "", welcomeMsg: "" });
+  const [guestCount, setGuestCount] = useState(0);
+  const [msgCount, setMsgCount] = useState(0);
+  const [heartCount, setHeartCount] = useState(0);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [events, setEvents] = useState<WeddingEvent[]>(DEFAULT_EVENTS);
+  const [photos, setPhotos] = useState<MediaItem[]>([]);
+  
+  // Event Form State
+  const [newEvent, setNewEvent] = useState({ title: '', time: '', loc: '', icon: '✨' });
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Photo editing state
+  const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
+  const [editCaption, setEditCaption] = useState("");
+
+  // Broadcast Helper
+  const broadcastSync = (type: string, payload: any) => {
+      const channel = new BroadcastChannel('wedding_portal_chat');
+      channel.postMessage({ type, payload });
+      channel.close();
+  };
+
+  useEffect(() => {
+      // Initial Load
+      const loadData = () => {
+        const savedConfig = localStorage.getItem('wedding_global_config');
+        if (savedConfig) setConfig(JSON.parse(savedConfig));
+        else setConfig({ coupleName: "Sneha & Aman", date: "2025-11-26", welcomeMsg: "Welcome to our wedding!" });
+
+        // Count guests (rough estimate from local keys)
+        let gCount = 0;
+        for (let i = 0; i < localStorage.length; i++) {
+            if (localStorage.key(i)?.startsWith('wedding_guest_name')) gCount++;
+        }
+        setGuestCount(gCount + 200); // Mock baseline
+
+        const msgs = localStorage.getItem('wedding_chat_messages');
+        if (msgs) {
+            const parsed = JSON.parse(msgs);
+            setMessages(parsed);
+            setMsgCount(parsed.length);
+        }
+
+        const hearts = localStorage.getItem('wedding_heart_count');
+        if(hearts) setHeartCount(parseInt(hearts));
+        
+        const savedEvents = localStorage.getItem('wedding_events');
+        if(savedEvents) setEvents(JSON.parse(savedEvents));
+
+        const savedPhotos = localStorage.getItem('wedding_gallery_media');
+        if(savedPhotos) setPhotos(JSON.parse(savedPhotos));
+      };
+      loadData();
+
+      // Listen for Updates from other tabs
+      const channel = new BroadcastChannel('wedding_portal_chat');
+      channel.onmessage = (event) => {
+          const data = event.data;
+          switch(data.type) {
+              case 'message': 
+                  setMessages(prev => {
+                      const newState = [...prev, data.payload];
+                      setMsgCount(newState.length);
+                      return newState;
+                  });
+                  break;
+              case 'message_sync':
+                  setMessages(data.payload);
+                  setMsgCount(data.payload.length);
+                  break;
+              case 'heart_update':
+                  setHeartCount(data.count);
+                  break;
+              case 'gallery_sync':
+                  setPhotos(data.payload);
+                  break;
+              case 'event_sync':
+                  setEvents(data.payload);
+                  break;
+          }
+      };
+
+      return () => channel.close();
+  }, []);
+
+  const handleSaveConfig = () => {
+      localStorage.setItem('wedding_global_config', JSON.stringify(config));
+      localStorage.setItem('wedding_welcome_msg', config.welcomeMsg);
+      broadcastSync('config_sync', config);
+      alert("Configuration Saved & Broadcasted!");
+  };
+
+  const handleClearData = () => {
+      if (confirm("Are you sure? This will clear all local data.")) {
+          localStorage.clear();
+          window.location.reload();
+      }
+  };
+  
+  // --- Events Management ---
+  const handleAddOrUpdateEvent = () => {
+      if(!newEvent.title || !newEvent.time) return;
+      
+      let updated;
+      if (editingId) {
+          updated = events.map(e => e.id === editingId ? { ...newEvent, id: editingId } : e);
+          setEditingId(null);
+      } else {
+          updated = [...events, { ...newEvent, id: Date.now().toString() }];
+      }
+      
+      setEvents(updated);
+      localStorage.setItem('wedding_events', JSON.stringify(updated));
+      broadcastSync('event_sync', updated);
+      setNewEvent({ title: '', time: '', loc: '', icon: '✨' });
+  };
+
+  const handleEditClick = (evt: WeddingEvent) => {
+      setNewEvent(evt);
+      setEditingId(evt.id);
+  };
+
+  const handleCancelEdit = () => {
+      setNewEvent({ title: '', time: '', loc: '', icon: '✨' });
+      setEditingId(null);
+  };
+  
+  const handleDeleteEvent = (id: string) => {
+      if(confirm("Delete this event?")) {
+          const updated = events.filter(e => e.id !== id);
+          setEvents(updated);
+          localStorage.setItem('wedding_events', JSON.stringify(updated));
+          broadcastSync('event_sync', updated);
+          if (editingId === id) handleCancelEdit();
+      }
+  };
+
+  // --- Messages Management ---
+  const handleDeleteMessage = (id: string) => {
+      const updated = messages.filter(m => m.id !== id);
+      setMessages(updated);
+      setMsgCount(updated.length);
+      localStorage.setItem('wedding_chat_messages', JSON.stringify(updated));
+      broadcastSync('message_sync', updated);
+  };
+
+  // --- Gallery Management ---
+  const handleDeletePhoto = (id: string) => {
+      if(confirm("Delete this photo?")) {
+          const updated = photos.filter(p => p.id !== id);
+          setPhotos(updated);
+          localStorage.setItem('wedding_gallery_media', JSON.stringify(updated));
+          broadcastSync('gallery_sync', updated);
+      }
+  };
+
+  const handleEditPhotoClick = (photo: MediaItem) => {
+      setEditingPhotoId(photo.id);
+      setEditCaption(photo.caption || "");
+  };
+
+  const handleSavePhotoCaption = (id: string) => {
+      const updated = photos.map(p => p.id === id ? { ...p, caption: editCaption } : p);
+      setPhotos(updated);
+      localStorage.setItem('wedding_gallery_media', JSON.stringify(updated));
+      broadcastSync('gallery_sync', updated);
+      setEditingPhotoId(null);
+  };
 
   return (
-    <div className="flex h-full w-full bg-[#f5f5f4] text-[#4a0e11] font-serif overflow-hidden absolute inset-0 z-50">
-      {/* Sidebar */}
-      <aside className="w-64 bg-[#2d0a0d] text-gold-100 flex flex-col border-r border-gold-500/20 flex-shrink-0 z-50 shadow-xl">
-        <div className="p-6 border-b border-white/10">
-          <h1 className="font-heading text-2xl text-gold-300">Admin Portal</h1>
-          <p className="text-xs text-gold-500/60 uppercase tracking-widest mt-1">Royal Wedding Manager</p>
-        </div>
-        
-        <nav className="flex-grow p-4 space-y-2 overflow-y-auto">
-          <button 
-            onClick={() => setActiveTab('overview')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'overview' ? 'bg-gold-600 text-[#2d0a0d] font-bold shadow-lg' : 'text-stone-400 hover:bg-white/5 hover:text-gold-200'}`}
-          >
-            <Home size={18} /> Overview
+    <div className="w-full h-full flex flex-col bg-[#1a0507] text-gold-100 font-serif">
+      {/* Header */}
+      <header className="p-4 bg-[#2d0a0d] border-b border-gold-500/20 flex justify-between items-center shadow-lg z-20">
+          <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gold-500 text-[#2d0a0d] rounded-lg flex items-center justify-center font-bold shadow-md">
+                  <Settings size={20} />
+              </div>
+              <div>
+                  <h1 className="font-heading text-xl text-gold-100">Admin Panel</h1>
+                  <p className="text-[10px] text-stone-400 uppercase tracking-widest">Wedding Control Center</p>
+              </div>
+          </div>
+          <button onClick={onLogout} className="p-2 hover:bg-white/5 rounded-lg text-stone-400 hover:text-white transition-colors">
+              <LogOut size={20} />
           </button>
-          <button 
-            onClick={() => setActiveTab('guests')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'guests' ? 'bg-gold-600 text-[#2d0a0d] font-bold shadow-lg' : 'text-stone-400 hover:bg-white/5 hover:text-gold-200'}`}
-          >
-            <Users size={18} /> Guest List
-          </button>
-          <button 
-            onClick={() => setActiveTab('map')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'map' ? 'bg-gold-600 text-[#2d0a0d] font-bold shadow-lg' : 'text-stone-400 hover:bg-white/5 hover:text-gold-200'}`}
-          >
-            <Map size={18} /> Live Map
-          </button>
-          <button 
-            onClick={() => setActiveTab('config')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'config' ? 'bg-gold-600 text-[#2d0a0d] font-bold shadow-lg' : 'text-stone-400 hover:bg-white/5 hover:text-gold-200'}`}
-          >
-            <Settings size={18} /> Configuration
-          </button>
-        </nav>
+      </header>
 
-        <div className="p-4 border-t border-white/10">
-          <button onClick={onLogout} className="w-full flex items-center gap-2 justify-center px-4 py-2 rounded-lg border border-white/10 text-stone-400 hover:bg-white/5 hover:text-rose-400 transition-colors text-sm">
-            <ArrowLeft size={16} /> Logout
-          </button>
-        </div>
-      </aside>
+      <div className="flex flex-grow overflow-hidden">
+          {/* Sidebar */}
+          <aside className="w-20 bg-[#2d0a0d]/50 border-r border-white/5 flex flex-col items-center py-4 gap-4 z-10">
+              {[
+                  { id: 'overview', icon: Home, label: 'Home' },
+                  { id: 'highlights', icon: Calendar, label: 'Events' },
+                  { id: 'gallery', icon: Camera, label: 'Media' },
+                  { id: 'messages', icon: MessageSquare, label: 'Chat' },
+                  { id: 'map', icon: Map, label: 'Map' },
+                  { id: 'config', icon: Edit2, label: 'Config' },
+              ].map((item) => (
+                  <button 
+                    key={item.id} 
+                    onClick={() => setActiveTab(item.id as any)}
+                    className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center gap-1 transition-all ${activeTab === item.id ? 'bg-gold-500 text-[#2d0a0d] shadow-lg shadow-gold-500/20' : 'text-stone-500 hover:bg-white/5 hover:text-stone-300'}`}
+                  >
+                      <item.icon size={20} />
+                  </button>
+              ))}
+          </aside>
 
-      {/* Main Content */}
-      <main className="flex-grow bg-[#f5f5f4] p-0 sm:p-6 lg:p-8 overflow-hidden flex flex-col">
-         <div className="w-full h-full flex flex-col">
-            <header className="mb-6 flex justify-between items-center flex-shrink-0 px-4 sm:px-0">
-                <h2 className="text-2xl sm:text-3xl font-heading text-[#4a0e11]">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h2>
-                <div className="flex items-center gap-4">
-                    <div className="text-right hidden sm:block">
-                        <p className="text-sm font-bold text-[#4a0e11]">Admin User</p>
-                        <p className="text-xs text-stone-500">Super Admin</p>
-                    </div>
-                    <div className="w-10 h-10 bg-[#4a0e11] rounded-full flex items-center justify-center text-gold-300">
-                        <Settings size={20} />
-                    </div>
-                </div>
-            </header>
+          {/* Content */}
+          <main className="flex-grow overflow-y-auto p-6 bg-[#0f0505]">
+              {activeTab === 'overview' && (
+                  <div className="space-y-6 animate-fade-in">
+                      <h2 className="text-2xl font-heading text-gold-200 mb-4">Dashboard Overview</h2>
+                      <div className="grid grid-cols-3 gap-4">
+                          <div className="bg-[#2d0a0d] p-5 rounded-xl border border-white/10 shadow-lg">
+                              <div className="flex items-center justify-between mb-2">
+                                  <span className="text-stone-400 text-xs uppercase tracking-wider">Total Guests</span>
+                                  <Users size={16} className="text-gold-500" />
+                              </div>
+                              <div className="text-3xl font-bold text-white">{guestCount}</div>
+                          </div>
+                          <div className="bg-[#2d0a0d] p-5 rounded-xl border border-white/10 shadow-lg">
+                              <div className="flex items-center justify-between mb-2">
+                                  <span className="text-stone-400 text-xs uppercase tracking-wider">Messages</span>
+                                  <MessageSquare size={16} className="text-rose-500" />
+                              </div>
+                              <div className="text-3xl font-bold text-white">{msgCount}</div>
+                          </div>
+                          <div className="bg-[#2d0a0d] p-5 rounded-xl border border-white/10 shadow-lg">
+                              <div className="flex items-center justify-between mb-2">
+                                  <span className="text-stone-400 text-xs uppercase tracking-wider">Total Hearts</span>
+                                  <Heart size={16} className="text-rose-500" fill="currentColor" />
+                              </div>
+                              <div className="text-3xl font-bold text-white">{heartCount}</div>
+                          </div>
+                      </div>
+                      
+                      <div className="bg-[#2d0a0d] p-6 rounded-xl border border-white/10">
+                          <h3 className="font-bold text-gold-100 mb-4">System Actions</h3>
+                          <button onClick={handleClearData} className="w-full py-3 rounded-lg border border-red-500/50 text-red-400 hover:bg-red-900/20 transition-colors flex items-center justify-center gap-2">
+                              <Trash2 size={16} /> Reset All App Data
+                          </button>
+                      </div>
+                  </div>
+              )}
+              
+              {activeTab === 'highlights' && (
+                  <div className="space-y-6 animate-fade-in">
+                       <h2 className="text-2xl font-heading text-gold-200">Manage Events</h2>
+                       <div className="bg-[#2d0a0d] p-4 rounded-xl border border-white/10">
+                           <div className="flex justify-between items-center mb-4">
+                               <h3 className="text-sm font-bold text-gold-400 uppercase">{editingId ? 'Edit Event' : 'Add New Event'}</h3>
+                               {editingId && <button onClick={handleCancelEdit} className="text-xs text-red-400 hover:text-red-300">Cancel</button>}
+                           </div>
+                           <div className="grid grid-cols-2 gap-4 mb-4">
+                               <input type="text" placeholder="Event Title" value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} className="bg-black/30 border border-white/10 rounded p-2 text-white" />
+                               <input type="text" placeholder="Time (e.g. Dec 20, 4PM)" value={newEvent.time} onChange={e => setNewEvent({...newEvent, time: e.target.value})} className="bg-black/30 border border-white/10 rounded p-2 text-white" />
+                               <input type="text" placeholder="Location" value={newEvent.loc} onChange={e => setNewEvent({...newEvent, loc: e.target.value})} className="bg-black/30 border border-white/10 rounded p-2 text-white" />
+                               <input type="text" placeholder="Icon (Emoji)" value={newEvent.icon} onChange={e => setNewEvent({...newEvent, icon: e.target.value})} className="bg-black/30 border border-white/10 rounded p-2 text-white" />
+                           </div>
+                           <button onClick={handleAddOrUpdateEvent} className={`px-4 py-2 rounded font-bold flex items-center gap-2 transition-colors ${editingId ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-gold-600 hover:bg-gold-500 text-black'}`}>
+                               {editingId ? <><Save size={16}/> Update Event</> : <><Plus size={16}/> Add Event</>}
+                           </button>
+                       </div>
+                       <div className="space-y-2">
+                           {events.map(evt => (
+                               <div key={evt.id} className={`flex items-center justify-between p-3 border rounded-lg transition-colors ${editingId === evt.id ? 'bg-blue-900/20 border-blue-500/50' : 'bg-[#1a0507] border-white/5'}`}>
+                                   <div className="flex items-center gap-3">
+                                       <span className="text-2xl">{evt.icon}</span>
+                                       <div>
+                                           <div className="font-bold text-white">{evt.title}</div>
+                                           <div className="text-xs text-stone-500">{evt.time} • {evt.loc}</div>
+                                       </div>
+                                   </div>
+                                   <div className="flex gap-2">
+                                       <button onClick={() => handleEditClick(evt)} className="text-blue-400 hover:text-blue-300 p-2"><Edit2 size={18}/></button>
+                                       <button onClick={() => handleDeleteEvent(evt.id)} className="text-red-400 hover:text-red-300 p-2"><Trash2 size={18}/></button>
+                                   </div>
+                               </div>
+                           ))}
+                       </div>
+                  </div>
+              )}
+              
+              {activeTab === 'gallery' && (
+                   <div className="space-y-6 animate-fade-in">
+                       <h2 className="text-2xl font-heading text-gold-200">Media Gallery</h2>
+                       <div className="grid grid-cols-3 gap-4">
+                           {photos.map(photo => (
+                               <div key={photo.id} className="relative group aspect-square rounded-lg overflow-hidden border border-white/10 bg-black/40">
+                                   <img src={photo.url} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" alt="Gallery" />
+                                   
+                                   {/* Overlay Controls */}
+                                   <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-2">
+                                       <button onClick={() => handleEditPhotoClick(photo)} className="text-blue-400 bg-white/10 p-2 rounded-full hover:bg-white/20"><Edit2 size={20}/></button>
+                                       <button onClick={() => handleDeletePhoto(photo.id)} className="text-red-400 bg-white/10 p-2 rounded-full hover:bg-white/20"><Trash2 size={20}/></button>
+                                   </div>
 
-            <div className="flex-grow bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden relative">
-                {activeTab === 'overview' && (
-                    <div className="p-8 overflow-y-auto h-full">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="bg-rose-50 p-6 rounded-xl border border-rose-100">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="p-3 bg-rose-100 rounded-lg text-rose-600"><Users size={24}/></div>
-                                    <span className="text-xs font-bold text-rose-600 bg-rose-100 px-2 py-1 rounded">Total</span>
-                                </div>
-                                <h3 className="text-4xl font-heading text-[#4a0e11] mb-1">142</h3>
-                                <p className="text-stone-500 text-sm">Guests Confirmed</p>
-                            </div>
-                            <div className="bg-gold-50 p-6 rounded-xl border border-gold-100">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="p-3 bg-gold-100 rounded-lg text-gold-700"><MessageSquare size={24}/></div>
-                                    <span className="text-xs font-bold text-gold-700 bg-gold-100 px-2 py-1 rounded">Live</span>
-                                </div>
-                                <h3 className="text-4xl font-heading text-[#4a0e11] mb-1">856</h3>
-                                <p className="text-stone-500 text-sm">Wishes Received</p>
-                            </div>
-                            <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="p-3 bg-blue-100 rounded-lg text-blue-600"><Camera size={24}/></div>
-                                    <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded">New</span>
-                                </div>
-                                <h3 className="text-4xl font-heading text-[#4a0e11] mb-1">24</h3>
-                                <p className="text-stone-500 text-sm">Photos Uploaded</p>
-                            </div>
-                        </div>
-                        
-                        <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div className="border border-stone-100 rounded-xl p-6 shadow-sm">
-                                <h3 className="font-bold text-lg mb-4 text-[#4a0e11]">Recent Activities</h3>
-                                <div className="space-y-4">
-                                    {[1,2,3,4].map(i => (
-                                        <div key={i} className="flex gap-3 items-start border-b border-stone-50 pb-3 last:border-0">
-                                            <div className="w-2 h-2 mt-2 rounded-full bg-gold-500 flex-shrink-0"></div>
-                                            <div>
-                                                <p className="text-sm font-bold text-stone-700">New Guest Registration</p>
-                                                <p className="text-xs text-stone-500">Rahul Kumar joined via Invite Link</p>
-                                                <p className="text-[10px] text-stone-400 mt-1">2 mins ago</p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="border border-stone-100 rounded-xl p-6 shadow-sm bg-stone-50">
-                                <h3 className="font-bold text-lg mb-4 text-[#4a0e11]">System Health</h3>
-                                <div className="space-y-3">
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-stone-600">Server Status</span>
-                                        <span className="text-green-600 font-bold">Operational</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-stone-600">Database Load</span>
-                                        <span className="text-stone-800 font-bold">12%</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-stone-600">Active Sessions</span>
-                                        <span className="text-stone-800 font-bold">45</span>
-                                    </div>
-                                    <div className="mt-4 p-3 bg-blue-100 text-blue-800 text-xs rounded-lg">
-                                        System running optimally. Last backup: 1 hour ago.
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                                   {/* Caption Display / Edit Mode */}
+                                   <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/80 min-h-[40px] flex items-center">
+                                       {editingPhotoId === photo.id ? (
+                                           <div className="flex w-full gap-1">
+                                               <input 
+                                                  type="text" 
+                                                  value={editCaption} 
+                                                  onChange={e => setEditCaption(e.target.value)} 
+                                                  className="w-full bg-white/10 border border-white/20 rounded px-1 text-[10px] text-white"
+                                                  autoFocus
+                                               />
+                                               <button onClick={() => handleSavePhotoCaption(photo.id)} className="text-green-400"><Check size={14}/></button>
+                                               <button onClick={() => setEditingPhotoId(null)} className="text-red-400"><X size={14}/></button>
+                                           </div>
+                                       ) : (
+                                           <p className="text-[10px] text-white truncate w-full text-center">{photo.caption || 'No Caption'}</p>
+                                       )}
+                                   </div>
+                               </div>
+                           ))}
+                           {photos.length === 0 && <p className="col-span-3 text-stone-500 italic">No photos uploaded yet.</p>}
+                       </div>
+                   </div>
+              )}
 
-                {activeTab === 'map' && <div className="h-full w-full"><AdminLiveMap /></div>}
-                
-                {activeTab === 'guests' && (
-                    <div className="p-8 text-center text-stone-400 h-full flex flex-col items-center justify-center">
-                        <Users size={64} className="mx-auto mb-4 opacity-20"/>
-                        <h3 className="text-xl font-bold text-stone-600">Guest Management</h3>
-                        <p className="max-w-md mx-auto mt-2">Manage guest lists, RSVPs, and room allocations here. Feature currently in maintenance.</p>
-                    </div>
-                )}
+              {activeTab === 'messages' && (
+                  <div className="space-y-4 animate-fade-in">
+                      <h2 className="text-2xl font-heading text-gold-200">Message Log</h2>
+                      <div className="space-y-2">
+                          {messages.map((m, i) => (
+                              <div key={i} className="bg-[#2d0a0d] p-3 rounded-lg border border-white/5 flex justify-between items-start">
+                                  <div>
+                                      <div className="flex items-center gap-2 mb-1">
+                                          <span className="font-bold text-gold-100 text-sm">{m.sender}</span>
+                                          <span className="text-[10px] text-stone-500">{m.timestamp}</span>
+                                      </div>
+                                      <p className="text-stone-300 text-sm">{m.text || '[Sticker]'}</p>
+                                  </div>
+                                  <button onClick={() => handleDeleteMessage(m.id)} className="text-stone-500 hover:text-red-400 p-1"><Trash2 size={16}/></button>
+                              </div>
+                          ))}
+                          {messages.length === 0 && <p className="text-stone-500 italic">No messages yet.</p>}
+                      </div>
+                  </div>
+              )}
 
-                 {activeTab === 'config' && (
-                    <div className="p-8 text-center text-stone-400 h-full flex flex-col items-center justify-center">
-                        <Settings size={64} className="mx-auto mb-4 opacity-20"/>
-                        <h3 className="text-xl font-bold text-stone-600">App Configuration</h3>
-                        <p className="max-w-md mx-auto mt-2">Update wedding details, theme settings, and feature toggles. Feature currently in maintenance.</p>
-                    </div>
-                )}
-            </div>
-         </div>
-      </main>
+              {activeTab === 'config' && (
+                  <div className="space-y-6 animate-fade-in max-w-md">
+                      <h2 className="text-2xl font-heading text-gold-200">Wedding Configuration</h2>
+                      
+                      <div className="space-y-4">
+                          <div>
+                              <label className="block text-xs text-stone-400 uppercase tracking-widest mb-2">Couple Name</label>
+                              <input 
+                                type="text" 
+                                value={config.coupleName} 
+                                onChange={e => setConfig({...config, coupleName: e.target.value})}
+                                className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-gold-500 focus:outline-none"
+                              />
+                          </div>
+                          <div>
+                              <label className="block text-xs text-stone-400 uppercase tracking-widest mb-2">Wedding Date</label>
+                              <input 
+                                type="date" 
+                                value={config.date} 
+                                onChange={e => setConfig({...config, date: e.target.value})}
+                                className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-gold-500 focus:outline-none"
+                              />
+                          </div>
+                          <div>
+                              <label className="block text-xs text-stone-400 uppercase tracking-widest mb-2">Welcome Message</label>
+                              <textarea 
+                                rows={4}
+                                value={config.welcomeMsg} 
+                                onChange={e => setConfig({...config, welcomeMsg: e.target.value})}
+                                className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-gold-500 focus:outline-none"
+                              />
+                          </div>
+                          <button onClick={handleSaveConfig} className="w-full bg-gold-600 text-black font-bold py-3 rounded-lg hover:bg-gold-500 transition-colors flex items-center justify-center gap-2">
+                              <Save size={18} /> Save Changes
+                          </button>
+                      </div>
+                  </div>
+              )}
+
+              {activeTab === 'map' && (
+                  <div className="h-full rounded-xl overflow-hidden border border-white/10 shadow-xl animate-fade-in">
+                      <AdminLiveMap />
+                  </div>
+              )}
+          </main>
+      </div>
     </div>
   );
 };

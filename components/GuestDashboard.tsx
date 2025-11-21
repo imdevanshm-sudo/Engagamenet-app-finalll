@@ -4,8 +4,18 @@ import {
   Home, Calendar, MessageSquare, Heart, Camera, MapPin, Clock, 
   ChevronRight, LogOut, Sparkles, Map, Send, 
   Smile, Upload, Phone, Download, Lock, Search, ExternalLink, Contact,
-  User, Music, Info, MailCheck, X, Navigation, Share2, Check, LocateFixed, Compass, Flower, Settings, Bell, ToggleLeft, ToggleRight, Trash2, RefreshCw, Battery, Wifi, WifiOff, Smartphone, Users, Plus, Minus
+  User, Music, Info, MailCheck, X, Navigation, Share2, Check, LocateFixed, Compass, Flower, Settings, Bell, ToggleLeft, ToggleRight, Trash2, RefreshCw, Battery, Wifi, WifiOff, Smartphone, Users, Plus, Minus, Loader, Disc
 } from 'lucide-react';
+
+// --- Utility to Prevent XSS in Map Markers ---
+const escapeHtml = (unsafe: string) => {
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+ }
 
 // --- Types ---
 interface Message {
@@ -44,6 +54,30 @@ interface LocationUpdate {
     role: 'guest' | 'couple';
     map: 'all' | 'venue' | 'google';
 }
+
+interface WeddingEvent {
+    id: string;
+    title: string;
+    time: string;
+    loc: string;
+    icon: string;
+}
+
+interface Song {
+    id: string;
+    title: string;
+    artist: string;
+    url: string;
+    cover: string;
+    durationStr: string;
+}
+
+const DEFAULT_EVENTS: WeddingEvent[] = [
+    { id: '1', title: "Mehndi Ceremony", time: "Dec 20, 4:00 PM", loc: "Poolside Gardens", icon: "🌿" },
+    { id: '2', title: "Sangeet Night", time: "Dec 20, 7:30 PM", loc: "Grand Ballroom", icon: "💃" },
+    { id: '3', title: "Haldi", time: "Dec 21, 10:00 AM", loc: "Courtyard", icon: "✨" },
+    { id: '4', title: "The Wedding", time: "Dec 21, 6:00 PM", loc: "Grand Lawn", icon: "💍" },
+];
 
 // --- Assets & Stickers ---
 const FloralPattern = ({ className, opacity = 0.05 }: { className?: string, opacity?: number }) => (
@@ -268,7 +302,7 @@ const usePanZoom = (initialScale = 1, minScale = 0.5, maxScale = 3) => {
       const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
       
       if ('touches' in e) e.preventDefault(); 
-  
+
       setTransform(prev => ({
          ...prev,
          x: clientX - lastPos.current.x,
@@ -543,12 +577,13 @@ const SettingsView = ({ onClose }: { onClose: () => void }) => {
 
 // --- Views ---
 
-const GuestBookView = ({ userName, setViewMode, messages, onSendMessage, heartCount, onHeartTrigger, isRomanticMode }: { userName: string, setViewMode: (mode: 'directory' | 'wishes') => void, messages: Message[], onSendMessage: (text: string, stickerKey?: string) => void, heartCount: number, onHeartTrigger: () => void, isRomanticMode: boolean }) => {
-    const [view, setView] = useState<'directory' | 'wishes'>('directory');
+const GuestBookView = ({ userName, messages, onSendMessage, heartCount, onHeartTrigger, isRomanticMode, gallery }: { userName: string, messages: Message[], onSendMessage: (text: string, stickerKey?: string) => void, heartCount: number, onHeartTrigger: () => void, isRomanticMode: boolean, gallery: MediaItem[] }) => {
+    const [view, setView] = useState<'directory' | 'wishes' | 'gallery'>('directory');
     const [inputText, setInputText] = useState("");
     const [activeTab, setActiveTab] = useState<'emoji' | 'sticker' | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     const [searchQuery, setSearchQuery] = useState("");
+    const [isSending, setIsSending] = useState(false);
 
     const guestDirectory: GuestContact[] = ([
         { id: 1, name: "Ravi Sharma", phone: "9876543210", role: 'Guest' },
@@ -561,13 +596,22 @@ const GuestBookView = ({ userName, setViewMode, messages, onSendMessage, heartCo
     ] as GuestContact[]).filter(g => g.name !== userName); 
 
     useEffect(() => {
-        if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        if (view === 'wishes' && scrollRef.current) {
+             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
     }, [messages, view]);
 
     const sendMessage = (text: string = "", stickerKey?: string) => {
-        onSendMessage(text, stickerKey);
-        setInputText("");
-        setActiveTab(null);
+        if (isSending) return;
+        setIsSending(true);
+        
+        // Simulate network delay
+        setTimeout(() => {
+             onSendMessage(text, stickerKey);
+             setInputText("");
+             setActiveTab(null);
+             setIsSending(false);
+        }, 300);
     };
 
     const filteredGuests = guestDirectory.filter(g => g.name.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -579,20 +623,26 @@ const GuestBookView = ({ userName, setViewMode, messages, onSendMessage, heartCo
                 <div className="flex gap-2 bg-black/20 p-1 rounded-lg">
                     <button 
                         onClick={() => setView('directory')} 
-                        className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-all ${view === 'directory' ? 'bg-white/10 text-gold-100 shadow-sm' : 'text-white/50 hover:bg-white/5'}`}
+                        className={`flex-1 py-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider rounded-md transition-all ${view === 'directory' ? 'bg-white/10 text-gold-100 shadow-sm' : 'text-white/50 hover:bg-white/5'}`}
                     >
                         Directory
                     </button>
                     <button 
                         onClick={() => setView('wishes')} 
-                        className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-all ${view === 'wishes' ? 'bg-white/10 text-gold-100 shadow-sm' : 'text-white/50 hover:bg-white/5'}`}
+                        className={`flex-1 py-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider rounded-md transition-all ${view === 'wishes' ? 'bg-white/10 text-gold-100 shadow-sm' : 'text-white/50 hover:bg-white/5'}`}
                     >
-                        Wishes & Chat
+                        Chat
+                    </button>
+                     <button 
+                        onClick={() => setView('gallery')} 
+                        className={`flex-1 py-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider rounded-md transition-all ${view === 'gallery' ? 'bg-white/10 text-gold-100 shadow-sm' : 'text-white/50 hover:bg-white/5'}`}
+                    >
+                        Gallery
                     </button>
                 </div>
             </div>
             
-            {view === 'directory' ? (
+            {view === 'directory' && (
                 <div className="flex-grow overflow-y-auto p-4 pb-32 overscroll-contain">
                      <div className="relative mb-4">
                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={16}/>
@@ -626,7 +676,31 @@ const GuestBookView = ({ userName, setViewMode, messages, onSendMessage, heartCo
                          )}
                      </div>
                 </div>
-            ) : (
+            )}
+            
+            {view === 'gallery' && (
+                <div className="flex-grow overflow-y-auto p-4 pb-32">
+                    <div className="grid grid-cols-2 gap-3">
+                         {gallery.map(p => (
+                             <div key={p.id} className="relative aspect-square rounded-xl overflow-hidden group bg-black/40">
+                                 <img src={p.url} className="w-full h-full object-cover" loading="lazy" />
+                                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-2">
+                                     <p className="text-white text-xs truncate">{p.caption}</p>
+                                     <span className="text-[9px] text-stone-400">{(new Date(p.timestamp)).toLocaleDateString()}</span>
+                                 </div>
+                             </div>
+                         ))}
+                         {gallery.length === 0 && (
+                             <div className="col-span-2 flex flex-col items-center justify-center py-10 text-stone-500 gap-2">
+                                 <Camera size={32} className="opacity-50"/>
+                                 <p className="text-sm">No photos shared yet.</p>
+                             </div>
+                         )}
+                    </div>
+                </div>
+            )}
+
+            {view === 'wishes' && (
                 <div className="flex flex-col flex-grow h-full overflow-hidden relative">
                     {/* Backdrop specifically for chat to improve readability */}
                     <div className={`absolute inset-2 bottom-24 rounded-xl border backdrop-blur-md z-0 pointer-events-none transition-colors duration-500 ${isRomanticMode ? 'bg-black/40 border-white/10' : 'bg-white/60 border-white/30'}`}></div>
@@ -702,10 +776,12 @@ const GuestBookView = ({ userName, setViewMode, messages, onSendMessage, heartCo
                                 onChange={e => setInputText(e.target.value)}
                                 onFocus={() => setActiveTab(null)}
                                 className="flex-grow bg-black/40 border border-white/10 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:border-gold-500/50 text-white placeholder-white/30 transition-colors shadow-inner"
-                                placeholder="Send wishes..."
-                                onKeyDown={e => e.key === 'Enter' && sendMessage(inputText)}
+                                placeholder="Write a wish..."
+                                onKeyDown={(e) => e.key === 'Enter' && sendMessage(inputText)}
                             />
-                            <button onClick={() => sendMessage(inputText)} className="p-2.5 bg-gradient-to-r from-gold-600 to-gold-400 text-[#2d0a0d] rounded-full hover:scale-105 active:scale-95 transition-transform shadow-[0_0_15px_rgba(234,179,8,0.4)]"><Send size={18}/></button>
+                            <button onClick={() => sendMessage(inputText)} disabled={isSending || !inputText.trim()} className="p-2.5 bg-gold-600 rounded-full text-[#2d0a0d] hover:bg-gold-500 transition-colors active:scale-95 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                                {isSending ? <Loader size={20} className="animate-spin" /> : <Send size={20} />}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -714,143 +790,64 @@ const GuestBookView = ({ userName, setViewMode, messages, onSendMessage, heartCo
     );
 };
 
-// --- Map Component using Leaflet ---
-const MapView = ({ userName }: { userName: string }) => {
-    const mapRef = useRef<HTMLDivElement>(null);
-    const mapInstance = useRef<any>(null); 
-    const [activeUsers, setActiveUsers] = useState<Record<string, LocationUpdate>>({});
-    const markersRef = useRef<Record<string, any>>({});
-    const linesRef = useRef<Record<string, any>>({});
-    const venuePos = [26.7857, 83.0763]; // Hotel Soni International, Khalilabad
-    const [isTracking, setIsTracking] = useState(() => localStorage.getItem('wedding_setting_location') === 'true');
-    const [viewMode, setViewMode] = useState<'venue' | 'google'>('venue');
+const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: string; activeUsers: Record<string, LocationUpdate> }> = ({ isOpen, onClose, userName, activeUsers }) => {
     const { transform, handlers, style } = usePanZoom(1, 0.5, 3);
+    const [viewMode, setViewMode] = useState<'venue' | 'google'>('venue');
+    const mapRef = useRef<HTMLDivElement>(null);
+    const mapInstance = useRef<any>(null);
+    const markersRef = useRef<Record<string, any>>({});
+    const venuePos = [26.7857, 83.0763];
 
-    const VENUE_ZONES = [
-        { name: "Grand Stage", x: 50, y: 20, w: 30, h: 15, color: "#be123c" },
-        { name: "Mandap", x: 80, y: 50, w: 20, h: 20, color: "#b45309" },
-        { name: "Royal Dining", x: 20, y: 50, w: 25, h: 25, color: "#15803d" },
-        { name: "Entrance", x: 50, y: 90, w: 20, h: 10, color: "#4a0e11" },
-        { name: "Bar", x: 80, y: 80, w: 15, h: 15, color: "#1d4ed8" },
-    ];
-
-    // Setup Live Location with settings check
+    // Leaflet Effect
     useEffect(() => {
-        if (!isTracking) return;
+        if (viewMode === 'google' && isOpen && mapRef.current && !mapInstance.current) {
+             const L = (window as any).L;
+             if (!L) return;
+             
+             mapInstance.current = L.map(mapRef.current).setView(venuePos, 13);
+             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+             }).addTo(mapInstance.current);
 
-        const channel = new BroadcastChannel('wedding_live_map');
-        
-        channel.onmessage = (event) => {
-            const data = event.data as LocationUpdate;
-            if (data.type === 'location_update') {
-                setActiveUsers(prev => ({ ...prev, [data.id]: data }));
-            }
-        };
-
-        const watchId = navigator.geolocation.watchPosition(
-            (pos) => {
-                const { latitude, longitude } = pos.coords;
-                // Calculate pseudo coordinates for the artistic map
-                // Using absolute value and modulo to generate deterministic position on map from real coords
-                const pseudoX = (Math.abs(longitude * 10000) % 80) + 10; 
-                const pseudoY = (Math.abs(latitude * 10000) % 80) + 10;
-
-                const update: LocationUpdate = {
-                    type: 'location_update',
-                    id: userName,
-                    name: userName,
-                    lat: latitude,
-                    lng: longitude,
-                    x: pseudoX,
-                    y: pseudoY,
-                    role: 'guest',
-                    map: 'all'
-                };
-                channel.postMessage(update);
-                setActiveUsers(prev => ({ ...prev, [userName]: update }));
-            },
-            (err) => console.error(err),
-            { enableHighAccuracy: true, timeout: 5000, maximumAge: 10000 }
-        );
-
-        return () => {
-            channel.close();
-            navigator.geolocation.clearWatch(watchId);
-        };
-    }, [userName, isTracking]);
-
-    // Initialize Leaflet Map
-    useEffect(() => {
-        if (viewMode !== 'google') {
-             if (mapInstance.current) {
-                mapInstance.current.remove();
-                mapInstance.current = null;
-                markersRef.current = {};
-                linesRef.current = {};
-             }
-             return;
+             const venueIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div style="background-color: #be123c; color: #fff; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-size: 20px;">🏰</div>`,
+                iconSize: [40, 40],
+                iconAnchor: [20, 40]
+            });
+            L.marker(venuePos, { icon: venueIcon }).addTo(mapInstance.current).bindPopup("Hotel Soni International");
         }
-        if (!mapRef.current || mapInstance.current) return;
+        
+        if (viewMode !== 'google' && mapInstance.current) {
+             mapInstance.current.remove();
+             mapInstance.current = null;
+        }
+    }, [viewMode, isOpen]);
 
-        const L = (window as any).L;
-        if (!L) return;
-
-        mapInstance.current = L.map(mapRef.current).setView(venuePos, 13);
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(mapInstance.current);
-
-        // Add Venue Marker
-        const venueIcon = L.divIcon({
-            className: 'custom-div-icon',
-            html: `<div style="background-color: #be123c; color: #fff; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-size: 20px;">🏰</div>`,
-            iconSize: [40, 40],
-            iconAnchor: [20, 40]
-        });
-
-        const venueMarker = L.marker(venuePos, { icon: venueIcon }).addTo(mapInstance.current);
-        venueMarker.bindPopup("<b>Hotel Soni International</b><br>The Royal Wedding Venue").openPopup();
-
-        return () => {
-            if (mapInstance.current) {
-                mapInstance.current.remove();
-                mapInstance.current = null;
-            }
-        };
-    }, [viewMode]);
-
-    // Update Markers & Lines (Google Maps Mode) with RPG Theme
+    // Update Markers
     useEffect(() => {
         if (!mapInstance.current || viewMode !== 'google') return;
         const L = (window as any).L;
         
         Object.values(activeUsers).forEach((user: LocationUpdate) => {
             if (user.lat && user.lng) {
-                // Update Marker
                 if (markersRef.current[user.id]) {
                     markersRef.current[user.id].setLatLng([user.lat, user.lng]);
                 } else {
                     const isMe = user.name === userName;
-                    const isCouple = user.role === 'couple';
-                    
+                    const safeName = escapeHtml(user.name);
                     const iconHtml = `
                         <div class="relative flex flex-col items-center justify-center transition-all duration-500 transform hover:scale-110">
-                            <div class="w-10 h-10 rounded-full border-2 shadow-2xl flex items-center justify-center font-bold text-lg backdrop-blur-md ${
-                                isCouple 
-                                    ? 'bg-rose-900/90 border-rose-400 text-rose-100 shadow-rose-500/50' 
-                                    : isMe 
-                                        ? 'bg-green-900/90 border-green-400 text-green-100 shadow-green-500/50' 
-                                        : 'bg-amber-900/90 border-amber-400 text-amber-100 shadow-amber-500/30'
+                            <div class="w-8 h-8 rounded-full border-2 shadow-2xl flex items-center justify-center font-bold text-sm backdrop-blur-md ${
+                                isMe 
+                                    ? 'bg-green-900/90 border-green-400 text-green-100 shadow-green-500/50' 
+                                    : 'bg-amber-900/90 border-amber-400 text-amber-100 shadow-amber-500/30'
                             }">
-                                ${isCouple ? '👑' : user.name.charAt(0)}
-                                ${isCouple ? '<div class="absolute -inset-3 rounded-full border border-rose-500/40 animate-ping pointer-events-none"></div>' : ''}
-                                ${isMe ? '<div class="absolute -inset-1 rounded-full border border-green-500/40 animate-pulse pointer-events-none"></div>' : ''}
+                                ${safeName.charAt(0)}
                             </div>
-                            <div class="mt-1 px-2 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[10px] font-bold text-white whitespace-nowrap border border-white/10 shadow-lg">
-                                ${isMe ? 'You' : user.name}
+                             <div class="mt-1 px-2 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[8px] font-bold text-white whitespace-nowrap border border-white/10 shadow-lg">
+                                ${isMe ? 'You' : safeName}
                             </div>
-                            <div class="absolute top-full w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-black/60 -mt-1"></div>
                         </div>
                     `;
 
@@ -864,60 +861,52 @@ const MapView = ({ userName }: { userName: string }) => {
                     const marker = L.marker([user.lat, user.lng], { icon }).addTo(mapInstance.current);
                     markersRef.current[user.id] = marker;
                 }
-
-                // Update Line to Venue for EVERYONE to show convergence
-                if (linesRef.current[user.id]) {
-                    linesRef.current[user.id].setLatLngs([[user.lat, user.lng], venuePos]);
-                } else {
-                    const isCouple = user.role === 'couple';
-                    const line = L.polyline([[user.lat, user.lng], venuePos], {
-                        color: isCouple ? '#be123c' : '#15803d',
-                        weight: 2,
-                        dashArray: '10, 10', 
-                        opacity: 0.5
-                    }).addTo(mapInstance.current);
-                    linesRef.current[user.id] = line;
-                }
             }
         });
-
     }, [activeUsers, viewMode]);
 
+    const VENUE_ZONES = [
+        { name: "Grand Stage", x: 50, y: 20, w: 30, h: 15, color: "#be123c" },
+        { name: "Mandap", x: 80, y: 50, w: 20, h: 20, color: "#b45309" },
+        { name: "Royal Dining", x: 20, y: 50, w: 25, h: 25, color: "#15803d" },
+        { name: "Entrance", x: 50, y: 90, w: 20, h: 10, color: "#4a0e11" },
+        { name: "Bar", x: 80, y: 80, w: 15, h: 15, color: "#1d4ed8" },
+    ];
+
+    if (!isOpen) return null;
     return (
-        <div className="flex flex-col h-full bg-transparent">
-            <div className="glass-deep p-4 text-white shadow-lg z-20 shrink-0 flex flex-col gap-2 border-b border-white/10">
-                <div className="flex justify-between items-center">
-                    <h2 className="font-serif font-bold text-xl flex items-center gap-2 text-gold-100"><Map size={20} className="text-gold-400"/> Live Map</h2>
-                    <div className="flex items-center gap-2">
-                         {isTracking ? (
-                             <div className="text-[10px] bg-white/10 px-2 py-1 rounded border border-white/20 text-green-400 flex items-center gap-1">
-                                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> Sharing
-                             </div>
-                         ) : (
-                             <div className="text-[10px] bg-white/10 px-2 py-1 rounded border border-white/20 text-red-400 flex items-center gap-1">
-                                 <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span> Hidden
-                             </div>
-                         )}
-                    </div>
-                </div>
-                <div className="flex gap-2">
+        <div className="fixed inset-0 z-[60] bg-[#2d0a0d] flex flex-col animate-in fade-in duration-300">
+             <div className="absolute top-0 left-0 right-0 z-30 p-4 flex justify-between items-start bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
+                 <div className="pointer-events-auto">
+                    <h2 className="text-gold-100 font-heading text-2xl drop-shadow-md">{viewMode === 'venue' ? 'Live Venue Tracker' : 'Realtime Google Maps'}</h2>
+                    <p className="text-gold-400 text-xs font-serif opacity-80">
+                        {viewMode === 'venue' ? 'Find your friends.' : 'Tracking all guests live.'}
+                    </p>
+                 </div>
+                 <button onClick={onClose} className="text-white bg-white/10 p-2 rounded-full backdrop-blur-sm hover:bg-white/20 transition-colors pointer-events-auto"><X size={24}/></button>
+             </div>
+
+             {/* Toggle Switch */}
+             <div className="absolute top-20 left-0 right-0 z-30 flex justify-center pointer-events-none">
+                 <div className="bg-black/40 backdrop-blur-md rounded-full p-1 flex border border-gold-500/30 pointer-events-auto shadow-lg">
                      <button 
                         onClick={() => setViewMode('venue')}
-                        className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-all border border-transparent ${viewMode === 'venue' ? 'bg-gold-500 text-[#2d0a0d] shadow-lg' : 'bg-white/10 text-gold-200 hover:bg-white/20'}`}
+                        className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${viewMode === 'venue' ? 'bg-gold-500 text-[#2d0a0d] shadow-sm' : 'text-gold-300 hover:text-gold-100'}`}
                      >
-                         Venue Map
+                         Venue Tracker
                      </button>
                      <button 
                         onClick={() => setViewMode('google')}
-                        className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-all border border-transparent ${viewMode === 'google' ? 'bg-gold-500 text-[#2d0a0d] shadow-lg' : 'bg-white/10 text-gold-200 hover:bg-white/20'}`}
+                        className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${viewMode === 'google' ? 'bg-gold-500 text-[#2d0a0d] shadow-sm' : 'text-gold-300 hover:text-gold-100'}`}
                      >
-                         Google Map
+                         Map View
                      </button>
-                </div>
-            </div>
-            <div className="flex-grow relative z-10 overflow-hidden">
-                {viewMode === 'venue' ? (
-                  <div className="w-full h-full cursor-move relative overflow-hidden bg-[#2d0a0d]" {...handlers} style={style}>
+                 </div>
+             </div>
+             
+             <div className="flex-grow overflow-hidden relative bg-[#1a0507]" style={{ touchAction: 'none' }}>
+                 {viewMode === 'venue' ? (
+                  <div className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden" {...handlers} style={style}>
                       <div 
                         className="absolute inset-0 w-full h-full origin-top-left transition-transform duration-75 ease-out"
                         style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
@@ -927,7 +916,7 @@ const MapView = ({ userName }: { userName: string }) => {
                                     <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#4a0e11 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
                                     
                                     {VENUE_ZONES.map((zone, i) => (
-                                        <div key={i} className="absolute border-2 border-dashed flex items-center justify-center text-center p-2 opacity-60" 
+                                        <div key={i} className="absolute border-2 border-dashed flex items-center justify-center text-center p-2 opacity-60 hover:opacity-100 transition-opacity" 
                                             style={{ 
                                                 left: `${zone.x}%`, top: `${zone.y}%`, width: `${zone.w}%`, height: `${zone.h}%`, 
                                                 transform: 'translate(-50%, -50%)',
@@ -944,459 +933,390 @@ const MapView = ({ userName }: { userName: string }) => {
                                   </>
                               
                               {/* Render Users */}
-                              {Object.values(activeUsers).map((u, i) => {
-                                  // For venue map we use x and y
-                                  return <MapNode key={i} x={u.x || 50} y={u.y || 50} name={u.name === userName ? 'You' : u.name} type={u.role} delay={i * 100} />;
+                              {Object.values(activeUsers).map((u: LocationUpdate, i) => {
+                                  return <MapNode key={i} x={u.x} y={u.y} name={u.name === userName ? 'You' : u.name} type={u.role} delay={i * 100} />;
                               })}
                           </div>
                       </div>
-                      {/* Overlay Info */}
-                      <div className="absolute bottom-24 left-4 right-4 pointer-events-none">
-                           <div className="glass-deep p-3 rounded-xl shadow-lg inline-flex items-center gap-3 max-w-full">
-                               <div className="bg-gold-500/20 p-2 rounded-full text-gold-400 border border-gold-500/30"><Navigation size={16} /></div>
-                               <div>
-                                   <h3 className="font-bold text-gold-100 text-xs">Live Venue Tracking</h3>
-                                   <p className="text-[10px] text-white/60">Pinch to zoom, drag to move.</p>
-                               </div>
-                           </div>
-                      </div>
                   </div>
-                ) : (
-                    <>
-                        <div id="map" ref={mapRef} className="w-full h-full z-0 opacity-90"></div>
-                        <div className="absolute bottom-24 left-4 right-4 glass-deep p-4 rounded-xl shadow-lg z-[1000] pointer-events-none">
-                             <div className="flex items-start gap-3">
-                                 <div className="bg-green-900/50 p-2 rounded-full text-green-400 border border-green-500/30"><Navigation size={20} /></div>
-                                 <div>
-                                     <h3 className="font-bold text-gold-100 text-sm">Traveling to Hotel Soni International</h3>
-                                     <p className="text-xs text-white/60">Everyone is traveling to the common venue point.</p>
-                                 </div>
-                             </div>
-                        </div>
-                    </>
-                )}
-            </div>
-        </div>
-    );
-}
-
-const Lightbox = ({ url, onClose, caption }: { url: string, onClose: () => void, caption?: string }) => (
-    <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center animate-in fade-in duration-300" style={{ touchAction: 'none' }}>
-        <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white p-2"><X size={32} /></button>
-        <div className="max-w-4xl max-h-[80vh] w-full px-4 flex items-center justify-center">
-            <img src={url} alt="Full view" className="max-w-full max-h-full object-contain rounded-md shadow-2xl" />
-        </div>
-        {caption && <p className="mt-4 text-gold-100 font-serif text-lg text-center">{caption}</p>}
-        <button className="mt-6 bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-full flex items-center gap-2 transition-colors">
-             <Download size={18} /> Save Memory
-        </button>
-    </div>
-);
-
-const MemoriesView = ({ userName }: { userName: string }) => {
-    const [photos, setPhotos] = useState<MediaItem[]>([]);
-    const [selectedPhoto, setSelectedPhoto] = useState<MediaItem | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    useEffect(() => {
-        const saved = localStorage.getItem('wedding_gallery_media');
-        if (saved) setPhotos(JSON.parse(saved));
-    }, []);
-
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const newPhoto: MediaItem = {
-                    id: Date.now().toString(),
-                    url: reader.result as string,
-                    type: 'image',
-                    caption: `Uploaded by ${userName}`,
-                    timestamp: Date.now()
-                };
-                const updated = [newPhoto, ...photos];
-                setPhotos(updated);
-                localStorage.setItem('wedding_gallery_media', JSON.stringify(updated));
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
-    // Camera specific handler
-    const handleCameraCapture = () => {
-        // In a real PWA on mobile, clicking a file input with capture="environment" opens camera directly.
-        fileInputRef.current?.click();
-    }
-
-    return (
-        <div className="flex flex-col h-full bg-transparent animate-fade-in">
-             <div className="glass-deep p-4 text-white shadow-lg z-20 shrink-0 flex justify-between items-center border-b border-white/10">
-                <h2 className="font-serif font-bold text-xl flex items-center gap-2 text-gold-100"><Camera size={20} className="text-gold-400"/> Memories</h2>
-                <div className="flex gap-2">
-                    <button onClick={handleCameraCapture} className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-2 rounded-full font-bold flex items-center gap-1 transition-all">
-                        <Smartphone size={14} /> Cam
-                    </button>
-                    <button onClick={() => fileInputRef.current?.click()} className="text-xs bg-gold-600 text-[#2d0a0d] px-4 py-2 rounded-full font-bold flex items-center gap-1 hover:brightness-110 transition-all shadow-[0_0_10px_rgba(234,179,8,0.3)]">
-                        <Upload size={12}/> Upload
-                    </button>
-                </div>
-                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleFileSelect} />
-            </div>
-            <div className="flex-grow overflow-y-auto p-4 pb-32 grid grid-cols-2 gap-4 content-start">
-                {photos.map((photo, i) => (
-                    <div key={i} onClick={() => setSelectedPhoto(photo)} className={`glass-deep rounded-xl overflow-hidden shadow-lg aspect-square relative group cursor-pointer animate-in zoom-in fill-mode-backwards duration-500 border border-white/10`} style={{ animationDelay: `${i * 50}ms` }}>
-                        <img src={photo.url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="Memory"/>
-                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <div className="bg-white/20 backdrop-blur-sm p-2 rounded-full text-white"><Camera size={20}/></div>
-                        </div>
-                    </div>
-                ))}
-                {photos.length === 0 && (
-                    <div className="col-span-2 flex flex-col items-center justify-center h-64 text-white/30">
-                        <Camera size={48} className="mb-2 opacity-20" />
-                        <p className="text-sm font-serif">No memories shared yet.</p>
-                    </div>
-                )}
-            </div>
-            {selectedPhoto && <Lightbox url={selectedPhoto.url} caption={selectedPhoto.caption} onClose={() => setSelectedPhoto(null)} />}
+                 ) : (
+                     <div id="guest-map" ref={mapRef} className="w-full h-full bg-stone-200"></div>
+                 )}
+             </div>
         </div>
     );
 };
 
-// --- Main Guest Dashboard ---
+// --- Main Guest Dashboard Component ---
 
 interface GuestDashboardProps {
   userName: string;
-  onLogout: () => void;
+  onLogout?: () => void;
 }
 
 const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) => {
-  const [activeView, setActiveView] = useState<'home' | 'schedule' | 'chat' | 'gallery' | 'map' | 'settings'>('home');
-  const [showCelebration, setShowCelebration] = useState(false);
-  const [rsvpStatus, setRsvpStatus] = useState<'yes' | 'no' | null>(null);
+  const [isRsvpOpen, setIsRsvpOpen] = useState(false);
+  const [isMapOpen, setIsMapOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [activeUsers, setActiveUsers] = useState<Record<string, LocationUpdate>>({});
+  const [rsvpConfirmed, setRsvpConfirmed] = useState(false);
+  const [config, setConfig] = useState({ coupleName: "Sneha & Aman", date: "2025-11-26" });
+  const [events, setEvents] = useState<WeddingEvent[]>(DEFAULT_EVENTS);
   const [isRomanticMode, setIsRomanticMode] = useState(false);
   
-  // State Lifted from GuestBookView
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [heartCount, setHeartCount] = useState(0);
+  // Music State
+  const [currentSong, setCurrentSong] = useState<Song | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
 
+  // Gallery State
+  const [gallery, setGallery] = useState<MediaItem[]>([]);
+
+  // Slider Bar State
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+  // Message & Heart State Lifted to Parent Simulation
+  const [messages, setMessages] = useState<Message[]>(() => {
+      if (typeof window === 'undefined') return [];
+      const saved = localStorage.getItem('wedding_chat_messages');
+      if (saved) {
+          try { return JSON.parse(saved); } catch (e) { console.error(e); }
+      }
+      return [
+          { id: '1', text: "So excited to see you all! Let the celebrations begin! 🎉", sender: "Sneha Gupta", isCouple: true, timestamp: "10:30 AM", type: 'text' },
+          { id: '2', text: "The excitement is real! Looking forward to celebrating with everyone.", sender: "Ravi Sharma", isCouple: false, timestamp: "10:35 AM", type: 'text' },
+      ];
+  });
+  const [globalHeartCount, setGlobalHeartCount] = useState<number>(() => {
+      if (typeof window === 'undefined') return 0;
+      const saved = localStorage.getItem('wedding_heart_count');
+      return saved ? parseInt(saved) : 42; 
+  });
+
+  // --- Broadcast Channel Listener ---
   useEffect(() => {
+      // Check theme
       const savedTheme = localStorage.getItem('wedding_theme_mode');
       if (savedTheme === 'romantic') setIsRomanticMode(true);
 
-      const savedMessages = localStorage.getItem('wedding_chat_messages');
-      if (savedMessages) setMessages(JSON.parse(savedMessages));
-
-      const savedHearts = localStorage.getItem('wedding_heart_count');
-      setHeartCount(savedHearts ? parseInt(savedHearts) : 450);
+      // Load Data
+      const savedEvents = localStorage.getItem('wedding_events');
+      if (savedEvents) {
+          try { setEvents(JSON.parse(savedEvents)); } catch(e) {}
+      }
+      const savedGallery = localStorage.getItem('wedding_gallery_media');
+      if(savedGallery) {
+          try { setGallery(JSON.parse(savedGallery)); } catch(e) {}
+      }
 
       const channel = new BroadcastChannel('wedding_portal_chat');
       channel.onmessage = (event) => {
-          if (event.data.type === 'message') {
-              setMessages(prev => {
-                  const exists = prev.some(m => m.id === event.data.payload.id);
-                  return exists ? prev : [...prev, event.data.payload];
-              });
-          }
-          if (event.data.type === 'heart_update') {
-              setHeartCount(event.data.count);
-          }
-          if (event.data.type === 'theme_update') {
-              setIsRomanticMode(event.data.mode === 'romantic');
+          const data = event.data;
+          switch(data.type) {
+              case 'message': 
+                  setMessages((prev) => {
+                      if (prev.some(m => m.id === data.payload.id)) return prev;
+                      return [...prev, data.payload];
+                  });
+                  break;
+              case 'message_sync': // Bulk update (e.g. admin delete)
+                  setMessages(data.payload);
+                  break;
+              case 'heart_update':
+                  setGlobalHeartCount(data.count);
+                  break;
+              case 'theme_update':
+                  setIsRomanticMode(data.mode === 'romantic');
+                  break;
+              case 'playlist_update':
+                  setCurrentSong(data.currentSong);
+                  setIsPlaying(data.isPlaying);
+                  break;
+              case 'gallery_sync':
+                  setGallery(data.payload);
+                  break;
+              case 'event_sync':
+                  setEvents(data.payload);
+                  break;
+              case 'config_sync':
+                  setConfig(data.payload);
+                  break;
           }
       };
       return () => channel.close();
   }, []);
 
   useEffect(() => {
-      if (messages.length > 0) {
-          localStorage.setItem('wedding_chat_messages', JSON.stringify(messages));
-      }
+      localStorage.setItem('wedding_chat_messages', JSON.stringify(messages));
   }, [messages]);
 
   useEffect(() => {
-      if (heartCount > 0) {
-         localStorage.setItem('wedding_heart_count', heartCount.toString());
-      }
-  }, [heartCount]);
+      localStorage.setItem('wedding_heart_count', globalHeartCount.toString());
+  }, [globalHeartCount]);
 
-  const toggleTheme = () => {
-      const newMode = !isRomanticMode;
-      setIsRomanticMode(newMode);
-      localStorage.setItem('wedding_theme_mode', newMode ? 'romantic' : 'default');
-      
+  const broadcastMessage = (msg: Message) => {
       const channel = new BroadcastChannel('wedding_portal_chat');
-      channel.postMessage({ type: 'theme_update', mode: newMode ? 'romantic' : 'default' });
+      channel.postMessage({ type: 'message', payload: msg });
       channel.close();
   };
 
-  const handleSendMessage = (text: string = "", stickerKey?: string) => {
-      if (!text && !stickerKey) return;
-      const newMsg: Message = {
+  const broadcastHeartUpdate = (count: number) => {
+      const channel = new BroadcastChannel('wedding_portal_chat');
+      channel.postMessage({ type: 'heart_update', count });
+      channel.close();
+  };
+
+  const handleSendMessage = (text: string, stickerKey?: string) => {
+      const newMessage: Message = {
           id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-          text,
-          stickerKey,
+          text: stickerKey ? undefined : text,
+          stickerKey: stickerKey,
           sender: userName,
           isCouple: false,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           type: stickerKey ? 'sticker' : 'text'
       };
-
-      setMessages(prev => [...prev, newMsg]);
-      
-      const channel = new BroadcastChannel('wedding_portal_chat');
-      channel.postMessage({ type: 'message', payload: newMsg });
-      channel.close();
+      setMessages(prev => [...prev, newMessage]);
+      broadcastMessage(newMessage);
   };
 
-  const handleHeartTrigger = () => {
-      const newCount = heartCount + 1;
-      setHeartCount(newCount);
-      const channel = new BroadcastChannel('wedding_portal_chat');
-      channel.postMessage({ type: 'heart_update', count: newCount });
-      channel.close();
+  const triggerHeart = () => {
+      const newCount = globalHeartCount + 1;
+      setGlobalHeartCount(newCount);
+      broadcastHeartUpdate(newCount);
   };
 
   useEffect(() => {
-      const hasSeen = sessionStorage.getItem('wedding_seen_celebration');
-      if (!hasSeen) {
-          setShowCelebration(true);
-          sessionStorage.setItem('wedding_seen_celebration', 'true');
-      }
+      // Listen for config updates
+      const checkConfig = () => {
+          const savedConfig = localStorage.getItem('wedding_global_config');
+          if (savedConfig) {
+              setConfig(JSON.parse(savedConfig));
+          }
+      };
+      checkConfig();
+      const interval = setInterval(checkConfig, 2000);
+      return () => clearInterval(interval);
   }, []);
 
-  const handleRSVP = (status: 'yes' | 'no') => {
-      setRsvpStatus(status);
-      if (status === 'yes') setShowCelebration(true);
+  useEffect(() => {
+      const channel = new BroadcastChannel('wedding_live_map');
+      channel.onmessage = (event) => {
+          const data = event.data as LocationUpdate;
+          if (data.type === 'location_update') {
+              setActiveUsers(prev => ({ ...prev, [data.id]: data }));
+          }
+      };
+
+      let watchId: number;
+      if (navigator.geolocation) {
+          watchId = navigator.geolocation.watchPosition(
+              (position) => {
+                   const { latitude, longitude } = position.coords;
+                   const pseudoX = (Math.abs(longitude * 10000) % 80) + 10; 
+                   const pseudoY = (Math.abs(latitude * 10000) % 80) + 10;
+                   
+                   const update: LocationUpdate = { 
+                      type: 'location_update', 
+                      id: userName, 
+                      name: userName, 
+                      x: pseudoX, y: pseudoY,
+                      lat: latitude,
+                      lng: longitude,
+                      role: 'guest',
+                      map: 'all' 
+                   };
+                   channel.postMessage(update);
+                   setActiveUsers(prev => ({ ...prev, [userName]: update }));
+              },
+              (error) => console.warn(error),
+              { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+          );
+      }
+
+      return () => {
+          channel.close();
+          if(watchId) navigator.geolocation.clearWatch(watchId);
+      };
+  }, [userName]);
+
+  const handleRsvp = () => {
+      setRsvpConfirmed(true);
+      setIsRsvpOpen(true);
   };
 
   return (
-    <div className={`w-full h-full flex flex-col relative font-serif overflow-hidden transition-all duration-1000 ${isRomanticMode ? 'bg-[#2d0a0d] text-gold-100' : 'bg-[#fffbf5] text-[#4a0e11]'}`}>
-      
-      {/* Romantic Mode / Cinematic Background */}
+    <div className={`w-full h-full flex flex-col relative font-serif overflow-hidden transition-all duration-1000 ${isRomanticMode ? 'bg-[radial-gradient(ellipse_at_center,_#4a0416_0%,_#1a0507_100%)]' : 'bg-[#2d0a0d]'}`}>
       {isRomanticMode ? (
         <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-            {/* Deep Nebula Background */}
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_#881337_0%,_#2d0a0d_60%)]"></div>
-            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-rose-600/20 blur-[100px] rounded-full animate-pulse-slow"></div>
-            <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gold-600/10 blur-[120px] rounded-full animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
-            
-            {/* Floating Petals */}
-            {Array.from({ length: 15 }).map((_, i) => (
-                 <div key={i} className="absolute -top-10 text-rose-500/30 animate-petal-fall" style={{ 
+             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 animate-pulse"></div>
+             {Array.from({ length: 15 }).map((_, i) => (
+                 <div key={i} className="absolute -top-10 text-rose-500/20 animate-petal-fall" style={{ 
                      left: `${Math.random()*100}%`, 
                      animationDuration: `${8 + Math.random()*10}s`, 
-                     animationDelay: `${Math.random()*5}s`,
-                     fontSize: `${10 + Math.random() * 20}px`,
-                     filter: `blur(${Math.random() * 2}px)`
+                     animationDelay: `${Math.random()*5}s`
                  }}>
-                     <Flower size={20} fill="currentColor" />
+                     <Flower size={16} fill="currentColor" />
                  </div>
             ))}
         </div>
       ) : (
-        // Normal Mode Background - Subtle Live Gold Dust
          <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#fffbf5_0%,_#fef3c7_100%)] opacity-50"></div>
-            <FloralPattern className="opacity-5" />
-            <GoldDust opacity={0.3} />
+             <GoldDust opacity={0.3} />
+             <FloralPattern className="text-gold-500" opacity={0.03} />
          </div>
       )}
 
-      {showCelebration && <CelebrationOverlay onClose={() => setShowCelebration(false)} />}
-      
-      {/* Top Bar Actions */}
-      <div className="absolute top-6 right-6 z-50 flex flex-col gap-3">
-        {/* Theme Toggle */}
-        <button 
-            onClick={toggleTheme}
-            className={`p-3 rounded-full shadow-2xl transition-all duration-500 glass-deep group ${isRomanticMode ? 'text-rose-400 border-rose-500/50' : 'text-stone-400 border-stone-300'}`}
-        >
-            <Flower size={20} className={`group-hover:rotate-180 transition-transform duration-700 ${isRomanticMode ? 'text-rose-400 fill-rose-900/50' : ''}`} />
-        </button>
-        {/* Settings Toggle */}
-        <button
-            onClick={() => setActiveView('settings')}
-            className={`p-3 rounded-full shadow-2xl transition-all duration-500 glass-deep group ${isRomanticMode ? 'text-gold-400 border-gold-500/50' : 'text-stone-400 border-stone-300'}`}
-        >
-            <Settings size={20} className="group-hover:rotate-90 transition-transform" />
-        </button>
+      {/* Top Bar */}
+      <div className="flex justify-between items-center p-4 z-20 relative bg-gradient-to-b from-[#1a0507] to-transparent">
+          <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 p-[2px] shadow-lg shadow-gold-500/20">
+                  <div className="w-full h-full rounded-full bg-[#2d0a0d] flex items-center justify-center text-gold-100 font-bold text-lg">
+                      {userName.charAt(0)}
+                  </div>
+              </div>
+              <div>
+                  <h1 className="text-gold-100 font-heading text-lg leading-none">Namaste,</h1>
+                  <p className="text-gold-400 text-xs font-serif">{userName}</p>
+              </div>
+          </div>
+          <div className="flex gap-3">
+               <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className="p-2 rounded-full bg-white/5 border border-white/10 text-gold-300 hover:bg-white/10 transition-colors">
+                   <Settings size={18} />
+               </button>
+               <button onClick={onLogout} className="p-2 rounded-full bg-white/5 border border-white/10 text-rose-400 hover:bg-rose-900/30 transition-colors">
+                   <LogOut size={18} />
+               </button>
+          </div>
       </div>
 
-      {/* Top Bar */}
-      {activeView === 'home' && (
-          <header className="p-6 pb-2 animate-slide-down relative z-10">
-              <div className="flex justify-between items-start">
-                  <div>
-                      <p className={`text-xs font-bold uppercase tracking-widest mb-1 ${isRomanticMode ? 'text-gold-200/70' : 'text-stone-500'}`}>Namaste,</p>
-                      <h1 className={`text-3xl font-heading leading-none ${isRomanticMode ? 'text-transparent bg-clip-text bg-gradient-to-r from-gold-100 via-gold-300 to-gold-500 text-glow' : 'text-[#4a0e11]'}`}>{userName.split(' ')[0]}</h1>
-                  </div>
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg border ${isRomanticMode ? 'glass-deep text-gold-200 border-gold-500/30' : 'bg-white text-[#4a0e11] border-stone-100'}`}>
-                      <User size={20} />
-                  </div>
-              </div>
-          </header>
+      {isSettingsOpen ? (
+          <div className="flex-grow overflow-hidden relative z-20">
+               <SettingsView onClose={() => setIsSettingsOpen(false)} />
+          </div>
+      ) : (
+      <div className="flex-grow flex flex-col relative overflow-hidden z-10">
+        {/* Main Content Area - Split View */}
+        <div className="flex-grow flex flex-col md:flex-row overflow-hidden relative">
+            
+            {/* Left Column: Schedule & Map (Visible underneath slider on Mobile) */}
+            <div className="flex-1 flex flex-col p-4 gap-4 overflow-y-auto no-scrollbar pb-32 md:pb-4 w-full">
+                 {/* Wedding Info Card */}
+                 <div className="glass-panel p-6 rounded-2xl relative overflow-hidden shrink-0 animate-slide-up group">
+                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><Calendar size={80} className="text-gold-500"/></div>
+                     <h2 className="text-2xl font-heading text-gold-100 mb-1">{config.coupleName}</h2>
+                     <p className="text-stone-400 text-xs uppercase tracking-widest mb-4">{config.date} • Grand Palace</p>
+                     
+                     <div className="flex gap-3">
+                         <button 
+                            onClick={handleRsvp}
+                            disabled={rsvpConfirmed}
+                            className={`flex-1 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-2 ${rsvpConfirmed ? 'bg-green-900/50 text-green-200 border border-green-500/30' : 'bg-gradient-to-r from-gold-500 to-gold-700 text-[#2d0a0d] shadow-lg hover:brightness-110'}`}
+                         >
+                             {rsvpConfirmed ? <><Check size={14}/> Confirmed</> : "RSVP Now"}
+                         </button>
+                         <button onClick={() => setIsMapOpen(true)} className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-gold-100 hover:bg-white/10 transition-colors flex items-center justify-center">
+                             <Map size={18} />
+                         </button>
+                     </div>
+                 </div>
+
+                 {/* Highlights (Events) - Dynamic */}
+                 <div className="space-y-3 animate-slide-up delay-100">
+                     <div className="flex items-center justify-between px-1">
+                         <h3 className="font-bold text-gold-200 text-sm uppercase tracking-widest">Highlights</h3>
+                         <span className="text-[10px] text-stone-500 bg-white/5 px-2 py-0.5 rounded-full">Live Updates</span>
+                     </div>
+                     {events.map((evt, i) => (
+                         <div key={evt.id} className="glass-deep p-4 rounded-xl flex items-center gap-4 hover:bg-white/5 transition-colors cursor-default group border border-white/5 hover:border-gold-500/30">
+                             <div className="w-12 h-12 rounded-full bg-[#2d0a0d] border border-gold-500/20 flex items-center justify-center text-xl shadow-lg group-hover:scale-110 transition-transform">
+                                 {evt.icon}
+                             </div>
+                             <div className="flex-grow">
+                                 <h4 className="font-bold text-gold-100 text-sm group-hover:text-gold-400 transition-colors">{evt.title}</h4>
+                                 <div className="flex items-center gap-3 text-[10px] text-stone-400 mt-1">
+                                     <span className="flex items-center gap-1"><Clock size={10}/> {evt.time}</span>
+                                     <span className="flex items-center gap-1"><MapPin size={10}/> {evt.loc}</span>
+                                 </div>
+                             </div>
+                             <ChevronRight size={14} className="text-white/20 group-hover:translate-x-1 transition-transform"/>
+                         </div>
+                     ))}
+                 </div>
+            </div>
+
+            {/* Music Widget */}
+            {currentSong && isPlaying && (
+                 <div className="absolute bottom-20 md:bottom-4 left-4 right-4 md:right-auto md:w-80 glass-panel p-3 rounded-full flex items-center gap-3 z-30 shadow-2xl border border-[#1DB954]/30 animate-slide-up">
+                      <div className="w-10 h-10 rounded-full bg-[#121212] border border-white/10 flex items-center justify-center relative overflow-hidden animate-spin-slow">
+                           <img src={currentSong.cover} className="absolute inset-0 w-full h-full object-cover opacity-70" />
+                           <Disc size={16} className="text-[#1DB954] relative z-10" />
+                      </div>
+                      <div className="flex-grow overflow-hidden">
+                          <div className="flex items-center gap-2">
+                              <span className="text-[8px] font-bold text-[#1DB954] uppercase tracking-wider bg-[#1DB954]/10 px-1.5 rounded-sm">Live</span>
+                              <span className="text-xs font-bold text-white truncate">{currentSong.title}</span>
+                          </div>
+                          <p className="text-[10px] text-stone-400 truncate">{currentSong.artist}</p>
+                      </div>
+                      <div className="flex gap-1">
+                          <div className="w-1 h-3 bg-[#1DB954] rounded-full animate-pulse"></div>
+                          <div className="w-1 h-5 bg-[#1DB954] rounded-full animate-pulse delay-75"></div>
+                          <div className="w-1 h-2 bg-[#1DB954] rounded-full animate-pulse delay-150"></div>
+                      </div>
+                 </div>
+            )}
+
+            {/* Right Column: Guest Book (Chat) - Slider Sheet on Mobile */}
+            <div 
+                className={`
+                    fixed inset-x-0 bottom-0 z-40 
+                    flex flex-col 
+                    bg-[#1a0507]/95 backdrop-blur-xl border-t border-gold-500/20 shadow-[0_-10px_40px_rgba(0,0,0,0.8)] rounded-t-3xl 
+                    h-[90vh] transition-transform duration-500 cubic-bezier(0.32, 0.72, 0, 1)
+                    md:static md:h-auto md:bg-black/20 md:backdrop-blur-sm md:border-t-0 md:border-l md:border-white/5 md:shadow-none md:rounded-none md:transform-none md:flex-[1.5]
+                 `}
+                 style={{
+                     transform: window.innerWidth < 768 
+                        ? (isSheetOpen ? 'translateY(0)' : 'translateY(calc(100% - 80px))') 
+                        : 'none'
+                 }}
+            >
+                 {/* Mobile Handle / Slider Bar */}
+                 <div 
+                    className="w-full h-10 flex items-center justify-center shrink-0 md:hidden cursor-pointer active:cursor-grabbing touch-none"
+                    onClick={() => setIsSheetOpen(!isSheetOpen)}
+                    onTouchStart={(e) => {
+                        const startY = e.touches[0].clientY;
+                        const handleTouchEnd = (evt: TouchEvent) => {
+                            const diff = startY - evt.changedTouches[0].clientY;
+                            if (diff > 50) setIsSheetOpen(true); // Swipe Up
+                            else if (diff < -50) setIsSheetOpen(false); // Swipe Down
+                            window.removeEventListener('touchend', handleTouchEnd);
+                        };
+                        window.addEventListener('touchend', handleTouchEnd);
+                    }}
+                 >
+                     <div className={`w-12 h-1.5 rounded-full transition-all duration-300 ${isSheetOpen ? 'bg-white/20' : 'bg-gold-500/50 w-16 animate-pulse'}`}></div>
+                 </div>
+
+                 <GuestBookView 
+                    userName={userName} 
+                    messages={messages} 
+                    onSendMessage={handleSendMessage}
+                    heartCount={globalHeartCount}
+                    onHeartTrigger={triggerHeart}
+                    isRomanticMode={isRomanticMode}
+                    gallery={gallery}
+                 />
+            </div>
+        </div>
+      </div>
       )}
 
-      {/* Main Content Area */}
-      <main className="flex-grow overflow-hidden relative z-10">
-          {activeView === 'home' && (
-              <div className="h-full overflow-y-auto p-6 pb-32 space-y-6 overscroll-contain">
-                  {/* Welcome Card 3D */}
-                  <div className={`rounded-3xl p-8 relative overflow-hidden shadow-2xl group transition-all duration-500 perspective-1000 transform hover:scale-[1.02] ${isRomanticMode ? 'glass-deep border border-rose-500/20' : 'bg-white text-[#4a0e11] border border-stone-100'}`}>
-                      
-                      {/* Shine Effect */}
-                      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
-                      
-                      <div className="relative z-10">
-                          <div className="flex justify-between items-start mb-6">
-                              <span className={`text-[10px] font-bold px-3 py-1 rounded-full border ${isRomanticMode ? 'bg-gold-500/10 text-gold-300 border-gold-500/30' : 'bg-gold-100 text-gold-800 border-gold-200'}`}>42 Days To Go</span>
-                              <Heart className={`animate-pulse ${isRomanticMode ? 'text-rose-500 fill-rose-500 drop-shadow-[0_0_10px_rgba(225,29,72,0.5)]' : 'text-rose-500 fill-rose-500'}`} size={24} />
-                          </div>
-                          <h2 className={`font-heading text-3xl mb-2 ${isRomanticMode ? 'text-gradient-gold' : 'text-[#4a0e11]'}`}>Sneha & Aman</h2>
-                          <p className={`text-sm leading-relaxed mb-8 font-serif ${isRomanticMode ? 'text-white/70' : 'text-stone-600'}`}>
-                              We are delighted to have you join us in celebrating our union.
-                          </p>
-                          
-                          {rsvpStatus === null ? (
-                              <div className="flex gap-3">
-                                  <button onClick={() => handleRSVP('yes')} className="flex-1 bg-gradient-to-r from-gold-500 to-gold-700 text-[#2d0a0d] py-3 rounded-xl font-bold text-sm shadow-lg hover:brightness-110 transition-all">I'm Attending</button>
-                                  <button onClick={() => handleRSVP('no')} className={`px-5 py-3 rounded-xl border text-sm font-bold transition-colors ${isRomanticMode ? 'border-white/20 text-white/60 hover:bg-white/5' : 'border-stone-200 text-stone-500 hover:bg-stone-50'}`}>Sorry, can't</button>
-                              </div>
-                          ) : (
-                              <div className={`rounded-xl p-4 flex items-center gap-3 border ${isRomanticMode ? 'bg-green-900/20 border-green-500/30' : 'bg-green-50 border-green-100'}`}>
-                                  <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white shadow-md"><Check size={16}/></div>
-                                  <div>
-                                      <p className={`text-sm font-bold ${isRomanticMode ? 'text-green-400' : 'text-green-800'}`}>RSVP Sent</p>
-                                      <p className={`text-[10px] ${isRomanticMode ? 'text-green-400/60' : 'text-green-700/60'}`}>Thank you for your response!</p>
-                                  </div>
-                              </div>
-                          )}
-                      </div>
-                  </div>
-
-                  {/* Quick Actions Grid */}
-                  <div className="grid grid-cols-2 gap-4">
-                      {[
-                          { id: 'schedule', icon: Calendar, label: 'Events', color: 'rose' },
-                          { id: 'map', icon: MapPin, label: 'Location', color: 'blue' },
-                          { id: 'gallery', icon: Camera, label: 'Photos', color: 'purple' },
-                          { id: 'chat', icon: MessageSquare, label: 'Guest Book', color: 'orange' },
-                      ].map((item) => (
-                          <button 
-                            key={item.id}
-                            onClick={() => setActiveView(item.id as any)} 
-                            className={`p-6 rounded-2xl shadow-lg flex flex-col items-center gap-4 transition-all active:scale-95 hover:-translate-y-1 ${
-                                isRomanticMode 
-                                ? 'glass-deep hover:bg-white/5' 
-                                : 'bg-white border border-stone-100 hover:shadow-xl'
-                            }`}
-                          >
-                              <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-inner ${
-                                  isRomanticMode 
-                                  ? 'bg-white/5 border border-white/10 text-gold-300' 
-                                  : `bg-${item.color}-50 text-${item.color}-600`
-                              }`}>
-                                  <item.icon size={28} strokeWidth={1.5}/>
-                              </div>
-                              <span className={`text-sm font-bold tracking-wide ${isRomanticMode ? 'text-gold-100' : 'text-stone-700'}`}>{item.label}</span>
-                          </button>
-                      ))}
-                  </div>
-
-                  {/* Story Teaser */}
-                  <div className={`rounded-2xl p-5 shadow-lg flex items-center gap-4 ${
-                      isRomanticMode 
-                      ? 'glass-deep' 
-                      : 'bg-white border border-stone-100 text-[#4a0e11]'
-                  }`}>
-                      <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 shadow-lg border border-white/10">
-                          <img src="https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?w=400" className="w-full h-full object-cover hover:scale-110 transition-transform duration-700" />
-                      </div>
-                      <div>
-                          <h3 className={`font-bold text-base ${isRomanticMode ? 'text-gold-200' : 'text-[#4a0e11]'}`}>Our Story</h3>
-                          <p className={`text-xs mt-2 line-clamp-2 leading-relaxed ${isRomanticMode ? 'text-white/60' : 'text-stone-500'}`}>From a chance meeting at a coffee shop to a lifetime together...</p>
-                          <button className={`text-[10px] font-bold mt-3 uppercase tracking-wider flex items-center gap-1 ${isRomanticMode ? 'text-rose-400 hover:text-rose-300' : 'text-rose-600'}`}>Read More <ChevronRight size={12}/></button>
-                      </div>
-                  </div>
-              </div>
-          )}
-
-          {activeView === 'chat' && (
-             <GuestBookView 
-                userName={userName} 
-                setViewMode={() => {}} 
-                messages={messages}
-                onSendMessage={handleSendMessage}
-                heartCount={heartCount}
-                onHeartTrigger={handleHeartTrigger}
-                isRomanticMode={isRomanticMode}
-             />
-          )}
-          {activeView === 'gallery' && <MemoriesView userName={userName} />}
-          {activeView === 'map' && <MapView userName={userName} />}
-          {activeView === 'settings' && <SettingsView onClose={() => setActiveView('home')} />}
-          
-          {activeView === 'schedule' && (
-              <div className="h-full overflow-y-auto p-6 pb-32 animate-fade-in">
-                  <div className={`-mx-6 -mt-6 p-8 pb-10 mb-6 relative overflow-hidden ${isRomanticMode ? 'bg-gradient-to-b from-rose-950 to-transparent' : 'bg-[#4a0e11] text-white'}`}>
-                      <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
-                      <h2 className={`text-3xl font-heading relative z-10 ${isRomanticMode ? 'text-gradient-gold' : 'text-gold-100'}`}>Wedding Events</h2>
-                      <p className="text-gold-400 text-sm font-serif relative z-10 mt-1">Dec 20 - Dec 22, 2025</p>
-                  </div>
-                  
-                  <div className="space-y-8 relative pl-4">
-                      {/* Timeline Line */}
-                      <div className={`absolute left-4 top-2 bottom-0 w-[2px] ${isRomanticMode ? 'bg-white/10' : 'bg-stone-200'}`}></div>
-
-                      {[
-                          { title: "Mehndi Ceremony", time: "Dec 20, 4:00 PM", loc: "Poolside Gardens", icon: "🌿" },
-                          { title: "Sangeet Night", time: "Dec 20, 7:30 PM", loc: "Grand Ballroom", icon: "💃" },
-                          { title: "Haldi", time: "Dec 21, 10:00 AM", loc: "Courtyard", icon: "✨" },
-                          { title: "The Wedding", time: "Dec 21, 6:00 PM", loc: "Grand Lawn", icon: "💍" },
-                      ].map((event, i) => (
-                          <div key={i} className="relative pl-8 animate-slide-up" style={{ animationDelay: `${i * 100}ms` }}>
-                              <div className={`absolute left-[11px] top-0 w-3 h-3 rounded-full border-2 z-10 ${isRomanticMode ? 'bg-rose-500 border-rose-300 shadow-[0_0_10px_rgba(225,29,72,0.5)]' : 'bg-white border-stone-300'}`}></div>
-                              <div className={`p-4 rounded-xl border transition-all hover:scale-[1.02] ${isRomanticMode ? 'glass-deep border-white/10 hover:bg-white/5' : 'bg-white border-stone-100 shadow-sm'}`}>
-                                  <div className="flex justify-between items-start mb-2">
-                                      <h3 className={`font-bold ${isRomanticMode ? 'text-gold-100' : 'text-[#4a0e11]'}`}>{event.title}</h3>
-                                      <span className="text-2xl">{event.icon}</span>
-                                  </div>
-                                  <div className={`text-xs space-y-1 ${isRomanticMode ? 'text-white/60' : 'text-stone-500'}`}>
-                                      <p className="flex items-center gap-2"><Clock size={12}/> {event.time}</p>
-                                      <p className="flex items-center gap-2"><MapPin size={12}/> {event.loc}</p>
-                                  </div>
-                              </div>
-                          </div>
-                      ))}
-                  </div>
-              </div>
-          )}
-
-      </main>
-
-      {/* Bottom Nav */}
-      <nav className={`absolute bottom-6 left-4 right-4 rounded-2xl p-2 shadow-2xl border z-40 flex justify-between items-center animate-slide-up duration-1000 delay-500 ${isRomanticMode ? 'bg-black/50 backdrop-blur-xl border-white/10' : 'bg-black/80 backdrop-blur-xl border-white/10'}`}>
-           {[
-               { id: 'home', icon: Home, label: 'Home' },
-               { id: 'gallery', icon: Camera, label: 'Gallery' },
-               { id: 'chat', icon: MessageSquare, label: 'Chat' },
-           ].map((item) => (
-               <button 
-                   key={item.id}
-                   onClick={() => setActiveView(item.id as any)}
-                   className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-xl transition-colors ${activeView === item.id ? 'text-rose-400 bg-white/10' : 'text-stone-400 hover:text-white'}`}
-               >
-                   <item.icon size={20} strokeWidth={activeView === item.id ? 2.5 : 2} />
-                   <span className="text-[9px] font-bold">{item.label}</span>
-               </button>
-           ))}
-           <button onClick={onLogout} className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl text-stone-400 hover:text-rose-400 transition-colors">
-               <LogOut size={20} />
-               <span className="text-[9px] font-medium">Exit</span>
-           </button>
-      </nav>
+      {/* Modals */}
+      {isRsvpOpen && <CelebrationOverlay onClose={() => setIsRsvpOpen(false)} />}
+      <LiveMapModal isOpen={isMapOpen} onClose={() => setIsMapOpen(false)} userName={userName} activeUsers={activeUsers} />
+      
     </div>
   );
 };

@@ -1,6 +1,16 @@
 
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { Home, MessageSquare, Heart, Camera, X, Sparkles, Music, Gift, Smile, Send, Play, Pause, SkipForward, SkipBack, ExternalLink, LogOut, ChevronRight, Radio, Map, Navigation, Phone, Search, Compass, Globe, Plane, Hand, Plus, Minus, Users, Utensils, PhoneCall, MapPin, Lock, User, Film, Upload, Mic, ChevronLeft, LocateFixed, Volume2, VolumeX, ListMusic, Download, Check, Flower, Smartphone } from 'lucide-react';
+import { Home, MessageSquare, Heart, Camera, X, Sparkles, Music, Gift, Smile, Send, Play, Pause, SkipForward, SkipBack, ExternalLink, LogOut, ChevronRight, Radio, Map, Navigation, Phone, Search, Compass, Globe, Plane, Hand, Plus, Minus, Users, Utensils, PhoneCall, MapPin, Lock, User, Film, Upload, Mic, ChevronLeft, LocateFixed, Volume2, VolumeX, ListMusic, Download, Check, Flower, Smartphone, PlusCircle, Disc, Wifi } from 'lucide-react';
+
+// --- Utility to Prevent XSS in Map Markers ---
+const escapeHtml = (unsafe: string) => {
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+ }
 
 // --- Types ---
 interface Message {
@@ -27,15 +37,20 @@ interface Song {
     artist: string;
     url: string;
     cover: string;
+    album: string;
+    durationStr: string;
     isCustom?: boolean;
 }
 
 type BroadcastEvent = 
   | { type: 'message'; payload: Message }
+  | { type: 'message_sync'; payload: Message[] }
   | { type: 'heart_update'; count: number }
-  | { type: 'love_explosion'; sender: string }
-  | { type: 'location_update'; id: string; name: string; x: number; y: number; lat?: number; lng?: number; role: 'guest' | 'couple'; map?: 'venue' | 'google' }
-  | { type: 'theme_update'; mode: 'default' | 'romantic' };
+  | { type: 'gallery_sync'; payload: MediaItem[] }
+  | { type: 'event_sync'; payload: any[] }
+  | { type: 'playlist_update'; playlist: Song[]; currentSong: Song | null; isPlaying: boolean }
+  | { type: 'theme_update'; mode: 'default' | 'romantic' }
+  | { type: 'config_sync'; payload: any };
 
 interface LocationUpdate {
     type: 'location_update';
@@ -167,1364 +182,634 @@ const MapElephant = ({ className, flip }: { className?: string, flip?: boolean }
 );
 
 // --- Constants for Music ---
-const DEFAULT_PLAYLIST: Song[] = [
+
+// Mock Spotify Database
+const SPOTIFY_DATABASE: Song[] = [
     {
-        id: '1',
+        id: 's1',
         title: 'Raabta (Kehte Hain)',
         artist: 'Arijit Singh',
-        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', // Sample URL
-        cover: 'https://images.unsplash.com/photo-1514525253440-b393452e3726?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3'
+        album: 'Agent Vinod',
+        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+        cover: 'https://i.scdn.co/image/ab67616d0000b273552058844946641674911737',
+        durationStr: '4:03'
     },
     {
-        id: '2',
+        id: 's2',
         title: 'Din Shagna Da',
         artist: 'Jasleen Royal',
-        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', // Sample URL
-        cover: 'https://images.unsplash.com/photo-1595981267035-7b04ca84a82d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3'
+        album: 'Phillauri',
+        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+        cover: 'https://i.scdn.co/image/ab67616d0000b273a1e292d88dfc375f088df445',
+        durationStr: '3:36'
     },
     {
-        id: '3',
+        id: 's3',
         title: 'Kabira (Encore)',
         artist: 'Harshdeep Kaur',
-        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', // Sample URL
-        cover: 'https://images.unsplash.com/photo-1546707012-c46675f12716?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3'
+        album: 'Yeh Jawaani Hai Deewani',
+        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+        cover: 'https://i.scdn.co/image/ab67616d0000b27382e33d3c6261625465a68666',
+        durationStr: '4:29'
     },
     {
-        id: '4',
+        id: 's4',
         title: 'Mangalyam',
-        artist: 'Saathiya',
-        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3', // Sample URL
-        cover: 'https://images.unsplash.com/photo-1605296867304-6fbb535db434?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3'
-    }
+        artist: 'A.R. Rahman',
+        album: 'Saathiya',
+        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
+        cover: 'https://i.scdn.co/image/ab67616d0000b2731649f690532b2a68704d9c2a',
+        durationStr: '2:45'
+    },
+    {
+        id: 's5',
+        title: 'Perfect',
+        artist: 'Ed Sheeran',
+        album: 'Divide',
+        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3',
+        cover: 'https://i.scdn.co/image/ab67616d0000b273ba5db46f4b838ef6027e6f96',
+        durationStr: '4:23'
+    },
+    {
+        id: 's6',
+        title: 'Kesariya',
+        artist: 'Arijit Singh',
+        album: 'Brahmāstra',
+        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3',
+        cover: 'https://i.scdn.co/image/ab67616d0000b273c08202c503a1e2b3d2c734c4',
+        durationStr: '4:28'
+    },
+    { 
+        id: 's7', 
+        title: 'Ranjha', 
+        artist: 'B Praak, Jasleen Royal', 
+        album: 'Shershaah', 
+        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-16.mp3', 
+        cover: 'https://i.scdn.co/image/ab67616d0000b2734c84d85144bd02da8055230d', 
+        durationStr: '3:48' 
+    },
+    { 
+        id: 's8', 
+        title: 'Tum Se Hi', 
+        artist: 'Mohit Chauhan', 
+        album: 'Jab We Met', 
+        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-15.mp3', 
+        cover: 'https://i.scdn.co/image/ab67616d0000b2739990361a5a49c24df0302c69', 
+        durationStr: '5:23' 
+    },
+    { 
+        id: 's9', 
+        title: 'Peaches', 
+        artist: 'Justin Bieber', 
+        album: 'Justice', 
+        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-14.mp3', 
+        cover: 'https://i.scdn.co/image/ab67616d0000b273e6f407c7f3a0ec98845e4431', 
+        durationStr: '3:18' 
+    },
+    { 
+        id: 's10', 
+        title: 'Lover', 
+        artist: 'Diljit Dosanjh', 
+        album: 'MoonChild Era', 
+        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-13.mp3', 
+        cover: 'https://i.scdn.co/image/ab67616d0000b2738166424538200a3355e70e04', 
+        durationStr: '2:59' 
+    },
 ];
 
-// --- Hooks ---
-
-const useLockBodyScroll = (isLocked: boolean) => {
-  useLayoutEffect(() => {
-    const originalStyle = window.getComputedStyle(document.body).overflow;
-    if (isLocked) {
-      document.body.style.overflow = 'hidden';
-    }
-    return () => {
-      document.body.style.overflow = originalStyle;
-    };
-  }, [isLocked]);
-};
-
-const usePanZoom = (initialScale = 1, minScale = 0.5, maxScale = 3) => {
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: initialScale, rotate: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const lastPos = useRef({ x: 0, y: 0 });
-  const [pinchDist, setPinchDist] = useState<number | null>(null);
-  const [pinchCenter, setPinchCenter] = useState<{x: number, y: number} | null>(null);
-
-  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-
-    if ('touches' in e && e.touches.length === 2) {
-       const dist = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-       );
-       const center = {
-           x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
-           y: (e.touches[0].clientY + e.touches[1].clientY) / 2
-       };
-       setPinchDist(dist);
-       setPinchCenter(center);
-       return;
-    }
-
-    setIsDragging(true);
-    lastPos.current = { x: clientX - transform.x, y: clientY - transform.y };
-  };
-
-  const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
-    // Pinch Zoom Logic
-    if ('touches' in e && e.touches.length === 2 && pinchDist !== null && pinchCenter !== null) {
-       e.preventDefault();
-       const dist = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-       );
-       const center = {
-           x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
-           y: (e.touches[0].clientY + e.touches[1].clientY) / 2
-       };
-
-       const deltaScale = dist - pinchDist;
-       // Adjusted sensitivity for smoother zoom
-       const scaleFactor = 1 + deltaScale * 0.003;
-       
-       let newScale = transform.scale * scaleFactor;
-       newScale = Math.min(maxScale, Math.max(minScale, newScale));
-       
-       const scaleRatio = newScale / transform.scale;
-       
-       // Pan compensation to keep pinch center fixed
-       const panX = center.x - pinchCenter.x;
-       const panY = center.y - pinchCenter.y;
-       
-       const newX = center.x - (center.x - transform.x) * scaleRatio + panX;
-       const newY = center.y - (center.y - transform.y) * scaleRatio + panY;
-
-       setTransform({ 
-           scale: newScale,
-           x: newX,
-           y: newY,
-           rotate: 0
-       });
-       setPinchDist(dist);
-       setPinchCenter(center);
-       return;
-    }
-
-    if (!isDragging) return;
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    
-    if ('touches' in e) e.preventDefault(); 
-
-    setTransform(prev => ({
-       ...prev,
-       x: clientX - lastPos.current.x,
-       y: clientY - lastPos.current.y
-    }));
-  };
-
-  const handleMouseUp = () => {
-      setIsDragging(false);
-      setPinchDist(null);
-      setPinchCenter(null);
-  };
-
-  const handlers = {
-      onMouseDown: handleMouseDown,
-      onTouchStart: handleMouseDown,
-      onMouseMove: handleMouseMove,
-      onTouchMove: handleMouseMove,
-      onMouseUp: handleMouseUp,
-      onTouchEnd: handleMouseUp,
-      onMouseLeave: handleMouseUp
-  };
-  
-  const style: React.CSSProperties = { touchAction: 'none' };
-
-  return { transform, isDragging, handlers, style };
-};
-
-// --- Map Components ---
-
-const MapNode: React.FC<{ x: number; y: number; name: string; delay?: number; phone?: string; type?: 'guest' | 'couple' }> = ({ x, y, name, delay = 0, phone, type = 'guest' }) => {
-    const getProfileImage = (name: string) => {
-        // Simple consistent hash for placeholder image
-        const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-        // Using pravatar for realistic placeholder photos
-        return `https://i.pravatar.cc/150?u=${hash}`;
-    };
-
-    return (
-        <div 
-            className="absolute flex flex-col items-center z-20 group animate-in zoom-in duration-700 fill-mode-backwards cursor-pointer transition-all duration-500"
-            style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)', animationDelay: `${delay}ms` }}
-        >
-            <div 
-              className={`relative rounded-full shadow-[0_25px_35px_-5px_rgba(0,0,0,0.7),0_0_0_2px_${type === 'couple' ? '#e11d48' : '#fbbf24'}] transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-4 w-16 h-16 p-[4px] ${type === 'couple' ? 'bg-rose-950' : 'bg-[#1a0405]'}`}
-              style={{ transform: 'perspective(500px) rotateX(10deg)' }}
-            >
-                <div className={`w-full h-full rounded-full border ${type === 'couple' ? 'border-rose-400' : 'border-gold-500/30'} overflow-hidden relative bg-[#2d0a0d] flex items-center justify-center`}>
-                    {type === 'couple' ? (
-                        <Heart size={24} className="text-rose-500 fill-rose-500 animate-pulse" />
-                    ) : (
-                        <img src={getProfileImage(name)} alt={name} className="w-full h-full object-cover opacity-90 hover:opacity-100 transition-opacity" />
-                    )}
-                </div>
-                {type === 'couple' && (
-                     <div className="absolute inset-0 rounded-full border-2 border-rose-500 animate-ping opacity-50"></div>
-                )}
-            </div>
-            <div className={`mt-4 px-4 py-1 ${type === 'couple' ? 'bg-rose-900/90 border-rose-500' : 'bg-[#4a0e11]/90 border-[#f59e0b]/50'} backdrop-blur-md rounded-full border shadow-[0_8px_16px_rgba(0,0,0,0.6)] transform transition-transform group-hover:scale-105 group-hover:-translate-y-1`}>
-                <span className="text-[#fef3c7] text-xs sm:text-sm font-serif font-bold whitespace-nowrap tracking-wide drop-shadow-sm">{name}</span>
-            </div>
-            <div className="absolute top-[90%] left-1/2 w-1 h-8 bg-black/30 -translate-x-1/2 blur-[2px] origin-top transform skew-x-[20deg] z-[-1]"></div>
-        </div>
-    );
-};
-
-const Lightbox = ({ url, onClose, caption }: { url: string, onClose: () => void, caption?: string }) => (
-    <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center animate-in fade-in duration-300" style={{ touchAction: 'none' }}>
-        <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white p-2"><X size={32} /></button>
-        <div className="max-w-4xl max-h-[80vh] w-full px-4 flex items-center justify-center">
-            <img src={url} alt="Full view" className="max-w-full max-h-full object-contain rounded-md shadow-2xl" />
-        </div>
-        {caption && <p className="mt-4 text-gold-100 font-serif text-lg text-center">{caption}</p>}
-        <button className="mt-6 bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-full flex items-center gap-2 transition-colors">
-             <Download size={18} /> Save Memory
-        </button>
-    </div>
-);
-
-// --- Photo Gallery View ---
-const PhotoGalleryView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
-    if (!isOpen) return null;
+const CoupleDashboard: React.FC<{ userName: string, onLogout: () => void }> = ({ userName, onLogout }) => {
+    const [activeTab, setActiveTab] = useState<'home' | 'chat' | 'gallery' | 'music'>('home');
+    const [heartCount, setHeartCount] = useState(0);
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [activeUsers, setActiveUsers] = useState<Record<string, LocationUpdate>>({});
     const [photos, setPhotos] = useState<MediaItem[]>([]);
-    const [selectedPhoto, setSelectedPhoto] = useState<MediaItem | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isRomanticMode, setIsRomanticMode] = useState(false);
+    const [showUploadModal, setShowUploadModal] = useState(false);
+    
+    // --- Music State ---
+    const [spotifyConnected, setSpotifyConnected] = useState(false);
+    const [musicQueue, setMusicQueue] = useState<Song[]>([]);
+    const [currentSong, setCurrentSong] = useState<Song | null>(null);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [musicSearchQuery, setMusicSearchQuery] = useState("");
+    const audioRef = useRef<HTMLAudioElement | null>(null);
 
-    useEffect(() => {
-        if (isOpen) {
-            const saved = localStorage.getItem('wedding_gallery_media');
-            if (saved) {
-                try {
-                    setPhotos(JSON.parse(saved));
-                } catch (e) {
-                    console.error(e);
-                }
-            }
-        }
-    }, [isOpen]);
-
-    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            // Size limit check (~3MB)
-            if (file.size > 3 * 1024 * 1024) {
-                alert("Please choose an image smaller than 3MB.");
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const result = reader.result as string;
-                const newPhoto: MediaItem = {
-                     id: Date.now().toString(),
-                     url: result,
-                     type: file.type.startsWith('video') ? 'video' : 'image',
-                     caption: 'Couple Upload',
-                     timestamp: Date.now()
-                }
-                
-                try {
-                    const updated = [newPhoto, ...photos];
-                    setPhotos(updated);
-                    localStorage.setItem('wedding_gallery_media', JSON.stringify(updated));
-                } catch (e) {
-                    alert("Local storage full! Cannot save.");
-                }
-            };
-            reader.readAsDataURL(file);
-            event.target.value = '';
-        }
-    };
-
-    const triggerUpload = () => {
-        fileInputRef.current?.click();
-    };
-
-    return (
-        <div className="fixed inset-0 z-[70] bg-[#1a0405] overflow-y-auto animate-in slide-in-from-bottom duration-700 overscroll-contain">
-            {selectedPhoto && <Lightbox url={selectedPhoto.url} caption={selectedPhoto.caption} onClose={() => setSelectedPhoto(null)} />}
-
-             <div className="sticky top-0 bg-[#1a0405]/90 backdrop-blur-md p-4 flex justify-between items-center border-b border-gold-500/30 z-50 shadow-lg">
-                <h2 className="text-gold-100 font-heading text-xl tracking-widest">Family Memories</h2>
-                <button onClick={onClose} className="text-gold-400 hover:text-gold-100 bg-black/20 rounded-full p-2"><X size={24}/></button>
-            </div>
-            
-            {/* Hidden Input with Capture support */}
-            <input 
-                type="file" 
-                ref={fileInputRef} 
-                className="hidden" 
-                accept="image/*"
-                capture="environment"
-                onChange={handleFileSelect}
-            />
-
-            <div className="p-6 pb-24 max-w-lg mx-auto">
-                 <div className="bg-[#fcd34d] rounded-2xl p-4 mb-8 flex items-center justify-center gap-4 shadow-xl cursor-pointer hover:bg-[#fbbf24] transition-colors active:scale-95" onClick={triggerUpload}>
-                     <Smartphone size={24} className="text-[#4a0e11]"/>
-                     <span className="text-[#4a0e11] font-bold font-serif text-lg">Add New Memory</span>
-                 </div>
-                 <div className="grid grid-cols-2 gap-6">
-                     {photos.map((photo, i) => (
-                         <div 
-                            key={i} 
-                            className={`relative rounded-2xl overflow-hidden shadow-lg border-2 border-gold-500/20 group cursor-pointer animate-in zoom-in fade-in duration-700 fill-mode-backwards ${i % 3 === 0 ? 'col-span-2 aspect-video' : 'col-span-1 aspect-square'}`}
-                            style={{ animationDelay: `${i * 50}ms` }}
-                            onClick={() => setSelectedPhoto(photo)}
-                        >
-                             <img src={photo.url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={`Memory ${i}`}/>
-                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
-                                 <span className="text-white text-sm font-serif tracking-wider">{photo.caption || 'View Memory'}</span>
-                             </div>
-                         </div>
-                     ))}
-                 </div>
-            </div>
-        </div>
-    );
-};
-
-// --- Heart Hug Animation Component ---
-const HeartHug = () => (
-    <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none overflow-hidden">
-         <style>{`
-             @keyframes hugLeft { 
-                 0% { transform: translateX(-60px) rotate(-10deg); opacity: 0; } 
-                 40% { transform: translateX(0) rotate(-10deg); opacity: 1; } 
-                 60% { transform: translateX(4px) rotate(-15deg); } 
-                 100% { transform: translateX(0) rotate(-10deg); } 
-             }
-             @keyframes hugRight { 
-                 0% { transform: translateX(60px) rotate(10deg); opacity: 0; } 
-                 40% { transform: translateX(0) rotate(10deg); opacity: 1; } 
-                 60% { transform: translateX(-4px) rotate(15deg); } 
-                 100% { transform: translateX(0) rotate(10deg); } 
-             }
-             .animate-hug-left { animation: hugLeft 1.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-             .animate-hug-right { animation: hugRight 1.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-         `}</style>
-         <div className="relative w-24 h-24">
-             <Heart className="text-rose-600 w-12 h-12 absolute top-6 left-0 animate-hug-left drop-shadow-lg" fill="currentColor" />
-             <Heart className="text-rose-500 w-12 h-12 absolute top-6 right-0 animate-hug-right drop-shadow-lg" fill="currentColor" />
-             <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-gold-200 font-cursive text-lg opacity-0 animate-in fade-in delay-1000 duration-1000 fill-mode-forwards whitespace-nowrap">Forever Yours!</div>
-         </div>
-    </div>
-);
-
-const LiveMapModal: React.FC<{ isOpen: boolean; onClose: () => void; userName: string; activeUsers: Record<string, LocationUpdate> }> = ({ isOpen, onClose, userName, activeUsers }) => {
-    const { transform, handlers, style } = usePanZoom(1, 0.5, 3);
-    const [viewMode, setViewMode] = useState<'venue' | 'google'>('venue');
-    const mapRef = useRef<HTMLDivElement>(null);
-    const mapInstance = useRef<any>(null);
-    const markersRef = useRef<Record<string, any>>({});
-    const linesRef = useRef<Record<string, any>>({});
-    const venuePos = [26.7857, 83.0763];
-
-    // Couple can update location by clicking too on Venue View
-    const handleVenueMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (viewMode !== 'venue') return;
-        const rect = e.currentTarget.getBoundingClientRect();
-        const x = ((e.clientX - rect.left) / rect.width) * 100;
-        const y = ((e.clientY - rect.top) / rect.height) * 100;
-        
-        const channel = new BroadcastChannel('wedding_live_map');
-        channel.postMessage({
-            type: 'location_update',
-            id: userName,
-            name: userName,
-            x, y,
-            role: 'couple',
-            map: 'all'
-        });
+    const broadcastSync = (type: string, payload: any) => {
+        const channel = new BroadcastChannel('wedding_portal_chat');
+        channel.postMessage({ type, payload });
         channel.close();
     };
 
-    // Leaflet Effect
+    // Initialize Data
     useEffect(() => {
-        if (viewMode === 'google' && isOpen && mapRef.current && !mapInstance.current) {
-             const L = (window as any).L;
-             if (!L) return;
-             
-             mapInstance.current = L.map(mapRef.current).setView(venuePos, 13);
-             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap'
-             }).addTo(mapInstance.current);
-
-             const venueIcon = L.divIcon({
-                className: 'custom-div-icon',
-                html: `<div style="background-color: #be123c; color: #fff; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-size: 20px;">🏰</div>`,
-                iconSize: [40, 40],
-                iconAnchor: [20, 40]
-            });
-            L.marker(venuePos, { icon: venueIcon }).addTo(mapInstance.current).bindPopup("Hotel Soni International");
-        }
+        // Load local storage
+        const savedMsgs = localStorage.getItem('wedding_chat_messages');
+        if (savedMsgs) setMessages(JSON.parse(savedMsgs));
         
-        if (viewMode !== 'google' && mapInstance.current) {
-             mapInstance.current.remove();
-             mapInstance.current = null;
+        const savedHearts = localStorage.getItem('wedding_heart_count');
+        if (savedHearts) setHeartCount(parseInt(savedHearts));
+
+        const savedPhotos = localStorage.getItem('wedding_gallery_media');
+        if (savedPhotos) setPhotos(JSON.parse(savedPhotos));
+        else {
+            // Default dummy photos
+            const defaultPhotos: MediaItem[] = [
+               { id: '1', url: 'https://images.unsplash.com/photo-1519741497674-611481863552?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', type: 'image', caption: 'Pre-wedding shoot ✨', timestamp: Date.now() },
+               { id: '2', url: 'https://images.unsplash.com/photo-1511285560982-1356c11d4606?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', type: 'image', caption: 'Engagement Ring 💍', timestamp: Date.now() - 100000 },
+            ];
+            setPhotos(defaultPhotos);
+            localStorage.setItem('wedding_gallery_media', JSON.stringify(defaultPhotos));
         }
-    }, [viewMode, isOpen]);
 
-    // Update Markers & Lines
-    useEffect(() => {
-        if (!mapInstance.current || viewMode !== 'google') return;
-        const L = (window as any).L;
-        
-        Object.values(activeUsers).forEach(user => {
-            if (user.lat && user.lng) {
-                // Marker
-                if (markersRef.current[user.id]) {
-                    markersRef.current[user.id].setLatLng([user.lat, user.lng]);
-                } else {
-                    const isMe = user.name === userName;
-                    const isCouple = user.role === 'couple';
-                    
-                    const iconHtml = `
-                        <div class="relative flex flex-col items-center justify-center transition-all duration-500 transform hover:scale-110">
-                            <div class="w-10 h-10 rounded-full border-2 shadow-2xl flex items-center justify-center font-bold text-lg backdrop-blur-md ${
-                                isCouple 
-                                    ? 'bg-rose-900/90 border-rose-400 text-rose-100 shadow-rose-500/50' 
-                                    : isMe 
-                                        ? 'bg-green-900/90 border-green-400 text-green-100 shadow-green-500/50' 
-                                        : 'bg-amber-900/90 border-amber-400 text-amber-100 shadow-amber-500/30'
-                            }">
-                                ${isCouple ? '👑' : user.name.charAt(0)}
-                                ${isCouple ? '<div class="absolute -inset-3 rounded-full border border-rose-500/40 animate-ping pointer-events-none"></div>' : ''}
-                                ${isMe ? '<div class="absolute -inset-1 rounded-full border border-green-500/40 animate-pulse pointer-events-none"></div>' : ''}
-                            </div>
-                            <div class="mt-1 px-2 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[10px] font-bold text-white whitespace-nowrap border border-white/10 shadow-lg">
-                                ${isMe ? 'You' : user.name}
-                            </div>
-                            <div class="absolute top-full w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-black/60 -mt-1"></div>
-                        </div>
-                    `;
+        const savedPlaylist = localStorage.getItem('wedding_playlist');
+        if(savedPlaylist) setMusicQueue(JSON.parse(savedPlaylist));
 
-                    const icon = L.divIcon({
-                        className: 'bg-transparent border-none',
-                        html: iconHtml,
-                        iconSize: [40, 60],
-                        iconAnchor: [20, 20]
-                    });
-
-                    const marker = L.marker([user.lat, user.lng], { icon }).addTo(mapInstance.current);
-                    markersRef.current[user.id] = marker;
+        // Broadcast Channel
+        const channel = new BroadcastChannel('wedding_portal_chat');
+        channel.onmessage = (event) => {
+            const data = event.data as BroadcastEvent;
+            if (data.type === 'message') {
+                setMessages(prev => [...prev, data.payload]);
+            } else if (data.type === 'message_sync') { // Bulk update (e.g. admin delete)
+                setMessages(data.payload);
+            } else if (data.type === 'heart_update') {
+                setHeartCount(data.count);
+            } else if (data.type === 'gallery_sync') { // Gallery update (e.g. admin delete or upload)
+                setPhotos(data.payload);
+            } else if (data.type === 'playlist_update') {
+                // Sync playlist across devices
+                setMusicQueue(data.playlist);
+                if (data.currentSong && (!currentSong || currentSong.id !== data.currentSong.id)) {
+                     setCurrentSong(data.currentSong);
                 }
-
-                // Line to Venue
-                if (linesRef.current[user.id]) {
-                    linesRef.current[user.id].setLatLngs([[user.lat, user.lng], venuePos]);
-                } else {
-                    const isCouple = user.role === 'couple';
-                    const line = L.polyline([[user.lat, user.lng], venuePos], {
-                        color: isCouple ? '#be123c' : '#15803d',
-                        weight: 2,
-                        dashArray: '10, 10', 
-                        opacity: 0.5
-                    }).addTo(mapInstance.current);
-                    linesRef.current[user.id] = line;
-                }
+                setIsPlaying(data.isPlaying);
             }
+        };
+
+        return () => channel.close();
+    }, []);
+
+    // --- Music Handlers ---
+    
+    const broadcastMusicState = (newQueue: Song[], newCurrent: Song | null, playing: boolean) => {
+        const channel = new BroadcastChannel('wedding_portal_chat');
+        channel.postMessage({
+            type: 'playlist_update',
+            playlist: newQueue,
+            currentSong: newCurrent,
+            isPlaying: playing
         });
-    }, [activeUsers, viewMode]);
+        channel.close();
+        // Persist
+        localStorage.setItem('wedding_playlist', JSON.stringify(newQueue));
+    };
 
-    const VENUE_ZONES = [
-        { name: "Grand Stage", x: 50, y: 20, w: 30, h: 15, color: "#be123c" },
-        { name: "Mandap", x: 80, y: 50, w: 20, h: 20, color: "#b45309" },
-        { name: "Royal Dining", x: 20, y: 50, w: 25, h: 25, color: "#15803d" },
-        { name: "Entrance", x: 50, y: 90, w: 20, h: 10, color: "#4a0e11" },
-        { name: "Bar", x: 80, y: 80, w: 15, h: 15, color: "#1d4ed8" },
-    ];
+    const handleSpotifyConnect = () => {
+        // Simulate OAuth flow
+        const win = window.open('', 'Spotify Login', 'width=400,height=500');
+        if (win) {
+            win.document.write('<div style="background:#191414;color:white;height:100%;display:flex;align-items:center;justify-content:center;font-family:sans-serif;"><h1>Connecting to Spotify...</h1></div>');
+            setTimeout(() => {
+                win.close();
+                setSpotifyConnected(true);
+                if(musicQueue.length === 0) {
+                    const initialQueue = [SPOTIFY_DATABASE[0], SPOTIFY_DATABASE[2]];
+                    setMusicQueue(initialQueue);
+                    setCurrentSong(initialQueue[0]);
+                    broadcastMusicState(initialQueue, initialQueue[0], false);
+                }
+            }, 1500);
+        }
+    };
 
-    if (!isOpen) return null;
-    return (
-        <div className="fixed inset-0 z-[60] bg-[#2d0a0d] flex flex-col animate-in fade-in duration-300">
-             <div className="absolute top-0 left-0 right-0 z-30 p-4 flex justify-between items-start bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
-                 <div className="pointer-events-auto">
-                    <h2 className="text-gold-100 font-heading text-2xl drop-shadow-md">{viewMode === 'venue' ? 'Live Venue Tracker' : 'Realtime Google Maps'}</h2>
-                    <p className="text-gold-400 text-xs font-serif opacity-80">
-                        {viewMode === 'venue' ? 'Tap to update your location on the map.' : 'Tracking all guests live.'}
-                    </p>
-                 </div>
-                 <button onClick={onClose} className="text-white bg-white/10 p-2 rounded-full backdrop-blur-sm hover:bg-white/20 transition-colors pointer-events-auto"><X size={24}/></button>
-             </div>
+    const handlePlaySong = (song: Song) => {
+        if (currentSong?.id === song.id) {
+            // Toggle
+            if (isPlaying) {
+                audioRef.current?.pause();
+                setIsPlaying(false);
+                broadcastMusicState(musicQueue, currentSong, false);
+            } else {
+                audioRef.current?.play();
+                setIsPlaying(true);
+                broadcastMusicState(musicQueue, currentSong, true);
+            }
+        } else {
+            // New Song
+            setCurrentSong(song);
+            setIsPlaying(true);
+            // If not in queue, add it
+            if (!musicQueue.find(s => s.id === song.id)) {
+                const newQueue = [...musicQueue, song];
+                setMusicQueue(newQueue);
+                broadcastMusicState(newQueue, song, true);
+            } else {
+                broadcastMusicState(musicQueue, song, true);
+            }
+        }
+    };
 
-             {/* Toggle Switch */}
-             <div className="absolute top-20 left-0 right-0 z-30 flex justify-center pointer-events-none">
-                 <div className="bg-black/40 backdrop-blur-md rounded-full p-1 flex border border-gold-500/30 pointer-events-auto shadow-lg">
-                     <button 
-                        onClick={() => setViewMode('venue')}
-                        className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${viewMode === 'venue' ? 'bg-gold-500 text-[#2d0a0d] shadow-sm' : 'text-gold-300 hover:text-gold-100'}`}
-                     >
-                         Venue Tracker
-                     </button>
-                     <button 
-                        onClick={() => setViewMode('google')}
-                        className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${viewMode === 'google' ? 'bg-gold-500 text-[#2d0a0d] shadow-sm' : 'text-gold-300 hover:text-gold-100'}`}
-                     >
-                         Map View
-                     </button>
-                 </div>
-             </div>
-             
-             <div className="flex-grow overflow-hidden relative bg-[#1a0507]" style={{ touchAction: 'none' }}>
-                 {viewMode === 'venue' ? (
-                  <div className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden" {...handlers} style={style}>
-                      <div 
-                        className="absolute inset-0 w-full h-full origin-top-left transition-transform duration-75 ease-out"
-                        style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
-                      >
-                          <div className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 bg-[#f5f5f4] border-[20px] border-[#4a0e11] shadow-2xl overflow-hidden" onClick={handleVenueMapClick}>
-                                  <>
-                                    <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#4a0e11 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
-                                    
-                                    {VENUE_ZONES.map((zone, i) => (
-                                        <div key={i} className="absolute border-2 border-dashed flex items-center justify-center text-center p-2 opacity-60 hover:opacity-100 transition-opacity" 
-                                            style={{ 
-                                                left: `${zone.x}%`, top: `${zone.y}%`, width: `${zone.w}%`, height: `${zone.h}%`, 
-                                                transform: 'translate(-50%, -50%)',
-                                                borderColor: zone.color, backgroundColor: `${zone.color}10`
-                                            }}>
-                                            <span className="font-serif font-bold text-[10px] uppercase tracking-wider text-[#4a0e11] bg-white/80 px-2 py-1 rounded-full shadow-sm">{zone.name}</span>
-                                        </div>
-                                    ))}
+    const handleNextSong = () => {
+        if (!currentSong || musicQueue.length === 0) return;
+        const idx = musicQueue.findIndex(s => s.id === currentSong.id);
+        const nextSong = musicQueue[(idx + 1) % musicQueue.length];
+        setCurrentSong(nextSong);
+        setIsPlaying(true);
+        broadcastMusicState(musicQueue, nextSong, true);
+    };
 
-                                    <MapTree className="absolute top-[15%] left-[15%] w-24 h-24 opacity-80" />
-                                    <MapTree className="absolute top-[15%] right-[15%] w-24 h-24 opacity-80" />
-                                    <MapElephant className="absolute bottom-[20%] left-[10%] w-32 h-20 opacity-60" />
-                                    <MapElephant className="absolute bottom-[20%] right-[10%] w-32 h-20 opacity-60" flip />
-                                  </>
-                              
-                              {/* Render Users */}
-                              {Object.values(activeUsers).map((u, i) => {
-                                  return <MapNode key={i} x={u.x} y={u.y} name={u.name === userName ? 'You' : u.name} type={u.role} delay={i * 100} />;
-                              })}
+    const handlePrevSong = () => {
+        if (!currentSong || musicQueue.length === 0) return;
+        const idx = musicQueue.findIndex(s => s.id === currentSong.id);
+        const prevSong = musicQueue[(idx - 1 + musicQueue.length) % musicQueue.length];
+        setCurrentSong(prevSong);
+        setIsPlaying(true);
+        broadcastMusicState(musicQueue, prevSong, true);
+    };
+
+    const handleAddToQueue = (song: Song) => {
+        if (musicQueue.find(s => s.id === song.id)) return;
+        const newQueue = [...musicQueue, song];
+        setMusicQueue(newQueue);
+        broadcastMusicState(newQueue, currentSong, isPlaying);
+    };
+
+    const handleRemoveFromQueue = (songId: string) => {
+        const newQueue = musicQueue.filter(s => s.id !== songId);
+        setMusicQueue(newQueue);
+        if (currentSong?.id === songId) {
+            setIsPlaying(false);
+            setCurrentSong(null);
+        }
+        broadcastMusicState(newQueue, currentSong?.id === songId ? null : currentSong, currentSong?.id === songId ? false : isPlaying);
+    };
+
+    // Audio Element Effect
+    useEffect(() => {
+        if (audioRef.current) {
+            if (currentSong) {
+                if (audioRef.current.src !== currentSong.url) {
+                    audioRef.current.src = currentSong.url;
+                    audioRef.current.load();
+                }
+                if (isPlaying) {
+                    audioRef.current.play().catch(e => console.log("Autoplay prevented", e));
+                } else {
+                    audioRef.current.pause();
+                }
+            } else {
+                audioRef.current.pause();
+            }
+        }
+    }, [currentSong, isPlaying]);
+
+
+    // --- Map Location Tracking ---
+    useEffect(() => {
+        const channel = new BroadcastChannel('wedding_live_map');
+        channel.onmessage = (event) => {
+            const data = event.data as LocationUpdate;
+            if (data.type === 'location_update') {
+                setActiveUsers(prev => ({ ...prev, [data.id]: data }));
+            }
+        };
+
+        let watchId: number;
+        if (navigator.geolocation) {
+            watchId = navigator.geolocation.watchPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    const pseudoX = 80; // Couple stays near mandap in mock
+                    const pseudoY = 50; 
+                    
+                    const update: LocationUpdate = { 
+                        type: 'location_update', 
+                        id: userName, 
+                        name: userName, 
+                        x: pseudoX, y: pseudoY,
+                        lat: latitude,
+                        lng: longitude,
+                        role: 'couple',
+                        map: 'all'
+                    };
+                    channel.postMessage(update);
+                    setActiveUsers(prev => ({ ...prev, [userName]: update }));
+                },
+                (error) => console.warn(error),
+                { enableHighAccuracy: true }
+            );
+        }
+        return () => {
+            channel.close();
+            if(watchId) navigator.geolocation.clearWatch(watchId);
+        };
+    }, [userName]);
+
+    const handleThemeToggle = () => {
+        const newMode = !isRomanticMode;
+        setIsRomanticMode(newMode);
+        localStorage.setItem('wedding_theme_mode', newMode ? 'romantic' : 'default');
+        // Broadcast theme change
+        const channel = new BroadcastChannel('wedding_portal_chat');
+        channel.postMessage({ type: 'theme_update', mode: newMode ? 'romantic' : 'default' });
+        channel.close();
+    };
+
+    // --- Render Helpers ---
+
+    const renderSpotifyView = () => {
+        const filteredSongs = SPOTIFY_DATABASE.filter(s => 
+            s.title.toLowerCase().includes(musicSearchQuery.toLowerCase()) || 
+            s.artist.toLowerCase().includes(musicSearchQuery.toLowerCase())
+        );
+
+        return (
+            <div className="flex flex-col h-full bg-[#121212] text-white overflow-hidden rounded-t-2xl animate-slide-up">
+                 {/* Hidden Audio Element */}
+                 <audio ref={audioRef} onEnded={handleNextSong} />
+
+                 <div className="p-4 bg-gradient-to-b from-green-900 to-[#121212] pb-8 shrink-0">
+                      <div className="flex justify-between items-center mb-6">
+                          <div className="flex items-center gap-2">
+                               <Disc size={24} className={`text-[#1DB954] ${isPlaying ? 'animate-spin-slow' : ''}`} />
+                               <h2 className="font-bold text-lg tracking-tight">Couple's Radio</h2>
+                          </div>
+                          <div className="px-3 py-1 rounded-full bg-black/40 text-[10px] font-bold text-[#1DB954] border border-[#1DB954]/30 flex items-center gap-1">
+                              <Wifi size={10} /> Connected to Spotify
                           </div>
                       </div>
-                  </div>
-                 ) : (
-                     <div id="admin-map" ref={mapRef} className="w-full h-full bg-stone-200"></div>
-                 )}
+
+                      {/* Player Card */}
+                      {currentSong ? (
+                          <div className="flex gap-4 items-end">
+                               <img src={currentSong.cover} className="w-32 h-32 rounded-md shadow-2xl shadow-black" />
+                               <div className="flex-grow mb-1">
+                                   <h3 className="font-bold text-2xl leading-tight mb-1">{currentSong.title}</h3>
+                                   <p className="text-stone-400 text-sm mb-4">{currentSong.artist}</p>
+                                   
+                                   <div className="flex items-center gap-4">
+                                       <button onClick={handlePrevSong} className="text-stone-400 hover:text-white transition-colors"><SkipBack size={24}/></button>
+                                       <button onClick={() => handlePlaySong(currentSong)} className="w-12 h-12 rounded-full bg-[#1DB954] flex items-center justify-center text-black hover:scale-105 transition-transform shadow-lg shadow-green-900/50">
+                                           {isPlaying ? <Pause size={24} fill="black"/> : <Play size={24} fill="black" className="ml-1"/>}
+                                       </button>
+                                       <button onClick={handleNextSong} className="text-stone-400 hover:text-white transition-colors"><SkipForward size={24}/></button>
+                                   </div>
+                               </div>
+                          </div>
+                      ) : (
+                          <div className="h-32 flex items-center justify-center text-stone-500 italic">
+                              Select a song to start the vibe
+                          </div>
+                      )}
+                 </div>
+
+                 <div className="flex-grow flex flex-col overflow-hidden">
+                      {/* Tabs/Search */}
+                      <div className="px-4 py-2 border-b border-white/10 flex gap-2 bg-[#121212]">
+                          <div className="relative flex-grow">
+                               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500" size={16} />
+                               <input 
+                                  type="text" 
+                                  value={musicSearchQuery}
+                                  onChange={e => setMusicSearchQuery(e.target.value)}
+                                  placeholder="Search songs..." 
+                                  className="w-full bg-[#2a2a2a] rounded-full py-2 pl-10 pr-4 text-sm text-white focus:outline-none focus:bg-[#333]"
+                               />
+                          </div>
+                      </div>
+
+                      {/* Content List */}
+                      <div className="flex-grow overflow-y-auto p-4 space-y-2">
+                           {musicSearchQuery ? (
+                               <>
+                                 <h4 className="text-xs font-bold text-stone-500 uppercase mb-2">Search Results</h4>
+                                 {filteredSongs.map(song => (
+                                     <div key={song.id} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded group">
+                                          <img src={song.cover} className="w-10 h-10 rounded" />
+                                          <div className="flex-grow min-w-0">
+                                              <div className={`font-bold text-sm truncate ${currentSong?.id === song.id ? 'text-[#1DB954]' : 'text-white'}`}>{song.title}</div>
+                                              <div className="text-xs text-stone-400 truncate">{song.artist}</div>
+                                          </div>
+                                          <button onClick={() => handleAddToQueue(song)} className="p-2 text-stone-400 hover:text-white"><PlusCircle size={20}/></button>
+                                     </div>
+                                 ))}
+                               </>
+                           ) : (
+                               <>
+                                 <h4 className="text-xs font-bold text-stone-500 uppercase mb-2">Up Next</h4>
+                                 {musicQueue.map((song, idx) => (
+                                     <div key={`${song.id}-${idx}`} className={`flex items-center gap-3 p-2 rounded group ${currentSong?.id === song.id ? 'bg-white/10' : 'hover:bg-white/5'}`}>
+                                          {currentSong?.id === song.id && isPlaying ? (
+                                              <div className="w-4 flex items-end justify-center gap-[2px] h-4">
+                                                  <div className="w-[2px] bg-[#1DB954] animate-[bounce_1s_infinite] h-2"></div>
+                                                  <div className="w-[2px] bg-[#1DB954] animate-[bounce_1.2s_infinite] h-4"></div>
+                                                  <div className="w-[2px] bg-[#1DB954] animate-[bounce_0.8s_infinite] h-3"></div>
+                                              </div>
+                                          ) : (
+                                              <span className="w-4 text-xs text-stone-500 text-center">{idx + 1}</span>
+                                          )}
+                                          <img src={song.cover} className="w-10 h-10 rounded" />
+                                          <div className="flex-grow min-w-0 cursor-pointer" onClick={() => handlePlaySong(song)}>
+                                              <div className={`font-bold text-sm truncate ${currentSong?.id === song.id ? 'text-[#1DB954]' : 'text-white'}`}>{song.title}</div>
+                                              <div className="text-xs text-stone-400 truncate">{song.artist}</div>
+                                          </div>
+                                          <button onClick={() => handleRemoveFromQueue(song.id)} className="opacity-0 group-hover:opacity-100 text-stone-500 hover:text-red-400 p-2"><Minus size={16}/></button>
+                                     </div>
+                                 ))}
+                                 {musicQueue.length === 0 && <p className="text-sm text-stone-500 text-center py-8">Queue is empty. Add some songs!</p>}
+                               </>
+                           )}
+                      </div>
+                 </div>
+            </div>
+        );
+    };
+
+    const renderChat = () => (
+        <div className="flex flex-col h-full overflow-hidden">
+             <div className="flex-grow overflow-y-auto p-4 space-y-3">
+                 {messages.map(m => (
+                     <div key={m.id} className={`flex flex-col ${m.sender === userName ? 'items-end' : 'items-start'}`}>
+                         <div className={`max-w-[85%] px-4 py-2 rounded-2xl backdrop-blur-sm border shadow-sm ${m.sender === userName ? 'bg-rose-900/80 text-rose-100 border-rose-500/30 rounded-tr-none' : 'bg-white/10 text-white border-white/10 rounded-tl-none'}`}>
+                             {m.stickerKey ? (
+                                 <div className="w-20 h-20">{STICKER_MAP[m.stickerKey]}</div>
+                             ) : (
+                                 <p className="text-sm">{m.text}</p>
+                             )}
+                         </div>
+                         <span className="text-[10px] text-white/40 mt-1 mx-1">{m.sender} • {m.timestamp}</span>
+                     </div>
+                 ))}
              </div>
         </div>
     );
-};
 
-// --- Adore Meter Component ---
-const AdoreMeter = ({ count }: { count: number }) => {
-    const fillPercent = Math.min(100, Math.max(10, (count * 5) % 110)); 
-    const [hearts, setHearts] = useState<Array<{id: number, type: 'heart'|'ring'|'diamond', x: number}>>([]);
+    const renderGallery = () => (
+        <div className="grid grid-cols-2 gap-3 p-4 overflow-y-auto pb-20">
+             {/* Upload Button */}
+             <button onClick={() => setShowUploadModal(true)} className="aspect-square rounded-xl border-2 border-dashed border-gold-500/30 flex flex-col items-center justify-center text-gold-400 gap-2 hover:bg-gold-500/10 transition-colors">
+                 <Camera size={24} />
+                 <span className="text-xs font-bold uppercase">Add Memory</span>
+             </button>
 
-    const handleClick = () => {
-        const id = Date.now();
-        const types: ('heart'|'ring'|'diamond')[] = ['heart', 'ring', 'diamond'];
-        const type = types[Math.floor(Math.random() * types.length)];
-        const x = Math.random() * 40 - 20; 
-        setHearts(prev => [...prev, { id, type, x }]);
-        setTimeout(() => setHearts(prev => prev.filter(h => h.id !== id)), 2000);
-    };
-
-    return (
-        <div className="absolute right-2 bottom-[6rem] z-40 flex flex-col items-center pointer-events-auto" onClick={handleClick}>
-            <div className="absolute bottom-full w-24 h-40 pointer-events-none overflow-hidden -z-10 left-1/2 -translate-x-1/2">
-                 {hearts.map(h => (
-                     <div key={h.id} className="absolute bottom-0 left-1/2 animate-sidebar-float text-rose-500 drop-shadow-lg" style={{ '--x': `${h.x}px` } as React.CSSProperties}>
-                         {h.type === 'heart' && <Heart size={20} fill="currentColor" />}
-                         {h.type === 'ring' && <div className="w-5 h-5 border-2 border-yellow-400 rounded-full"></div>}
-                         {h.type === 'diamond' && <div className="w-4 h-4 bg-blue-400 rotate-45"></div>}
+             {photos.map(p => (
+                 <div key={p.id} className="relative aspect-square rounded-xl overflow-hidden group">
+                     <img src={p.url} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2">
+                         <p className="text-white text-xs truncate">{p.caption}</p>
                      </div>
-                 ))}
-            </div>
-
-            <div className="relative w-14 h-48 cursor-pointer group transition-transform active:scale-95">
-                <svg viewBox="0 0 60 200" className="absolute inset-0 w-full h-full drop-shadow-2xl">
-                    <defs>
-                        <filter id="glow-couple" x="-20%" y="-20%" width="140%" height="140%">
-                           <feGaussianBlur stdDeviation="2" result="blur" />
-                           <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                    </defs>
-                    <path d="M30,190 C45,190 55,180 55,165 L55,35 C55,15 45,5 30,5 C15,5 5,15 5,35 L5,165 C5,180 15,190 30,190 Z" fill="#fffbf5" stroke="#b45309" strokeWidth="2"/>
-                    {Array.from({ length: 8 }).map((_, i) => (
-                        <line key={i} x1="20" y1={35 + i * 18} x2="40" y2={35 + i * 18} stroke="#d6d3d1" strokeWidth="1" />
-                    ))}
-                    <circle cx="30" cy="165" r="18" fill="#fffbf5" stroke="#b45309" strokeWidth="2" />
-                    <path d="M30,5 C40,5 50,15 50,25" fill="none" stroke="#fbbf24" strokeWidth="2" opacity="0.5"/>
-                </svg>
-                <div className="absolute bottom-[26px] left-[10px] right-[10px] bg-stone-100 rounded-t-full overflow-hidden h-[138px] w-[36px] ml-auto mr-auto z-10">
-                    <div 
-                        className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-rose-600 via-rose-500 to-rose-400 transition-all duration-700 ease-out flex items-start justify-center pt-1"
-                        style={{ height: `${fillPercent}%` }}
-                    >
-                         <div className="w-full h-2 bg-white/30 animate-pulse blur-[1px]"></div>
-                         <div className="absolute bottom-2 left-2 w-1 h-1 bg-white/40 rounded-full animate-ping"></div>
-                         <div className="absolute bottom-6 right-3 w-1.5 h-1.5 bg-white/40 rounded-full animate-ping delay-300"></div>
-                    </div>
-                </div>
-                <div className="absolute bottom-[7px] left-[12px] w-[32px] h-[32px] rounded-full bg-gradient-to-br from-rose-500 to-rose-700 z-20 shadow-inner flex items-center justify-center border border-rose-300">
-                    <Heart size={16} fill="#fcd34d" className="text-gold-300 animate-pulse" />
-                </div>
-                <div className="absolute inset-0 z-30 rounded-full bg-gradient-to-r from-white/40 to-transparent opacity-30 pointer-events-none w-[80%] mx-auto"></div>
-            </div>
-            <div className="mt-2 px-2 py-1 bg-black/60 backdrop-blur-sm rounded-full text-[10px] font-bold text-gold-200 tracking-widest uppercase shadow-sm border border-gold-500/30">
-                Adore Meter
-            </div>
+                 </div>
+             ))}
         </div>
     );
-};
-
-// --- Message Board Component ---
-const MessageBoard: React.FC<{ 
-    isOpen: boolean; 
-    onClose: () => void; 
-    userName: string;
-    messages: Message[];
-    onSendMessage: (text: string, type: 'text' | 'sticker') => void;
-    globalHeartCount: number;
-    triggerHeart: () => void;
-}> = ({ isOpen, onClose, userName, messages, onSendMessage, globalHeartCount, triggerHeart }) => {
-    const [inputText, setInputText] = useState("");
-    const [activeTab, setActiveTab] = useState<'emoji' | 'sticker' | null>(null);
-    const [floatingHearts, setFloatingHearts] = useState<Array<{id: number, left: number}>>([]);
-    const scrollRef = useRef<HTMLDivElement>(null);
-    useLockBodyScroll(isOpen);
-
-    useEffect(() => {
-        if (isOpen && scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-    }, [messages, isOpen]);
-
-    const handleSendMessage = () => {
-        if (!inputText.trim()) return;
-        onSendMessage(inputText, 'text');
-        setInputText("");
-    };
-
-    const handleSendSticker = (stickerKey: string) => {
-        onSendMessage(stickerKey, 'sticker');
-        setActiveTab(null);
-    };
-
-    const handleHeartClick = () => {
-        const id = Date.now();
-        const left = Math.random() * 60 + 10;
-        setFloatingHearts(prev => [...prev, { id, left }]);
-        setTimeout(() => setFloatingHearts(prev => prev.filter(h => h.id !== id)), 2000);
-        triggerHeart();
-    };
-
-    if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 bg-[#fff9f0] flex flex-col animate-in slide-in-from-bottom duration-500 overscroll-contain">
-            <div className="bg-[#4a0e11] p-4 pt-8 flex items-center gap-4 shadow-md relative shrink-0 z-20">
-                 <button onClick={onClose} className="text-gold-200 hover:text-white transition-colors"><ChevronLeft size={28} /></button>
-                 <div className="flex-grow text-center mr-8">
-                     <h2 className="text-gold-100 font-serif text-xl flex items-center justify-center gap-2">Sneha <Heart size={18} className="text-rose-500 fill-rose-500 animate-pulse"/> Aman</h2>
-                     <p className="text-gold-400/60 text-xs uppercase tracking-widest font-serif">Live Messages</p>
-                 </div>
-            </div>
-            <div className="flex-grow relative overflow-hidden bg-[#fff9f0]">
-                <div ref={scrollRef} className="absolute inset-0 overflow-y-auto p-4 space-y-4 pb-32 pr-4 z-10">
-                    {messages.map((msg) => {
-                        const isSelf = msg.sender === userName;
-                        return (
-                            <div key={msg.id} className={`flex flex-col ${isSelf ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-                                {!isSelf && (
-                                    <div className="flex items-center gap-2 mb-1 ml-1">
-                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm border ${msg.isCouple ? 'bg-rose-50 text-rose-800 border-rose-200' : 'bg-stone-100 text-stone-600 border-stone-200'}`}>
-                                            {msg.isCouple ? (msg.sender.includes("Sneha") ? "S" : "A") : msg.sender.charAt(0)}
-                                        </div>
-                                        <span className={`text-xs font-bold ${msg.isCouple ? 'text-rose-700' : 'text-stone-600'}`}>{msg.sender}</span>
-                                    </div>
-                                )}
-                                <div className={`max-w-[85%] px-4 py-2.5 text-sm font-serif shadow-sm relative ${
-                                    msg.type === 'sticker' ? 'bg-transparent shadow-none border-none p-0' :
-                                    isSelf ? 'bg-[#4a0e11] text-gold-100 rounded-2xl rounded-tr-none' : 
-                                    msg.isCouple ? 'bg-gradient-to-br from-rose-50 to-white text-rose-900 rounded-2xl rounded-tl-none border border-rose-200' : 
-                                    'bg-white text-stone-800 rounded-2xl rounded-tl-none border border-stone-100'
-                                }`}>
-                                    {msg.type === 'sticker' && msg.stickerKey && STICKER_MAP[msg.stickerKey] ? (
-                                        <div className="w-32 h-32 animate-in zoom-in-50 spring-duration-300">{STICKER_MAP[msg.stickerKey]}</div>
-                                    ) : (
-                                        <p className="leading-relaxed">{msg.text}</p>
-                                    )}
-                                    {isSelf && msg.type !== 'sticker' && <div className="absolute bottom-0 right-1 text-[8px] opacity-60"><Check size={10} /></div>}
-                                </div>
-                                <span className="text-[9px] text-stone-400 mt-1 mx-2 font-medium tracking-wide">{msg.timestamp}</span>
-                            </div>
-                        );
-                    })}
-                </div>
-                
-                {/* Adore Meter in Message Board */}
-                <div onClick={handleHeartClick}><AdoreMeter count={globalHeartCount} /></div>
-
-                {floatingHearts.map((h) => (
-                    <div key={h.id} className="absolute bottom-20 text-rose-500 animate-float-up pointer-events-none z-30" style={{ left: `${h.left}%` }}><Heart size={32} fill="currentColor" /></div>
-                ))}
-            </div>
-            {/* Input Area */}
-            <div className="bg-white border-t border-stone-200 p-3 pb-6 z-30 relative shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
-                {activeTab && (
-                    <div className="absolute bottom-full left-0 right-0 bg-[#fffbf5] border-t border-gold-300 h-64 shadow-2xl animate-in slide-in-from-bottom-10 z-0 flex flex-col">
-                        <div className="flex border-b border-gold-200">
-                            <button onClick={() => setActiveTab('emoji')} className={`flex-1 py-4 font-serif text-sm font-bold transition-colors ${activeTab === 'emoji' ? 'text-maroon-800 border-b-2 border-maroon-800 bg-maroon-50' : 'text-stone-400'}`}>Emojis</button>
-                            <button onClick={() => setActiveTab('sticker')} className={`flex-1 py-4 font-serif text-sm font-bold transition-colors ${activeTab === 'sticker' ? 'text-maroon-800 border-b-2 border-maroon-800 bg-maroon-50' : 'text-stone-400'}`}>Stickers</button>
-                        </div>
-                        <div className="flex-grow overflow-y-auto p-6 bg-white/50 relative overscroll-contain">
-                           {activeTab === 'sticker' ? (
-                               <div className="grid grid-cols-3 gap-6 relative z-10">
-                                   {Object.keys(STICKER_MAP).map((key, i) => (
-                                       <button key={i} onClick={() => handleSendSticker(key)} className="aspect-square p-2 hover:bg-gold-100 rounded-xl transition-colors group flex flex-col items-center justify-center gap-1">
-                                           <div className="w-20 h-20 group-hover:scale-110 transition-transform">{STICKER_MAP[key]}</div>
-                                       </button>
-                                   ))}
-                               </div>
-                           ) : (
-                               <div className="grid grid-cols-6 gap-4 text-3xl relative z-10">
-                                   {["🙏", "🎉", "❤️", "🌹", "💍", "✨", "💃", "🕺", "🥁", "🎊", "👰‍♀️", "🤵‍♂️", "🥘", "🥂", "😍", "🥰", "🔥", "👏"].map(emoji => (
-                                       <button key={emoji} onClick={() => setInputText(prev => prev + emoji)} className="p-2 hover:bg-stone-100 rounded-lg transition-colors">{emoji}</button>
-                                   ))}
-                               </div>
-                           )}
-                        </div>
-                    </div>
+        <div className={`w-full h-full flex flex-col ${isRomanticMode ? 'bg-rose-950' : 'bg-[#2d0a0d]'}`}>
+            {/* Atmosphere Layer */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                {isRomanticMode ? (
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#4a0416_0%,_transparent_100%)] opacity-60"></div>
+                ) : (
+                    <GoldDust opacity={0.3} />
                 )}
-                <div className="flex items-center gap-3 relative z-20 bg-white px-1">
-                    <button onClick={() => setActiveTab(activeTab ? null : 'sticker')} className={`p-3 rounded-full transition-colors ${activeTab ? 'bg-gold-100 text-maroon-800' : 'text-stone-400 hover:bg-stone-100'}`}><Smile size={26} /></button>
-                    <div className="flex-grow bg-stone-50 rounded-full border border-stone-200 flex items-center px-4 py-3 focus-within:border-maroon-300 focus-within:ring-2 focus-within:ring-maroon-100 transition-all">
-                        <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} onFocus={() => setActiveTab(null)} placeholder="Send your love..." className="bg-transparent border-none outline-none w-full text-base font-serif text-stone-800 placeholder-stone-400" onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}/>
+            </div>
+
+            {/* Top Bar */}
+            <div className="shrink-0 p-4 flex items-center justify-between z-20 bg-black/20 backdrop-blur-sm border-b border-white/5">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-rose-600 flex items-center justify-center text-white shadow-lg shadow-rose-900/50">
+                        <Heart size={20} fill="currentColor" className="animate-pulse" />
                     </div>
-                    {inputText.trim() ? (
-                        <button onClick={handleSendMessage} className="p-3 bg-maroon-800 text-white rounded-full hover:bg-maroon-700 transition-colors active:scale-95 shadow-lg"><Send size={24} /></button>
-                    ) : (
-                        <button onClick={handleHeartClick} className="p-3 bg-rose-50 text-rose-500 rounded-full hover:bg-rose-100 transition-colors active:scale-95 border border-rose-200 shadow-md"><Heart size={24} fill="currentColor" /></button>
-                    )}
+                    <div>
+                        <h1 className="font-heading text-gold-100 text-lg leading-none">Couple Dashboard</h1>
+                        <p className="text-rose-300 text-xs font-serif">Love is in the air</p>
+                    </div>
+                </div>
+                <div className="flex gap-2">
+                     <button onClick={handleThemeToggle} className={`p-2 rounded-full transition-colors ${isRomanticMode ? 'bg-rose-500 text-white shadow-glow-rose' : 'bg-white/10 text-stone-400'}`}>
+                         <Sparkles size={18} />
+                     </button>
+                     <button onClick={onLogout} className="p-2 rounded-full bg-white/10 text-stone-400 hover:bg-white/20">
+                         <LogOut size={18} />
+                     </button>
                 </div>
             </div>
+
+            {/* Main Content */}
+            <div className="flex-grow overflow-hidden relative z-10 bg-[#0f0505]/50">
+                 {activeTab === 'home' && (
+                     <div className="h-full p-4 overflow-y-auto space-y-4">
+                         {/* Stats Card */}
+                         <div className="bg-gradient-to-br from-rose-900 to-rose-950 p-6 rounded-2xl shadow-xl border border-rose-500/30 relative overflow-hidden">
+                             <Heart size={120} className="absolute -right-4 -bottom-4 text-rose-500/10 rotate-12" />
+                             <div className="relative z-10 text-center">
+                                 <div className="text-5xl font-heading text-white mb-1 drop-shadow-lg">{heartCount}</div>
+                                 <p className="text-rose-200 text-xs uppercase tracking-widest">Love Received</p>
+                             </div>
+                         </div>
+
+                         {/* Quick Actions */}
+                         <div className="grid grid-cols-2 gap-3">
+                              <button onClick={() => setActiveTab('chat')} className="p-4 bg-white/5 rounded-xl border border-white/10 hover:bg-white/10 transition-colors flex flex-col items-center gap-2 group">
+                                  <MessageSquare size={24} className="text-blue-400 group-hover:scale-110 transition-transform" />
+                                  <span className="text-xs font-bold text-stone-300">Guestbook</span>
+                              </button>
+                              <button onClick={() => setActiveTab('gallery')} className="p-4 bg-white/5 rounded-xl border border-white/10 hover:bg-white/10 transition-colors flex flex-col items-center gap-2 group">
+                                  <Camera size={24} className="text-purple-400 group-hover:scale-110 transition-transform" />
+                                  <span className="text-xs font-bold text-stone-300">Memories</span>
+                              </button>
+                         </div>
+
+                         {/* Location Map Mini View */}
+                         <div className="h-48 bg-stone-900 rounded-xl border border-white/10 overflow-hidden relative">
+                             <div className="absolute inset-0 opacity-30 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
+                             <div className="absolute inset-0 flex items-center justify-center">
+                                 <div className="w-32 h-32 rounded-full border-4 border-rose-500/30 flex items-center justify-center animate-pulse">
+                                     <div className="w-4 h-4 bg-rose-500 rounded-full shadow-[0_0_20px_rgba(244,63,94,0.8)]"></div>
+                                 </div>
+                             </div>
+                             <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold text-white border border-white/10 flex items-center gap-2">
+                                 <Users size={12} /> {Object.keys(activeUsers).length} Active Guests
+                             </div>
+                         </div>
+                     </div>
+                 )}
+                 
+                 {activeTab === 'chat' && renderChat()}
+                 {activeTab === 'gallery' && renderGallery()}
+                 
+                 {activeTab === 'music' && (
+                     !spotifyConnected ? (
+                         <div className="h-full flex flex-col items-center justify-center p-8 text-center animate-fade-in">
+                             <div className="w-24 h-24 bg-[#1DB954] rounded-full flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(29,185,84,0.4)] animate-float">
+                                 <Music size={48} className="text-black" />
+                             </div>
+                             <h2 className="text-2xl font-heading text-white mb-2">Set the Mood</h2>
+                             <p className="text-stone-400 text-sm mb-8 max-w-xs">Connect your Spotify account to curate the wedding playlist and let guests vibe with you.</p>
+                             <button 
+                                onClick={handleSpotifyConnect}
+                                className="bg-[#1DB954] text-black font-bold px-8 py-4 rounded-full shadow-lg hover:scale-105 transition-transform flex items-center gap-3"
+                             >
+                                 <Wifi size={20} /> Connect Spotify
+                             </button>
+                         </div>
+                     ) : renderSpotifyView()
+                 )}
+            </div>
+
+            {/* Bottom Nav */}
+            <div className="shrink-0 bg-black/40 backdrop-blur-xl border-t border-white/10 p-2">
+                <div className="flex justify-around items-center">
+                     {[
+                         { id: 'home', icon: Home, label: 'Home' },
+                         { id: 'chat', icon: MessageSquare, label: 'Wishes' },
+                         { id: 'music', icon: Music, label: 'Spotify' },
+                         { id: 'gallery', icon: Camera, label: 'Gallery' },
+                     ].map(tab => (
+                         <button 
+                            key={tab.id} 
+                            onClick={() => setActiveTab(tab.id as any)}
+                            className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-all ${activeTab === tab.id ? 'text-gold-400 bg-white/5' : 'text-stone-500 hover:text-stone-300'}`}
+                         >
+                             <tab.icon size={20} className={activeTab === tab.id ? 'animate-bounce-short' : ''} />
+                             <span className="text-[9px] uppercase tracking-wider font-bold">{tab.label}</span>
+                         </button>
+                     ))}
+                </div>
+            </div>
+
+            {/* Upload Modal */}
+            {showUploadModal && (
+                <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+                     <div className="bg-[#2d0a0d] border border-white/10 rounded-2xl p-6 w-full max-w-sm text-center">
+                         <h3 className="text-xl font-heading text-gold-100 mb-4">Share a Moment</h3>
+                         <div className="h-40 border-2 border-dashed border-stone-600 rounded-xl flex flex-col items-center justify-center gap-2 mb-4 bg-black/20">
+                              <Upload size={32} className="text-stone-500" />
+                              <p className="text-xs text-stone-500">Tap to select photo</p>
+                         </div>
+                         <input type="text" placeholder="Write a caption..." className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-white text-sm mb-4 focus:border-gold-500 focus:outline-none" />
+                         <div className="flex gap-3">
+                             <button onClick={() => setShowUploadModal(false)} className="flex-1 py-3 rounded-lg border border-white/10 text-stone-400">Cancel</button>
+                             <button onClick={() => {
+                                 const newPhoto: MediaItem = {
+                                     id: Date.now().toString(),
+                                     url: 'https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                                     type: 'image',
+                                     caption: 'Just added! ❤️',
+                                     timestamp: Date.now()
+                                 };
+                                 const updatedPhotos = [newPhoto, ...photos];
+                                 setPhotos(updatedPhotos);
+                                 localStorage.setItem('wedding_gallery_media', JSON.stringify(updatedPhotos));
+                                 broadcastSync('gallery_sync', updatedPhotos);
+                                 setShowUploadModal(false);
+                             }} className="flex-1 py-3 rounded-lg bg-gold-600 text-black font-bold">Post</button>
+                         </div>
+                     </div>
+                </div>
+            )}
         </div>
     );
-};
-
-// --- Main Couple Dashboard Component ---
-
-interface CoupleDashboardProps {
-  userName: string;
-  onLogout?: () => void;
-}
-
-const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout }) => {
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
-  const [isMapOpen, setIsMapOpen] = useState(false);
-  const [showExplosion, setShowExplosion] = useState(false);
-  const [config, setConfig] = useState({ coupleName: "Sneha & Aman", date: "2025-11-26" });
-  const [activeUsers, setActiveUsers] = useState<Record<string, LocationUpdate>>({});
-  const [isRomanticMode, setIsRomanticMode] = useState(false);
-  
-  // Message & Heart State Lifted to Parent
-  const [messages, setMessages] = useState<Message[]>(() => {
-      if (typeof window === 'undefined') return [];
-      const saved = localStorage.getItem('wedding_chat_messages');
-      if (saved) {
-          try { return JSON.parse(saved); } catch (e) { console.error(e); }
-      }
-      return [
-          { id: '1', text: "So excited to see you all! Let the celebrations begin! 🎉", sender: "Sneha Gupta", isCouple: true, timestamp: "10:30 AM", type: 'text' },
-          { id: '2', text: "The excitement is real! Looking forward to celebrating with everyone.", sender: "Ravi Sharma", isCouple: false, timestamp: "10:35 AM", type: 'text' },
-          { id: '3', text: "So happy you all could make it. Your presence is the greatest gift.", sender: "Aman Gupta", isCouple: true, timestamp: "10:38 AM", type: 'text' },
-      ];
-  });
-  const [globalHeartCount, setGlobalHeartCount] = useState<number>(() => {
-      if (typeof window === 'undefined') return 0;
-      const saved = localStorage.getItem('wedding_heart_count');
-      return saved ? parseInt(saved) : 42; 
-  });
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  // Countdown state
-  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0 });
-  const [isTimeUp, setIsTimeUp] = useState(false);
-  const [manualHugTrigger, setManualHugTrigger] = useState(false);
-
-  // Music Player State
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentSongIndex, setCurrentSongIndex] = useState(0);
-  const [volume, setVolume] = useState(0.5);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [showPlaylist, setShowPlaylist] = useState(false);
-  const [playlist, setPlaylist] = useState<Song[]>(DEFAULT_PLAYLIST);
-  const audioRef = useRef<HTMLAudioElement>(null);
-
-  // --- Broadcast Channel Listener ---
-  useEffect(() => {
-      // Initial Theme Check
-      const savedTheme = localStorage.getItem('wedding_theme_mode');
-      if (savedTheme === 'romantic') setIsRomanticMode(true);
-
-      const channel = new BroadcastChannel('wedding_portal_chat');
-      channel.onmessage = (event) => {
-          const data = event.data as BroadcastEvent;
-          if (data.type === 'message') {
-              setMessages((prev) => {
-                  if (prev.some(m => m.id === data.payload.id)) return prev;
-                  return [...prev, data.payload];
-              });
-              if (!isChatOpen) {
-                  setUnreadCount(c => c + 1);
-              }
-          } else if (data.type === 'heart_update') {
-              setGlobalHeartCount(data.count);
-          } else if (data.type === 'love_explosion') {
-              setShowExplosion(true);
-              setTimeout(() => setShowExplosion(false), 3000);
-          } else if (data.type === 'theme_update') {
-              setIsRomanticMode(data.mode === 'romantic');
-          }
-      };
-      return () => channel.close();
-  }, [isChatOpen]);
-
-  useEffect(() => {
-      localStorage.setItem('wedding_chat_messages', JSON.stringify(messages));
-  }, [messages]);
-
-  useEffect(() => {
-      localStorage.setItem('wedding_heart_count', globalHeartCount.toString());
-  }, [globalHeartCount]);
-
-  useEffect(() => {
-      if (isChatOpen) setUnreadCount(0);
-  }, [isChatOpen]);
-
-  const broadcastMessage = (msg: Message) => {
-      const channel = new BroadcastChannel('wedding_portal_chat');
-      channel.postMessage({ type: 'message', payload: msg });
-      channel.close();
-  };
-
-  const broadcastHeartUpdate = (count: number) => {
-      const channel = new BroadcastChannel('wedding_portal_chat');
-      channel.postMessage({ type: 'heart_update', count });
-      channel.close();
-  };
-
-  const toggleTheme = () => {
-      const newMode = !isRomanticMode;
-      setIsRomanticMode(newMode);
-      localStorage.setItem('wedding_theme_mode', newMode ? 'romantic' : 'default');
-      
-      const channel = new BroadcastChannel('wedding_portal_chat');
-      channel.postMessage({ type: 'theme_update', mode: newMode ? 'romantic' : 'default' });
-      channel.close();
-  };
-
-  const handleSendMessage = (text: string, type: 'text' | 'sticker') => {
-      const isCoupleUser = true;
-      const newMessage: Message = {
-          id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-          text: type === 'text' ? text : undefined,
-          stickerKey: type === 'sticker' ? text : undefined,
-          sender: userName,
-          isCouple: isCoupleUser,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          type: type
-      };
-      setMessages(prev => [...prev, newMessage]);
-      broadcastMessage(newMessage);
-  };
-
-  const triggerHeart = () => {
-      const newCount = globalHeartCount + 1;
-      setGlobalHeartCount(newCount);
-      broadcastHeartUpdate(newCount);
-  };
-
-  useEffect(() => {
-      const savedConfig = localStorage.getItem('wedding_global_config');
-      if (savedConfig) {
-          setConfig(JSON.parse(savedConfig));
-      }
-  }, []);
-
-  useEffect(() => {
-      const channel = new BroadcastChannel('wedding_live_map');
-      channel.onmessage = (event) => {
-          const data = event.data as LocationUpdate;
-          if (data.type === 'location_update') {
-              setActiveUsers(prev => ({ ...prev, [data.id]: data }));
-          }
-      };
-
-      let watchId: number;
-      if (navigator.geolocation) {
-          watchId = navigator.geolocation.watchPosition(
-              (position) => {
-                   const { latitude, longitude } = position.coords;
-                   const pseudoX = (Math.abs(longitude * 10000) % 80) + 10; 
-                   const pseudoY = (Math.abs(latitude * 10000) % 80) + 10;
-                   
-                   const update: LocationUpdate = { 
-                      type: 'location_update', 
-                      id: userName, 
-                      name: userName, 
-                      x: pseudoX, y: pseudoY,
-                      lat: latitude,
-                      lng: longitude,
-                      role: 'couple',
-                      map: 'all' 
-                   };
-                   channel.postMessage(update);
-                   setActiveUsers(prev => ({ ...prev, [userName]: update }));
-              },
-              (error) => console.warn(error),
-              { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
-          );
-      }
-
-      return () => {
-          channel.close();
-          if(watchId) navigator.geolocation.clearWatch(watchId);
-      };
-  }, [userName]);
-
-  useEffect(() => {
-    if (audioRef.current) {
-        audioRef.current.volume = volume;
-    }
-  }, [volume]);
-
-  useEffect(() => {
-    if (isPlaying) {
-        audioRef.current?.play().catch(e => console.log("Playback prevented:", e));
-    } else {
-        audioRef.current?.pause();
-    }
-  }, [isPlaying, currentSongIndex]);
-
-  const togglePlay = () => setIsPlaying(!isPlaying);
-  
-  const nextSong = () => {
-      setCurrentSongIndex(prev => (prev + 1) % playlist.length);
-  };
-
-  const prevSong = () => {
-      setCurrentSongIndex(prev => (prev - 1 + playlist.length) % playlist.length);
-  };
-
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setVolume(parseFloat(e.target.value));
-  };
-
-  const handleTimeUpdate = () => {
-    if (audioRef.current) setCurrentTime(audioRef.current.currentTime);
-  };
-  
-  const handleLoadedMetadata = () => {
-    if (audioRef.current) setDuration(audioRef.current.duration);
-  };
-
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const time = parseFloat(e.target.value);
-    setCurrentTime(time);
-    if (audioRef.current) audioRef.current.currentTime = time;
-  };
-
-  const formatTime = (time: number) => {
-    if (isNaN(time)) return "0:00";
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-          const url = URL.createObjectURL(file);
-          const newSong: Song = {
-              id: Date.now().toString(),
-              title: file.name.replace(/\.[^/.]+$/, ""),
-              artist: "Custom Upload",
-              url: url,
-              cover: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-              isCustom: true
-          };
-          setPlaylist(prev => [newSong, ...prev]);
-          setCurrentSongIndex(0);
-          setIsPlaying(true);
-      }
-  };
-
-  useEffect(() => {
-    const targetDate = new Date(config.date + 'T00:00:00');
-
-    const calculateTimeLeft = () => {
-      const now = new Date();
-      const difference = +targetDate - +now;
-      if (difference > 0) {
-        setTimeLeft({
-          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-          hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
-          minutes: Math.floor((difference / 1000 / 60) % 60),
-        });
-        setIsTimeUp(false);
-      } else {
-          setIsTimeUp(true);
-          setTimeLeft({ days: 0, hours: 0, minutes: 0 });
-      }
-    };
-    calculateTimeLeft();
-    const timer = setInterval(calculateTimeLeft, 60000);
-    return () => clearInterval(timer);
-  }, [config.date]);
-
-  // This button now only sends to private chat
-  const handlePrivateLoveSignal = () => {
-      const channel = new BroadcastChannel('wedding_couple_private');
-      const loveMsg: Message = {
-          id: Date.now().toString(),
-          text: "Just thinking of you... 💖",
-          sender: userName,
-          isCouple: true,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          type: 'text'
-      };
-      channel.postMessage({ type: 'message', payload: loveMsg });
-      
-      const saved = localStorage.getItem('wedding_private_messages');
-      const prevMsgs = saved ? JSON.parse(saved) : [];
-      localStorage.setItem('wedding_private_messages', JSON.stringify([...prevMsgs, loveMsg]));
-      channel.close();
-      
-      setIsChatOpen(true);
-  };
-
-  const handlePublicLoveExplosion = () => {
-      setShowExplosion(true);
-      setTimeout(() => setShowExplosion(false), 3000);
-
-      const channel = new BroadcastChannel('wedding_portal_chat');
-      const newCount = globalHeartCount + Math.floor(Math.random() * 50) + 50;
-      setGlobalHeartCount(newCount);
-      channel.postMessage({ type: 'love_explosion', sender: userName });
-      channel.postMessage({ type: 'heart_update', count: newCount });
-      channel.close();
-  };
-
-  const handleStatusUpdate = (locationName: string, x: number, y: number) => {
-      const channel = new BroadcastChannel('wedding_live_map');
-      const update: LocationUpdate = {
-          type: 'location_update',
-          id: 'couple-main',
-          name: config.coupleName,
-          x: x,
-          y: y,
-          role: 'couple',
-          map: 'all'
-      };
-      channel.postMessage(update);
-      channel.close();
-      alert(`Status Updated: We are now at ${locationName}`);
-  };
-
-  const handleTestAnimation = () => {
-      setManualHugTrigger(true);
-      setTimeout(() => setManualHugTrigger(false), 4000);
-  }
-
-  return (
-    <div className={`w-full h-full flex flex-col relative font-serif overflow-hidden transition-all duration-1000 ${isRomanticMode ? 'bg-[radial-gradient(ellipse_at_center,_#881337_0%,_#2d0a0d_100%)] text-gold-100' : 'bg-[#fff0f5] text-[#4a0e11]'}`}>
-      {/* ... [Styles remain same] ... */}
-      <style>{`
-        @keyframes blob {
-          0% { transform: translate(0px, 0px) scale(1); }
-          33% { transform: translate(30px, -50px) scale(1.1); }
-          66% { transform: translate(-20px, 20px) scale(0.9); }
-          100% { transform: translate(0px, 0px) scale(1); }
-        }
-        .animate-blob { animation: blob 10s infinite; }
-        .animate-pulse-glow { animation: pulse-glow 2s infinite; }
-        @keyframes spin-slow-vinyl { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .animate-spin-vinyl { animation: spin-slow-vinyl 6s linear infinite; }
-        
-        /* Pulse Ring for Audio Visualizer */
-        @keyframes pulse-ring {
-          0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.7); }
-          70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(225, 29, 72, 0); }
-          100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(225, 29, 72, 0); }
-        }
-        .animate-pulse-ring {
-           animation: pulse-ring 2s cubic-bezier(0.24, 0, 0.38, 1) infinite;
-        }
-      `}</style>
-
-      {isRomanticMode ? (
-        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 animate-pulse"></div>
-            {/* Floating Petals */}
-            {Array.from({ length: 20 }).map((_, i) => (
-                 <div key={i} className="absolute -top-10 text-rose-500/30 animate-petal-fall" style={{ 
-                     left: `${Math.random()*100}%`, 
-                     animationDuration: `${6 + Math.random()*8}s`, 
-                     animationDelay: `${Math.random()*5}s`,
-                     fontSize: `${12 + Math.random() * 24}px`
-                 }}>
-                     <Flower size={24} fill="currentColor" />
-                 </div>
-            ))}
-            <div className="absolute inset-0 bg-gradient-to-t from-rose-900/60 to-transparent"></div>
-        </div>
-      ) : (
-          <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-             <GoldDust opacity={0.4} />
-          </div>
-      )}
-
-      {showExplosion && (
-          <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
-              {Array.from({ length: 50 }).map((_, i) => (
-                  <div key={i} className="absolute text-rose-500 animate-bounce" style={{ left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%`, animationDuration: `${0.5 + Math.random()}s`, fontSize: `${20 + Math.random() * 40}px` }}>💖</div>
-              ))}
-              <div className="absolute inset-0 bg-rose-500/20 animate-pulse"></div>
-          </div>
-      )}
-
-      {/* Theme Toggle */}
-      <button 
-         onClick={toggleTheme}
-         className={`absolute top-6 right-6 z-50 p-2 rounded-full shadow-xl transition-all duration-500 ${isRomanticMode ? 'bg-gold-500 text-[#4a0e11] shadow-gold-500/50' : 'bg-white text-rose-500 shadow-stone-300'}`}
-      >
-          <Flower size={20} className={isRomanticMode ? 'animate-spin-slow' : ''} />
-      </button>
-
-      <div className="flex-grow overflow-y-auto no-scrollbar relative z-10 pb-32 overscroll-contain">
-        <header className="pt-14 pb-8 text-center relative animate-in fade-in slide-in-from-top-6 duration-1000">
-            <div className="relative inline-block">
-                <h1 className={`font-cursive text-[3.5rem] drop-shadow-sm leading-tight scale-y-110 ${isRomanticMode ? 'text-transparent bg-clip-text bg-gradient-to-b from-gold-200 to-gold-500' : 'text-transparent bg-clip-text bg-gradient-to-r from-[#be123c] via-[#e11d48] to-[#be123c]'}`}>
-                    {config.coupleName}
-                </h1>
-                <div className="absolute -top-6 -right-6 text-gold-400 animate-spin-slow opacity-60"><Sparkles size={24} fill="currentColor" /></div>
-            </div>
-            <div className="flex items-center justify-center gap-3 mt-2">
-                <div className={`h-[1px] w-12 bg-gradient-to-r from-transparent ${isRomanticMode ? 'to-gold-300' : 'to-rose-300'}`}></div>
-                <p className={`font-serif text-sm tracking-[0.3em] uppercase font-light ${isRomanticMode ? 'text-gold-200' : 'text-[#9f1239]'}`}>Forever Begins Now</p>
-                <div className={`h-[1px] w-12 bg-gradient-to-l from-transparent ${isRomanticMode ? 'to-gold-300' : 'to-rose-300'}`}></div>
-            </div>
-        </header>
-
-        <div className="flex justify-center items-center gap-0 px-4 mb-10 relative perspective-1000">
-            <div className="relative w-32 h-32 -mr-4 z-10 group transition-transform hover:z-30 hover:scale-110 duration-500">
-                 <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-rose-400 to-rose-200 p-[3px] shadow-xl">
-                    <div className="w-full h-full rounded-full border-[3px] border-white overflow-hidden">
-                        <img src="https://images.unsplash.com/photo-1621184455862-c163dfb30e0f?q=80&w=1974&auto=format&fit=crop" alt="Sneha" className="w-full h-full object-cover"/>
-                    </div>
-                 </div>
-            </div>
-            <div className="relative z-20 transform -translate-y-1 animate-in zoom-in duration-700 delay-300">
-                 <button onClick={handlePrivateLoveSignal} className={`w-24 h-24 rounded-full shadow-[0_0_30px_rgba(225,29,72,0.3)] flex items-center justify-center border relative group active:scale-90 transition-transform ${isRomanticMode ? 'bg-white/10 backdrop-blur-md border-white/20' : 'bg-white/80 backdrop-blur-md border-rose-100'}`}>
-                     <div className="absolute inset-0 rounded-full border border-rose-200 animate-ping opacity-20 pointer-events-none"></div>
-                     <div className="flex flex-col items-center justify-center">
-                         <Heart size={36} strokeWidth={0} fill="#e11d48" className="text-rose-600 drop-shadow-md animate-pulse group-hover:scale-125 transition-transform" />
-                         <span className={`font-cursive text-lg leading-none mt-1 ${isRomanticMode ? 'text-gold-200' : 'text-rose-800'}`}>Click Me!</span>
-                     </div>
-                 </button>
-            </div>
-            <div className="relative w-32 h-32 -ml-4 z-10 group transition-transform hover:z-30 hover:scale-110 duration-500">
-                 <div className="absolute inset-0 rounded-full bg-gradient-to-tl from-rose-400 to-rose-200 p-[3px] shadow-xl">
-                    <div className="w-full h-full rounded-full border-[3px] border-white overflow-hidden">
-                        <img src="https://images.unsplash.com/photo-1583939003579-730e3918a45a?q=80&w=1974&auto=format&fit=crop" alt="Aman" className="w-full h-full object-cover"/>
-                    </div>
-                 </div>
-            </div>
-        </div>
-
-        {/* Quick Status Update for Map */}
-        <div className="px-5 mb-6">
-            <div className="flex items-center justify-between mb-3">
-                <h3 className={`font-serif font-bold text-sm flex items-center gap-2 ${isRomanticMode ? 'text-gold-200' : 'text-rose-900'}`}><MapPin size={16} /> Quick Status Update</h3>
-                <button onClick={() => setIsMapOpen(true)} className="text-[10px] font-bold text-rose-600 flex items-center gap-1 bg-rose-100 px-2 py-1 rounded-full hover:bg-rose-200 transition-colors"><Map size={12}/> Live Map</button>
-            </div>
-            <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                <button onClick={() => handleStatusUpdate("Stage", 50, 20)} className="bg-white border border-rose-200 rounded-full px-4 py-1.5 text-xs font-bold text-rose-700 shadow-sm whitespace-nowrap active:scale-95">At Stage</button>
-                <button onClick={() => handleStatusUpdate("Dinner", 20, 50)} className="bg-white border border-rose-200 rounded-full px-4 py-1.5 text-xs font-bold text-rose-700 shadow-sm whitespace-nowrap active:scale-95">Having Dinner</button>
-                <button onClick={() => handleStatusUpdate("Entrance", 50, 90)} className="bg-white border border-rose-200 rounded-full px-4 py-1.5 text-xs font-bold text-rose-700 shadow-sm whitespace-nowrap active:scale-95">At Entrance</button>
-                <button onClick={() => handleStatusUpdate("Mandap", 80, 50)} className="bg-white border border-rose-200 rounded-full px-4 py-1.5 text-xs font-bold text-rose-700 shadow-sm whitespace-nowrap active:scale-95">At Mandap</button>
-            </div>
-        </div>
-
-        <div className="px-5 space-y-8">
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
-                <div className="flex items-center justify-between px-2 mb-3">
-                    <h3 className={`font-serif font-bold text-lg flex items-center gap-2 ${isRomanticMode ? 'text-gold-100' : 'text-rose-900'}`}><Radio size={18} className="text-rose-500"/> Live Music</h3>
-                    <button onClick={() => setShowPlaylist(!showPlaylist)} className="text-xs font-bold bg-white/40 hover:bg-white/60 px-3 py-1 rounded-full transition-colors flex items-center gap-1 text-rose-800">
-                        <ListMusic size={14} /> {showPlaylist ? 'Hide List' : 'Playlist'}
-                    </button>
-                </div>
-                
-                <div className={`rounded-[2rem] p-5 shadow-lg relative overflow-hidden ${isRomanticMode ? 'bg-white/10 backdrop-blur-xl border border-white/10' : 'bg-white/60 backdrop-blur-xl border border-white/50'}`}>
-                    <audio 
-                       ref={audioRef} 
-                       src={playlist[currentSongIndex].url} 
-                       onEnded={nextSong}
-                       onTimeUpdate={handleTimeUpdate}
-                       onLoadedMetadata={handleLoadedMetadata} 
-                    />
-                    
-                    <div className="flex items-center gap-4 relative z-10">
-                         {/* Album Art / Visualizer */}
-                         <div className={`w-20 h-20 rounded-full border-4 border-white/80 shadow-md overflow-hidden flex-shrink-0 relative ${isPlaying ? 'animate-spin-vinyl animate-pulse-ring' : ''}`}>
-                             <img src={playlist[currentSongIndex].cover} alt="Cover" className="w-full h-full object-cover" />
-                             <div className="absolute inset-0 flex items-center justify-center">
-                                 <div className="w-4 h-4 bg-white rounded-full border border-stone-300"></div>
-                             </div>
-                         </div>
-
-                         {/* Info & Controls */}
-                         <div className="flex-grow overflow-hidden">
-                             <div className="flex justify-between items-start mb-1">
-                                 <div>
-                                     <h4 className={`font-bold text-lg leading-tight truncate pr-2 ${isRomanticMode ? 'text-white' : 'text-rose-900'}`}>{playlist[currentSongIndex].title}</h4>
-                                     <p className={`text-xs truncate ${isRomanticMode ? 'text-white/70' : 'text-rose-700/70'}`}>{playlist[currentSongIndex].artist}</p>
-                                 </div>
-                                 {isPlaying && (
-                                     <div className="flex gap-0.5 h-3 items-end">
-                                         {[1,2,3,4].map(i => <div key={i} className="w-1 bg-rose-500 animate-pulse rounded-t" style={{ height: `${Math.random() * 100}%`, animationDuration: `${0.5 + Math.random()}s` }}></div>)}
-                                     </div>
-                                 )}
-                             </div>
-                             
-                             {/* Progress Bar */}
-                             <div className="w-full px-1 mt-2 mb-1">
-                                 <input 
-                                    type="range" 
-                                    min="0" 
-                                    max={duration} 
-                                    value={currentTime} 
-                                    onChange={handleSeek}
-                                    className="w-full h-2 bg-rose-200 rounded-lg appearance-none cursor-pointer accent-rose-600"
-                                 />
-                                 <div className="flex justify-between text-[9px] font-bold text-rose-400 mt-1 font-mono">
-                                     <span>{formatTime(currentTime)}</span>
-                                     <span>{formatTime(duration)}</span>
-                                 </div>
-                             </div>
-
-                             <div className="flex items-center justify-between mt-1">
-                                 <div className="flex items-center gap-3">
-                                     <button onClick={prevSong} className="text-rose-400 hover:text-rose-600 transition-colors"><SkipBack size={20} fill="currentColor" /></button>
-                                     <button onClick={togglePlay} className="w-10 h-10 bg-rose-500 rounded-full flex items-center justify-center text-white shadow-lg hover:scale-105 active:scale-95 transition-transform">
-                                         {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
-                                     </button>
-                                     <button onClick={nextSong} className="text-rose-400 hover:text-rose-600 transition-colors"><SkipForward size={20} fill="currentColor" /></button>
-                                 </div>
-                                 
-                                 <div className="flex items-center gap-2 w-20">
-                                     {volume === 0 ? <VolumeX size={14} className="text-rose-400"/> : <Volume2 size={14} className="text-rose-400"/>}
-                                     <input 
-                                         type="range" min="0" max="1" step="0.1" value={volume} onChange={handleVolumeChange}
-                                         className="w-full h-1 bg-rose-200 rounded-lg appearance-none cursor-pointer accent-rose-500"
-                                     />
-                                 </div>
-                             </div>
-                         </div>
-                    </div>
-
-                    {/* Playlist Drawer */}
-                    {showPlaylist && (
-                        <div className="mt-4 pt-4 border-t border-rose-100 animate-in slide-in-from-top-2">
-                            <div className="mb-3">
-                                <label className="flex items-center gap-2 w-full p-2 rounded-lg border-2 border-dashed border-rose-300 hover:bg-rose-50 cursor-pointer transition-colors group justify-center">
-                                    <Upload size={16} className="text-rose-400 group-hover:text-rose-600" />
-                                    <span className="text-xs font-bold text-rose-500 group-hover:text-rose-700">Upload MP3</span>
-                                    <input type="file" accept="audio/mp3,audio/*" className="hidden" onChange={handleFileUpload} />
-                                </label>
-                            </div>
-                            <div className="max-h-40 overflow-y-auto pr-1 space-y-2 no-scrollbar">
-                                {playlist.map((song, index) => (
-                                    <button 
-                                        key={song.id}
-                                        onClick={() => { setCurrentSongIndex(index); setIsPlaying(true); }}
-                                        className={`w-full flex items-center gap-3 p-2 rounded-lg text-left transition-colors ${currentSongIndex === index ? 'bg-rose-100' : 'hover:bg-white/40'}`}
-                                    >
-                                        <div className="w-8 h-8 rounded bg-stone-200 overflow-hidden flex-shrink-0">
-                                            <img src={song.cover} className="w-full h-full object-cover" />
-                                        </div>
-                                        <div className="flex-grow min-w-0">
-                                            <p className={`text-xs font-bold truncate ${currentSongIndex === index ? 'text-rose-800' : 'text-stone-700'}`}>{song.title}</p>
-                                            <p className="text-[10px] text-stone-500 truncate">{song.artist}</p>
-                                        </div>
-                                        {currentSongIndex === index && isPlaying && <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></div>}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            <div className={`rounded-3xl p-5 shadow-lg relative overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300 ${isRomanticMode ? 'bg-white/10 backdrop-blur-md border border-white/10 text-white' : 'bg-gradient-to-r from-white to-rose-50 border border-rose-100'}`}>
-                 <div className="absolute right-0 top-0 opacity-5"><MessageSquare size={100} /></div>
-                 <div className="flex justify-between items-center mb-4 relative z-10">
-                     <h3 className={`font-serif font-bold text-lg ${isRomanticMode ? 'text-gold-100' : 'text-rose-900'}`}>Love Notes</h3>
-                     <div className="flex gap-2">
-                        {unreadCount > 0 && (
-                             <span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-1 rounded-full animate-bounce shadow-sm">{unreadCount} New</span>
-                        )}
-                        <span className="bg-rose-100 text-rose-600 text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1"><span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse"></span> Live</span>
-                     </div>
-                 </div>
-                 <button onClick={() => setIsChatOpen(true)} className="w-full mt-4 py-2.5 rounded-xl bg-rose-100 text-rose-700 text-xs font-bold hover:bg-rose-200 transition-colors flex items-center justify-center gap-2">Open Message Board <ChevronRight size={14}/></button>
-            </div>
-
-            <div className={`rounded-3xl p-6 shadow-[0_10px_30px_rgba(74,14,17,0.3)] relative overflow-hidden text-center animate-in fade-in slide-in-from-bottom-4 duration-700 delay-400 min-h-[180px] flex flex-col justify-center cursor-pointer group ${isRomanticMode ? 'bg-gradient-to-br from-rose-950 to-black border border-rose-900' : 'bg-[#4a0e11] border border-[#5e181f]'}`} onClick={handleTestAnimation}>
-                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20"></div>
-                 <div className="relative z-10">
-                      <h3 className="text-gold-100 font-heading text-lg tracking-widest mb-6">Countdown to {config.date}</h3>
-                      <div className="flex justify-between items-center max-w-xs mx-auto">
-                           {[{val: timeLeft.days, label: "Days"}, {val: timeLeft.hours, label: "Hours"}, {val: timeLeft.minutes, label: "Mins"}].map((item, i) => (
-                               <div key={i} className="flex flex-col items-center">
-                                   <div className="text-3xl font-bold text-gold-200 mb-1">{item.val}</div>
-                                   <div className="text-[10px] text-gold-400 uppercase tracking-widest">{item.label}</div>
-                               </div>
-                           ))}
-                      </div>
-                      <div className="mt-6 h-1 w-full bg-white/10 rounded-full overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-gold-600 to-gold-300 w-[75%] rounded-full"></div>
-                      </div>
-                      <div className="mt-2 text-[8px] text-gold-500/40 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Tap to preview moment</div>
-                 </div>
-                 
-                 {/* Heart Hug Animation Triggered when time is up or manually tested */}
-                 {(isTimeUp || manualHugTrigger) && <HeartHug />}
-            </div>
-        </div>
-      </div>
-
-      {/* Bottom Nav */}
-      <div className={`absolute bottom-6 left-4 right-4 rounded-2xl p-2 shadow-2xl border z-40 flex justify-between items-center animate-in slide-in-from-bottom-10 duration-1000 delay-500 ${isRomanticMode ? 'bg-black/50 backdrop-blur-xl border-white/10' : 'bg-black/80 backdrop-blur-xl border-white/10'}`}>
-           <button className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl text-rose-400 bg-white/10">
-               <Home size={20} strokeWidth={2.5} />
-               <span className="text-[9px] font-bold">Home</span>
-           </button>
-           <button onClick={() => setIsGalleryOpen(true)} className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl text-stone-400 hover:text-white transition-colors">
-               <Camera size={20} />
-               <span className="text-[9px] font-medium">Gallery</span>
-           </button>
-           
-           <div className="relative -top-8">
-               <button onClick={handlePublicLoveExplosion} className="w-14 h-14 rounded-full bg-gradient-to-br from-rose-500 to-rose-700 text-white shadow-[0_8px_20px_rgba(225,29,72,0.6)] flex items-center justify-center transform hover:scale-110 active:scale-90 transition-transform border-4 border-[#fff0f5] animate-pulse-glow">
-                   <Heart size={24} fill="currentColor" />
-               </button>
-           </div>
-
-           <button onClick={() => setIsChatOpen(true)} className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl text-stone-400 hover:text-white transition-colors">
-               <MessageSquare size={20} />
-               <span className="text-[9px] font-medium">Chat</span>
-           </button>
-           <button onClick={onLogout} className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl text-stone-400 hover:text-rose-400 transition-colors">
-               <LogOut size={20} />
-               <span className="text-[9px] font-medium">Exit</span>
-           </button>
-      </div>
-
-      <MessageBoard 
-        isOpen={isChatOpen} 
-        onClose={() => setIsChatOpen(false)} 
-        userName={userName} 
-        messages={messages} 
-        onSendMessage={handleSendMessage}
-        globalHeartCount={globalHeartCount}
-        triggerHeart={triggerHeart}
-      />
-      <PhotoGalleryView isOpen={isGalleryOpen} onClose={() => setIsGalleryOpen(false)} />
-      <LiveMapModal isOpen={isMapOpen} onClose={() => setIsMapOpen(false)} userName={userName} activeUsers={activeUsers} />
-    </div>
-  );
 };
 
 export default CoupleDashboard;

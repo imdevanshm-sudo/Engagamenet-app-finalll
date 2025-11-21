@@ -1,5 +1,6 @@
+
 import React, { useEffect, useRef, useState } from 'react';
-import { User, Sparkles, Lock, Image as ImageIcon, X, Save, Check, LogIn, Volume2, VolumeX, ChevronRight, Heart } from 'lucide-react';
+import { User, Sparkles, Lock, Image as ImageIcon, X, Save, Check, LogIn, Volume2, VolumeX, ChevronRight, Heart, Loader } from 'lucide-react';
 
 // --- Audio Utilities ---
 const isAudioMuted = () => localStorage.getItem('wedding_audio_muted') === 'true';
@@ -295,14 +296,22 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
   const [loginType, setLoginType] = useState<'guest' | 'couple'>('guest');
   const [userName, setUserName] = useState("");
   const [userPhone, setUserPhone] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-      const savedConfig = localStorage.getItem('wedding_global_config');
-      if (savedConfig) {
-          setConfig(JSON.parse(savedConfig));
-      }
-      const msg = localStorage.getItem('wedding_welcome_msg');
-      if (msg) setWelcomeMsg(msg);
+      // Listen for config updates from Admin
+      const checkConfig = () => {
+          const savedConfig = localStorage.getItem('wedding_global_config');
+          if (savedConfig) {
+              setConfig(JSON.parse(savedConfig));
+          }
+          const msg = localStorage.getItem('wedding_welcome_msg');
+          if (msg) setWelcomeMsg(msg);
+      };
+      checkConfig();
+      const interval = setInterval(checkConfig, 2000);
+      return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -365,19 +374,30 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
   const handleAdminClick = () => {
       playBellSound();
       setAdminPin("");
+      setErrorMsg("");
       setShowAdminLogin(true);
   };
 
   const handleLoginSubmit = (e: React.FormEvent) => {
       e.preventDefault();
+      setErrorMsg("");
+      setIsLoading(true);
       playBellSound();
-      if (adminPin === "2025") {
-          setShowAdminLogin(false);
-          localStorage.setItem('wedding_current_user_type', 'admin');
-          onLoginSuccess('admin', 'Admin');
-      } else {
-          alert("Incorrect PIN. Try 2025.");
-      }
+
+      // Simulate network delay for security
+      setTimeout(() => {
+          // Check against Base64 hash of '2025' (MjAyNQ==) for basic obfuscation
+          // To keep it simple yet better than plain text, we verify the hash.
+          if (btoa(adminPin) === "MjAyNQ==") {
+              setShowAdminLogin(false);
+              localStorage.setItem('wedding_current_user_type', 'admin');
+              onLoginSuccess('admin', 'Admin');
+          } else {
+              setErrorMsg("Invalid Credentials");
+              setAdminPin("");
+          }
+          setIsLoading(false);
+      }, 800);
   };
 
   const handleUserLoginOpen = (type: 'guest' | 'couple') => {
@@ -387,22 +407,41 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
     const storedPhone = localStorage.getItem(`wedding_${type}_phone`);
     setUserName(storedName || "");
     setUserPhone(storedPhone || "");
+    setErrorMsg("");
     setShowUserLogin(true);
+  };
+
+  const validatePhone = (phone: string) => {
+      // Strict 10 digit validation
+      const re = /^\d{10}$/;
+      return re.test(phone.replace(/[- ]/g, ""));
   };
 
   const handleUserLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg("");
     playBellSound();
     
     if (!userName.trim() || !userPhone.trim()) {
-      alert("Please enter both name and phone number.");
+      setErrorMsg("Please enter both name and phone number.");
       return;
     }
-    localStorage.setItem(`wedding_${loginType}_name`, userName);
-    localStorage.setItem(`wedding_${loginType}_phone`, userPhone);
-    localStorage.setItem('wedding_current_user_type', loginType);
-    setShowUserLogin(false);
-    onLoginSuccess(loginType, userName);
+
+    if (!validatePhone(userPhone)) {
+        setErrorMsg("Please enter a valid 10-digit phone number.");
+        return;
+    }
+
+    setIsLoading(true);
+
+    setTimeout(() => {
+        localStorage.setItem(`wedding_${loginType}_name`, userName);
+        localStorage.setItem(`wedding_${loginType}_phone`, userPhone);
+        localStorage.setItem('wedding_current_user_type', loginType);
+        setShowUserLogin(false);
+        onLoginSuccess(loginType, userName);
+        setIsLoading(false);
+    }, 800);
   };
 
   return (
@@ -554,13 +593,16 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
                           type="password" 
                           value={adminPin} 
                           onChange={e => setAdminPin(e.target.value)}
-                          className="w-full bg-black/40 border border-gold-500/30 rounded-lg px-4 py-3 text-center text-gold-100 tracking-[0.5em] focus:outline-none focus:border-gold-400 transition-colors"
+                          className={`w-full bg-black/40 border rounded-lg px-4 py-3 text-center text-gold-100 tracking-[0.5em] focus:outline-none focus:border-gold-400 transition-colors ${errorMsg ? 'border-red-500' : 'border-gold-500/30'}`}
                           placeholder="PIN"
                           autoFocus
                       />
+                      {errorMsg && <p className="text-red-400 text-xs animate-shake">{errorMsg}</p>}
                       <div className="flex gap-3">
                           <button type="button" onClick={() => setShowAdminLogin(false)} className="flex-1 py-2.5 rounded-lg border border-white/10 text-stone-400 hover:bg-white/5 hover:text-white transition-colors">Cancel</button>
-                          <button type="submit" className="flex-1 py-2.5 rounded-lg bg-gold-600 text-[#2d0a0d] font-bold hover:bg-gold-500 transition-colors">Unlock</button>
+                          <button type="submit" disabled={isLoading} className="flex-1 py-2.5 rounded-lg bg-gold-600 text-[#2d0a0d] font-bold hover:bg-gold-500 transition-colors flex items-center justify-center">
+                              {isLoading ? <Loader size={16} className="animate-spin" /> : "Unlock"}
+                          </button>
                       </div>
                   </form>
               </div>
@@ -600,10 +642,18 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
                               onChange={e => setUserPhone(e.target.value)}
                               className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-4 text-gold-100 focus:outline-none focus:border-gold-500/50 focus:bg-black/50 transition-all"
                               placeholder="10-digit mobile number"
+                              maxLength={10}
                           />
                       </div>
-                      <button type="submit" className="w-full bg-gradient-to-r from-rose-700 to-rose-900 text-white py-4 rounded-xl font-bold shadow-lg hover:brightness-110 transition-all active:scale-95 flex items-center justify-center gap-2 mt-4 group border border-rose-500/30">
-                          <span>Begin Journey</span> <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                      
+                      {errorMsg && <p className="text-red-400 text-xs text-center animate-shake">{errorMsg}</p>}
+
+                      <button type="submit" disabled={isLoading} className="w-full bg-gradient-to-r from-rose-700 to-rose-900 text-white py-4 rounded-xl font-bold shadow-lg hover:brightness-110 transition-all active:scale-95 flex items-center justify-center gap-2 mt-4 group border border-rose-500/30">
+                          {isLoading ? (
+                              <Loader size={20} className="animate-spin" />
+                          ) : (
+                              <><span>Begin Journey</span> <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" /></>
+                          )}
                       </button>
                   </form>
               </div>
