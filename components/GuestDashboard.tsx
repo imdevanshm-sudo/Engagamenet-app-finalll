@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Home, Calendar, MessageSquare, Heart, Camera, MapPin, Clock, 
   ChevronRight, LogOut, Sparkles, Map, Send, 
   Smile, Upload, Phone, Download, Lock, Search, ExternalLink, Contact,
-  User, Music, Info, MailCheck, X, Navigation, Share2, Check, LocateFixed, Compass, Flower
+  User, Music, Info, MailCheck, X, Navigation, Share2, Check, LocateFixed, Compass, Flower, Settings, Bell, ToggleLeft, ToggleRight, Trash2, RefreshCw, Battery, Wifi, WifiOff, Smartphone
 } from 'lucide-react';
 
 // --- Types ---
@@ -245,6 +246,151 @@ const AdoreMeter = ({ count, onTrigger }: { count: number, onTrigger: () => void
     );
 };
 
+// --- Settings View ---
+const SettingsView = ({ onClose }: { onClose: () => void }) => {
+    const [locationEnabled, setLocationEnabled] = useState(() => localStorage.getItem('wedding_setting_location') === 'true');
+    const [notificationsEnabled, setNotificationsEnabled] = useState(() => localStorage.getItem('wedding_setting_notifications') === 'true');
+    const [cameraAccess, setCameraAccess] = useState(false);
+    const [cacheSize, setCacheSize] = useState("0 MB");
+
+    useEffect(() => {
+        if ('caches' in window) {
+            caches.keys().then(keys => setCacheSize(`${keys.length * 2} MB (Est)`));
+        }
+        navigator.permissions?.query({ name: 'camera' as any }).then(status => {
+            setCameraAccess(status.state === 'granted');
+        }).catch(() => {});
+    }, []);
+
+    const toggleLocation = () => {
+        const newState = !locationEnabled;
+        setLocationEnabled(newState);
+        localStorage.setItem('wedding_setting_location', String(newState));
+    };
+
+    const toggleNotifications = () => {
+        if (!notificationsEnabled && 'Notification' in window) {
+            Notification.requestPermission().then(permission => {
+                if (permission === 'granted') {
+                    setNotificationsEnabled(true);
+                    localStorage.setItem('wedding_setting_notifications', 'true');
+                }
+            });
+        } else {
+            setNotificationsEnabled(false);
+            localStorage.setItem('wedding_setting_notifications', 'false');
+        }
+    };
+
+    const clearCache = async () => {
+        if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(key => caches.delete(key)));
+            setCacheSize("0 MB");
+            alert("Cache cleared successfully. App will reload.");
+            window.location.reload();
+        }
+    };
+
+    return (
+        <div className="h-full flex flex-col bg-[#2d0a0d] text-gold-100 p-4 pb-32 animate-fade-in">
+            <div className="flex items-center gap-3 mb-6 border-b border-white/10 pb-4">
+                <button onClick={onClose}><ChevronRight className="rotate-180" /></button>
+                <h2 className="text-xl font-heading">App Settings</h2>
+            </div>
+
+            <div className="space-y-6">
+                {/* Permissions Section */}
+                <div className="glass-deep p-4 rounded-xl space-y-4">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-white/50">Permissions & Hardware</h3>
+                    
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <MapPin size={20} className="text-rose-400" />
+                            <div>
+                                <p className="font-bold text-sm">Location Tracking</p>
+                                <p className="text-[10px] text-white/50">Enable live updates on the map</p>
+                            </div>
+                        </div>
+                        <button onClick={toggleLocation}>
+                            {locationEnabled ? <ToggleRight size={32} className="text-green-400" /> : <ToggleLeft size={32} className="text-white/30" />}
+                        </button>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <Bell size={20} className="text-gold-400" />
+                            <div>
+                                <p className="font-bold text-sm">Notifications</p>
+                                <p className="text-[10px] text-white/50">Get updates on events</p>
+                            </div>
+                        </div>
+                        <button onClick={toggleNotifications}>
+                            {notificationsEnabled ? <ToggleRight size={32} className="text-green-400" /> : <ToggleLeft size={32} className="text-white/30" />}
+                        </button>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <Camera size={20} className="text-blue-400" />
+                            <div>
+                                <p className="font-bold text-sm">Camera Access</p>
+                                <p className="text-[10px] text-white/50">{cameraAccess ? 'Granted' : 'Not Granted'}</p>
+                            </div>
+                        </div>
+                        <span className={`w-2 h-2 rounded-full ${cameraAccess ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                    </div>
+                </div>
+
+                {/* Storage & Data */}
+                <div className="glass-deep p-4 rounded-xl space-y-4">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-white/50">Storage & Data</h3>
+                    
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <Trash2 size={20} className="text-red-400" />
+                            <div>
+                                <p className="font-bold text-sm">Clear Cache</p>
+                                <p className="text-[10px] text-white/50">Used: {cacheSize}</p>
+                            </div>
+                        </div>
+                        <button onClick={clearCache} className="text-xs bg-red-900/50 border border-red-500/30 px-3 py-1 rounded text-red-200">Clear</button>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                         <div className="flex items-center gap-3">
+                            <RefreshCw size={20} className="text-blue-400" />
+                            <div>
+                                <p className="font-bold text-sm">Check for Update</p>
+                                <p className="text-[10px] text-white/50">v1.2.0</p>
+                            </div>
+                        </div>
+                         <button onClick={() => window.location.reload()} className="text-xs bg-blue-900/50 border border-blue-500/30 px-3 py-1 rounded text-blue-200">Reload</button>
+                    </div>
+                </div>
+
+                {/* Device Stats */}
+                <div className="grid grid-cols-2 gap-4">
+                     <div className="glass-deep p-3 rounded-xl flex items-center gap-3">
+                         <Battery size={20} className="text-green-400" />
+                         <div>
+                             <p className="text-[10px] text-white/50">Battery</p>
+                             <p className="text-xs font-bold">Optimized</p>
+                         </div>
+                     </div>
+                     <div className="glass-deep p-3 rounded-xl flex items-center gap-3">
+                         {navigator.onLine ? <Wifi size={20} className="text-green-400" /> : <WifiOff size={20} className="text-red-400" />}
+                         <div>
+                             <p className="text-[10px] text-white/50">Network</p>
+                             <p className="text-xs font-bold">{navigator.onLine ? 'Online' : 'Offline'}</p>
+                         </div>
+                     </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // --- Views ---
 
 const GuestBookView = ({ userName, setViewMode, messages, onSendMessage, heartCount, onHeartTrigger, isRomanticMode }: { userName: string, setViewMode: (mode: 'directory' | 'wishes') => void, messages: Message[], onSendMessage: (text: string, stickerKey?: string) => void, heartCount: number, onHeartTrigger: () => void, isRomanticMode: boolean }) => {
@@ -426,9 +572,12 @@ const MapView = ({ userName }: { userName: string }) => {
     const markersRef = useRef<Record<string, any>>({});
     const linesRef = useRef<Record<string, any>>({});
     const venuePos = [19.0436, 72.8193]; // Taj Lands End, Mumbai
+    const [isTracking, setIsTracking] = useState(() => localStorage.getItem('wedding_setting_location') === 'true');
 
-    // Setup Live Location
+    // Setup Live Location with settings check
     useEffect(() => {
+        if (!isTracking) return;
+
         const channel = new BroadcastChannel('wedding_live_map');
         
         channel.onmessage = (event) => {
@@ -459,7 +608,7 @@ const MapView = ({ userName }: { userName: string }) => {
             channel.close();
             navigator.geolocation.clearWatch(watchId);
         };
-    }, [userName]);
+    }, [userName, isTracking]);
 
     // Initialize Leaflet Map
     useEffect(() => {
@@ -498,7 +647,7 @@ const MapView = ({ userName }: { userName: string }) => {
         if (!mapInstance.current) return;
         const L = (window as any).L;
         
-        Object.values(activeUsers).forEach(user => {
+        Object.values(activeUsers).forEach((user: LocationUpdate) => {
             // Update Marker
             if (markersRef.current[user.id]) {
                 markersRef.current[user.id].setLatLng([user.lat, user.lng]);
@@ -543,8 +692,16 @@ const MapView = ({ userName }: { userName: string }) => {
         <div className="flex flex-col h-full bg-transparent">
             <div className="glass-deep p-4 text-white shadow-lg z-20 shrink-0 flex justify-between items-center border-b border-white/10">
                 <h2 className="font-serif font-bold text-xl flex items-center gap-2 text-gold-100"><Map size={20} className="text-gold-400"/> Live Map</h2>
-                <div className="text-[10px] bg-white/10 px-2 py-1 rounded border border-white/20 text-green-400 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> Updates Live
+                <div className="flex items-center gap-2">
+                     {isTracking ? (
+                         <div className="text-[10px] bg-white/10 px-2 py-1 rounded border border-white/20 text-green-400 flex items-center gap-1">
+                             <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> Sharing
+                         </div>
+                     ) : (
+                         <div className="text-[10px] bg-white/10 px-2 py-1 rounded border border-white/20 text-red-400 flex items-center gap-1">
+                             <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span> Hidden
+                         </div>
+                     )}
                 </div>
             </div>
             <div className="flex-grow relative z-10">
@@ -608,14 +765,25 @@ const MemoriesView = ({ userName }: { userName: string }) => {
         }
     };
 
+    // Camera specific handler
+    const handleCameraCapture = () => {
+        // In a real PWA on mobile, clicking a file input with capture="environment" opens camera directly.
+        fileInputRef.current?.click();
+    }
+
     return (
         <div className="flex flex-col h-full bg-transparent animate-fade-in">
              <div className="glass-deep p-4 text-white shadow-lg z-20 shrink-0 flex justify-between items-center border-b border-white/10">
                 <h2 className="font-serif font-bold text-xl flex items-center gap-2 text-gold-100"><Camera size={20} className="text-gold-400"/> Memories</h2>
-                <button onClick={() => fileInputRef.current?.click()} className="text-xs bg-gold-600 text-[#2d0a0d] px-4 py-2 rounded-full font-bold flex items-center gap-1 hover:brightness-110 transition-all shadow-[0_0_10px_rgba(234,179,8,0.3)]">
-                    <Upload size={12}/> Upload
-                </button>
-                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileSelect} />
+                <div className="flex gap-2">
+                    <button onClick={handleCameraCapture} className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-2 rounded-full font-bold flex items-center gap-1 transition-all">
+                        <Smartphone size={14} /> Cam
+                    </button>
+                    <button onClick={() => fileInputRef.current?.click()} className="text-xs bg-gold-600 text-[#2d0a0d] px-4 py-2 rounded-full font-bold flex items-center gap-1 hover:brightness-110 transition-all shadow-[0_0_10px_rgba(234,179,8,0.3)]">
+                        <Upload size={12}/> Upload
+                    </button>
+                </div>
+                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleFileSelect} />
             </div>
             <div className="flex-grow overflow-y-auto p-4 pb-32 grid grid-cols-2 gap-4 content-start">
                 {photos.map((photo, i) => (
@@ -646,7 +814,7 @@ interface GuestDashboardProps {
 }
 
 const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) => {
-  const [activeView, setActiveView] = useState<'home' | 'schedule' | 'chat' | 'gallery' | 'map'>('home');
+  const [activeView, setActiveView] = useState<'home' | 'schedule' | 'chat' | 'gallery' | 'map' | 'settings'>('home');
   const [showCelebration, setShowCelebration] = useState(false);
   const [rsvpStatus, setRsvpStatus] = useState<'yes' | 'no' | null>(null);
   const [isRomanticMode, setIsRomanticMode] = useState(false);
@@ -780,13 +948,23 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
 
       {showCelebration && <CelebrationOverlay onClose={() => setShowCelebration(false)} />}
       
-      {/* Theme Toggle */}
-      <button 
-         onClick={toggleTheme}
-         className={`absolute top-6 right-6 z-50 p-3 rounded-full shadow-2xl transition-all duration-500 glass-deep group ${isRomanticMode ? 'text-rose-400 border-rose-500/50' : 'text-stone-400 border-stone-300'}`}
-      >
-          <Flower size={20} className={`group-hover:rotate-180 transition-transform duration-700 ${isRomanticMode ? 'text-rose-400 fill-rose-900/50' : ''}`} />
-      </button>
+      {/* Top Bar Actions */}
+      <div className="absolute top-6 right-6 z-50 flex flex-col gap-3">
+        {/* Theme Toggle */}
+        <button 
+            onClick={toggleTheme}
+            className={`p-3 rounded-full shadow-2xl transition-all duration-500 glass-deep group ${isRomanticMode ? 'text-rose-400 border-rose-500/50' : 'text-stone-400 border-stone-300'}`}
+        >
+            <Flower size={20} className={`group-hover:rotate-180 transition-transform duration-700 ${isRomanticMode ? 'text-rose-400 fill-rose-900/50' : ''}`} />
+        </button>
+        {/* Settings Toggle */}
+        <button
+            onClick={() => setActiveView('settings')}
+            className={`p-3 rounded-full shadow-2xl transition-all duration-500 glass-deep group ${isRomanticMode ? 'text-gold-400 border-gold-500/50' : 'text-stone-400 border-stone-300'}`}
+        >
+            <Settings size={20} className="group-hover:rotate-90 transition-transform" />
+        </button>
+      </div>
 
       {/* Top Bar */}
       {activeView === 'home' && (
@@ -900,6 +1078,7 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
           )}
           {activeView === 'gallery' && <MemoriesView userName={userName} />}
           {activeView === 'map' && <MapView userName={userName} />}
+          {activeView === 'settings' && <SettingsView onClose={() => setActiveView('home')} />}
           
           {activeView === 'schedule' && (
               <div className="h-full overflow-y-auto p-6 pb-32 animate-fade-in">
@@ -917,51 +1096,47 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                           { title: "Mehndi Ceremony", time: "Dec 20, 4:00 PM", loc: "Poolside Gardens", icon: "🌿" },
                           { title: "Sangeet Night", time: "Dec 20, 7:30 PM", loc: "Grand Ballroom", icon: "💃" },
                           { title: "Haldi", time: "Dec 21, 10:00 AM", loc: "Courtyard", icon: "✨" },
-                          { title: "The Wedding", time: "Dec 21, 6:00 PM", loc: "Taj Lands End", icon: "💍" }
+                          { title: "The Wedding", time: "Dec 21, 6:00 PM", loc: "Grand Lawn", icon: "💍" },
                       ].map((event, i) => (
                           <div key={i} className="relative pl-8 animate-slide-up" style={{ animationDelay: `${i * 100}ms` }}>
-                              <div className={`absolute left-0 top-1 w-8 h-8 -ml-4 rounded-full shadow-lg flex items-center justify-center text-lg z-10 border-4 ${isRomanticMode ? 'bg-rose-900 border-rose-950 text-gold-200' : 'bg-white border-[#fffbf5]'}`}>
-                                  {event.icon}
-                              </div>
-                              <div className={`p-6 rounded-xl shadow-lg transition-all hover:-translate-y-1 ${
-                                  isRomanticMode 
-                                  ? 'glass-deep' 
-                                  : 'bg-white border border-stone-100 text-[#4a0e11]'
-                              }`}>
-                                  <h3 className={`font-heading text-xl mb-2 ${isRomanticMode ? 'text-gold-100' : 'text-[#4a0e11]'}`}>{event.title}</h3>
-                                  <div className={`flex flex-col gap-1.5 text-xs font-bold uppercase tracking-wider ${isRomanticMode ? 'text-white/60' : 'text-stone-500'}`}>
-                                      <span className="flex items-center gap-2"><Clock size={14} className="opacity-70"/> {event.time}</span>
-                                      <span className={`flex items-center gap-2 ${isRomanticMode ? 'text-rose-300' : 'text-rose-700'}`}><MapPin size={14}/> {event.loc}</span>
+                              <div className={`absolute left-[11px] top-0 w-3 h-3 rounded-full border-2 z-10 ${isRomanticMode ? 'bg-rose-500 border-rose-300 shadow-[0_0_10px_rgba(225,29,72,0.5)]' : 'bg-white border-stone-300'}`}></div>
+                              <div className={`p-4 rounded-xl border transition-all hover:scale-[1.02] ${isRomanticMode ? 'glass-deep border-white/10 hover:bg-white/5' : 'bg-white border-stone-100 shadow-sm'}`}>
+                                  <div className="flex justify-between items-start mb-2">
+                                      <h3 className={`font-bold ${isRomanticMode ? 'text-gold-100' : 'text-[#4a0e11]'}`}>{event.title}</h3>
+                                      <span className="text-2xl">{event.icon}</span>
                                   </div>
-                                  <button onClick={() => setActiveView('map')} className={`mt-4 text-[10px] px-4 py-2 rounded-full font-bold transition-colors border ${isRomanticMode ? 'border-white/20 hover:bg-white/10 text-white' : 'bg-stone-50 hover:bg-stone-100 text-stone-600 border-stone-100'}`}>View Location</button>
+                                  <div className={`text-xs space-y-1 ${isRomanticMode ? 'text-white/60' : 'text-stone-500'}`}>
+                                      <p className="flex items-center gap-2"><Clock size={12}/> {event.time}</p>
+                                      <p className="flex items-center gap-2"><MapPin size={12}/> {event.loc}</p>
+                                  </div>
                               </div>
                           </div>
                       ))}
                   </div>
               </div>
           )}
+
       </main>
 
-      {/* Bottom Navigation */}
-      <nav className={`absolute bottom-6 left-6 right-6 rounded-2xl p-2 shadow-[0_10px_30px_rgba(0,0,0,0.5)] border z-40 flex justify-between items-center backdrop-blur-xl ${isRomanticMode ? 'bg-black/60 border-white/10' : 'bg-black/80 border-white/10'}`}>
+      {/* Bottom Nav */}
+      <nav className={`absolute bottom-6 left-4 right-4 rounded-2xl p-2 shadow-2xl border z-40 flex justify-between items-center animate-slide-up duration-1000 delay-500 ${isRomanticMode ? 'bg-black/50 backdrop-blur-xl border-white/10' : 'bg-black/80 backdrop-blur-xl border-white/10'}`}>
            {[
-              { id: 'home', icon: Home, label: 'Home' },
-              { id: 'schedule', icon: Calendar, label: 'Events' },
-              { id: 'map', icon: Map, label: 'Map' },
-              { id: 'chat', icon: MessageSquare, label: 'Guestbook' },
+               { id: 'home', icon: Home, label: 'Home' },
+               { id: 'gallery', icon: Camera, label: 'Gallery' },
+               { id: 'chat', icon: MessageSquare, label: 'Chat' },
            ].map((item) => (
                <button 
-                  key={item.id}
-                  onClick={() => setActiveView(item.id as any)}
-                  className={`flex-1 flex flex-col items-center gap-1.5 py-2 rounded-xl transition-all duration-300 ${activeView === item.id ? 'text-gold-400 bg-white/10 shadow-inner' : 'text-white/40 hover:text-white'}`}
+                   key={item.id}
+                   onClick={() => setActiveView(item.id as any)}
+                   className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-xl transition-colors ${activeView === item.id ? 'text-rose-400 bg-white/10' : 'text-stone-400 hover:text-white'}`}
                >
-                   <item.icon size={20} strokeWidth={activeView === item.id ? 2.5 : 1.5} />
-                   <span className="text-[9px] font-medium tracking-wide">{item.label}</span>
+                   <item.icon size={20} strokeWidth={activeView === item.id ? 2.5 : 2} />
+                   <span className="text-[9px] font-bold">{item.label}</span>
                </button>
            ))}
-           <button onClick={onLogout} className="flex-1 flex flex-col items-center gap-1.5 py-2 rounded-xl text-rose-500 hover:bg-rose-900/20 transition-colors">
-               <LogOut size={20} strokeWidth={1.5} />
-               <span className="text-[9px] font-medium tracking-wide">Exit</span>
+           <button onClick={onLogout} className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl text-stone-400 hover:text-rose-400 transition-colors">
+               <LogOut size={20} />
+               <span className="text-[9px] font-medium">Exit</span>
            </button>
       </nav>
     </div>

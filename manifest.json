@@ -1,0 +1,22 @@
+
+{
+  "short_name": "WeddingPortal",
+  "name": "Royal Wedding Portal",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2830/2830501.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2830/2830501.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#2d0a0d",
+  "background_color": "#2d0a0d",
+  "orientation": "portrait"
+}

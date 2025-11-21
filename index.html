@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,6 +7,8 @@
     <meta name="theme-color" content="#2d0a0d" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="description" content="A royal wedding experience">
+    <link rel="manifest" href="/manifest.json">
     
     <!-- Cache Control for regular updates -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -70,10 +73,13 @@
               'fade-in-up': 'fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
               'slide-in-right': 'slideInRight 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
               'slide-up': 'slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              'slide-down': 'slideDown 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
               'zoom-in': 'zoomIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
               'shimmer': 'shimmer 2.5s linear infinite',
               'heartbeat': 'heartbeat 1.5s ease-in-out infinite',
               'breathe': 'breathe 5s ease-in-out infinite',
+              'celebration-fall': 'celebrationFall 4s linear forwards',
+              'sidebar-float': 'sidebarFloat 2s ease-out forwards',
             },
             keyframes: {
               float: {
@@ -92,8 +98,12 @@
                 '0%': { opacity: '0', transform: 'translateX(20px)' },
                 '100%': { opacity: '1', transform: 'translateX(0)' },
               },
-               slideUp: {
+              slideUp: {
                 '0%': { transform: 'translateY(100%)' },
+                '100%': { transform: 'translateY(0)' },
+              },
+              slideDown: {
+                '0%': { transform: 'translateY(-100%)' },
                 '100%': { transform: 'translateY(0)' },
               },
               zoomIn: {
@@ -111,6 +121,14 @@
               breathe: {
                 '0%, 100%': { transform: 'scale(1)' },
                 '50%': { transform: 'scale(1.02)' },
+              },
+              celebrationFall: {
+                '0%': { transform: 'translateY(-20px) rotate(0deg)', opacity: '1' },
+                '100%': { transform: 'translateY(100vh) rotate(720deg)', opacity: '0' }
+              },
+              sidebarFloat: {
+                '0%': { transform: 'translateY(0) translateX(0) scale(0.5)', opacity: '1' },
+                '100%': { transform: 'translateY(-100px) translateX(var(--x)) scale(1.2)', opacity: '0' }
               }
             }
           }
@@ -135,6 +153,20 @@
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       .scroll-smooth { -webkit-overflow-scrolling: touch; }
       
+      /* Global Keyframes */
+      @keyframes petal-fall {
+         0% { transform: translateY(-5vh) translateX(0) rotate(0deg) scale(var(--scale)); opacity: 0; }
+         10% { opacity: 1; }
+         90% { opacity: 1; }
+         100% { transform: translateY(105vh) translateX(20px) rotate(360deg) scale(var(--scale)); opacity: 0; }
+      }
+      .animate-petal-fall {
+         animation-name: petal-fall;
+         animation-timing-function: linear;
+         animation-iteration-count: infinite;
+         will-change: transform, opacity;
+      }
+
       /* Cinematic Overlays */
       .film-grain {
         position: fixed;
@@ -212,5 +244,18 @@
     <div class="film-grain"></div>
     <div class="vignette"></div>
     <script type="module" src="/index.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then(registration => {
+              console.log('SW registered: ', registration);
+            })
+            .catch(registrationError => {
+              console.log('SW registration failed: ', registrationError);
+            });
+        });
+      }
+    </script>
   </body>
 </html>

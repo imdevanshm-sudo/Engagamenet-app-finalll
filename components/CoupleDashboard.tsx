@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { Home, MessageSquare, Heart, Camera, X, Sparkles, Music, Gift, Smile, Send, Play, Pause, SkipForward, SkipBack, ExternalLink, LogOut, ChevronRight, Radio, Map, Navigation, Phone, Search, Compass, Globe, Plane, Hand, Plus, Minus, Users, Utensils, PhoneCall, MapPin, Lock, User, Film, Upload, Mic, ChevronLeft, LocateFixed, Volume2, VolumeX, ListMusic, Download, Check, Flower } from 'lucide-react';
+import { Home, MessageSquare, Heart, Camera, X, Sparkles, Music, Gift, Smile, Send, Play, Pause, SkipForward, SkipBack, ExternalLink, LogOut, ChevronRight, Radio, Map, Navigation, Phone, Search, Compass, Globe, Plane, Hand, Plus, Minus, Users, Utensils, PhoneCall, MapPin, Lock, User, Film, Upload, Mic, ChevronLeft, LocateFixed, Volume2, VolumeX, ListMusic, Download, Check, Flower, Smartphone } from 'lucide-react';
 
 // --- Types ---
 interface Message {
@@ -413,18 +414,19 @@ const PhotoGalleryView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
                 <button onClick={onClose} className="text-gold-400 hover:text-gold-100 bg-black/20 rounded-full p-2"><X size={24}/></button>
             </div>
             
-            {/* Hidden Input */}
+            {/* Hidden Input with Capture support */}
             <input 
                 type="file" 
                 ref={fileInputRef} 
                 className="hidden" 
                 accept="image/*"
+                capture="environment"
                 onChange={handleFileSelect}
             />
 
             <div className="p-6 pb-24 max-w-lg mx-auto">
                  <div className="bg-[#fcd34d] rounded-2xl p-4 mb-8 flex items-center justify-center gap-4 shadow-xl cursor-pointer hover:bg-[#fbbf24] transition-colors active:scale-95" onClick={triggerUpload}>
-                     <Upload size={24} className="text-[#4a0e11]"/>
+                     <Smartphone size={24} className="text-[#4a0e11]"/>
                      <span className="text-[#4a0e11] font-bold font-serif text-lg">Add New Memory</span>
                  </div>
                  <div className="grid grid-cols-2 gap-6">
