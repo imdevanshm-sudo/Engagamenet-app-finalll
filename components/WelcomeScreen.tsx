@@ -78,15 +78,17 @@ const useTilt = (ref: React.RefObject<HTMLDivElement>) => {
 // --- Visual Components ---
 
 interface ThemeConfig {
-    gradient: 'royal' | 'midnight' | 'sunset';
-    effect: 'dust' | 'petals' | 'lights' | 'none';
+    gradient: 'royal' | 'midnight' | 'sunset' | 'lavender' | 'forest';
+    effect: 'dust' | 'petals' | 'lights' | 'fireflies' | 'none';
 }
 
 // Base background colors that sit behind the artistic layers
 const THEME_BASES = {
-    royal: 'bg-[#4a0404]', // Deep Red base
-    midnight: 'bg-[#020617]', // Deepest Blue/Black base
-    sunset: 'bg-[#2a0a18]', // Dark Purple/Red base
+    royal: 'bg-[#4a0404]', 
+    midnight: 'bg-[#020617]', 
+    sunset: 'bg-[#2a0a18]',
+    lavender: 'bg-[#2e1065]',
+    forest: 'bg-[#052e16]',
 };
 
 const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
@@ -96,23 +98,14 @@ const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
             {/* --- THEME: MIDNIGHT (Cinematic Cool) --- */}
             {theme.gradient === 'midnight' && (
                 <>
-                    {/* Deep Cinematic Base */}
                     <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-[#0f172a] to-black"></div>
-                    
-                    {/* Anamorphic Lens Flares */}
                     <div className="absolute top-1/4 -left-1/2 w-[200%] h-[1px] bg-blue-400/30 blur-md rotate-[-10deg] animate-pulse-slow"></div>
                     <div className="absolute bottom-1/3 -left-1/2 w-[200%] h-[2px] bg-teal-500/20 blur-xl rotate-[5deg] animate-float"></div>
-                    
-                    {/* Nebulous Glow */}
                     <div className="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse-slow"></div>
                     <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-blue-800/20 rounded-full blur-[100px] animate-float" style={{animationDelay: '2s'}}></div>
-                    
-                    {/* Cinematic Grain */}
                     <div className="absolute inset-0 opacity-[0.04]" 
                          style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")` }}>
                     </div>
-
-                    {/* Stars */}
                     {[...Array(15)].map((_, i) => (
                         <div key={`star-${i}`} 
                              className="absolute rounded-full bg-blue-100 animate-pulse-slow"
@@ -132,33 +125,19 @@ const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
             {/* --- THEME: ROYAL (3D Romantic Red) --- */}
             {theme.gradient === 'royal' && (
                 <>
-                    {/* Deep 3D Room Effect - Radial Gradient */}
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,_#be123c_0%,_#881337_40%,_#4c0519_80%,_#000000_100%)]"></div>
-                    
-                    {/* Floating Rosy Orbs for Depth */}
                     <div className="absolute top-0 left-0 w-96 h-96 bg-rose-500/20 rounded-full blur-[100px] animate-float mix-blend-screen"></div>
                     <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-red-900/40 rounded-full blur-[120px] animate-float" style={{animationDelay: '-3s', animationDuration: '10s'}}></div>
-                    
-                    {/* Dynamic Light Beam */}
                     <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-rose-400/10 to-transparent opacity-60 animate-pulse-slow"></div>
-                    
-                    {/* Subtle Pattern overlay */}
                     <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay"></div>
-
-                    {/* Gold Specs */}
                     {[...Array(10)].map((_, i) => (
-                        <div key={`gold-${i}`}
-                             className="absolute rounded-full bg-amber-400 animate-float"
+                        <div key={`gold-${i}`} className="absolute rounded-full bg-amber-400 animate-float"
                              style={{
-                                 left: `${Math.random() * 100}%`,
-                                 top: `${Math.random() * 100}%`,
-                                 width: `${Math.random() * 3 + 1}px`,
-                                 height: `${Math.random() * 3 + 1}px`,
-                                 opacity: Math.random() * 0.5 + 0.2,
-                                 animationDuration: `${Math.random() * 8 + 12}s`,
+                                 left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%`,
+                                 width: `${Math.random() * 3 + 1}px`, height: `${Math.random() * 3 + 1}px`,
+                                 opacity: Math.random() * 0.5 + 0.2, animationDuration: `${Math.random() * 8 + 12}s`,
                                  boxShadow: '0 0 8px 1px rgba(251, 191, 36, 0.3)'
-                             }}>
-                        </div>
+                             }}></div>
                     ))}
                 </>
             )}
@@ -168,9 +147,33 @@ const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
                 <>
                     <div className="absolute inset-0 bg-gradient-to-b from-[#4c1d95] via-[#be185d] to-[#fb923c]"></div>
                     <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/60 to-transparent"></div>
-                    {/* Clouds/Orbs */}
                     <div className="absolute top-20 left-1/4 w-72 h-72 bg-orange-500/30 rounded-full blur-[60px] animate-float"></div>
                     <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[400px] bg-pink-600/30 rounded-full blur-[80px] animate-pulse-slow"></div>
+                </>
+            )}
+
+            {/* --- THEME: LAVENDER (Soft Mist) --- */}
+            {theme.gradient === 'lavender' && (
+                <>
+                    <div className="absolute inset-0 bg-gradient-to-b from-purple-900 via-violet-950 to-black"></div>
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_#e879f9_0%,_transparent_50%)] opacity-20"></div>
+                    {[...Array(6)].map((_, i) => (
+                         <div key={`mist-${i}`} className="absolute bg-purple-400/10 rounded-full blur-[100px] animate-float"
+                              style={{
+                                  left: `${Math.random()*100}%`, top: `${Math.random()*100}%`,
+                                  width: '400px', height: '400px',
+                                  animationDelay: `${i * -2}s`, animationDuration: '15s'
+                              }}></div>
+                    ))}
+                </>
+            )}
+
+            {/* --- THEME: FOREST (Enchanted) --- */}
+            {theme.gradient === 'forest' && (
+                <>
+                    <div className="absolute inset-0 bg-gradient-to-b from-emerald-900 via-[#022c22] to-black"></div>
+                    <div className="absolute top-[-20%] left-[-10%] w-[800px] h-[800px] bg-teal-600/10 rounded-full blur-[120px]"></div>
+                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/wood-pattern.png')] opacity-10 mix-blend-overlay"></div>
                 </>
             )}
 
@@ -180,12 +183,9 @@ const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
                      {theme.effect === 'petals' && [...Array(12)].map((_, i) => (
                          <div key={`petal-${i}`} className="absolute bg-rose-300/40 rounded-[100%_0%_100%_0%] animate-float shadow-sm"
                               style={{
-                                  left: `${Math.random() * 100}%`,
-                                  top: `${Math.random() * 120}%`,
-                                  width: `${Math.random() * 15 + 8}px`,
-                                  height: `${Math.random() * 15 + 8}px`,
-                                  animationDuration: `${Math.random() * 10 + 15}s`,
-                                  animationDelay: `${Math.random() * -5}s`,
+                                  left: `${Math.random() * 100}%`, top: `${Math.random() * 120}%`,
+                                  width: `${Math.random() * 15 + 8}px`, height: `${Math.random() * 15 + 8}px`,
+                                  animationDuration: `${Math.random() * 10 + 15}s`, animationDelay: `${Math.random() * -5}s`,
                                   transform: `rotate(${Math.random() * 360}deg)`
                               }}></div>
                      ))}
@@ -195,6 +195,14 @@ const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
                      {theme.effect === 'lights' && (
                          <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-50 animate-shimmer" style={{ backgroundSize: '200% 200%' }}></div>
                      )}
+                     {theme.effect === 'fireflies' && [...Array(25)].map((_, i) => (
+                         <div key={`fly-${i}`} className="absolute bg-yellow-300 rounded-full animate-float shadow-[0_0_8px_2px_rgba(253,224,71,0.4)]"
+                              style={{
+                                  left: `${Math.random()*100}%`, top: `${Math.random()*100}%`,
+                                  width: `${Math.random()*3+1}px`, height: `${Math.random()*3+1}px`,
+                                  animationDuration: `${Math.random()*5+5}s`, opacity: Math.random() * 0.8
+                              }}></div>
+                     ))}
                 </div>
             )}
         </div>
@@ -464,7 +472,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
             className="relative w-72 h-72 sm:w-80 sm:h-80 my-8 flex-shrink-0"
             style={{ transform: cardTransform, transition: 'transform 0.1s ease-out', transformStyle: 'preserve-3d' }}
           >
-             <div className={`absolute inset-0 blur-[60px] rounded-full transform translate-z-[-50px] animate-pulse-slow ${theme.gradient === 'midnight' ? 'bg-blue-600/40' : theme.gradient === 'sunset' ? 'bg-orange-500/40' : 'bg-passion-600/40'}`}></div>
+             <div className={`absolute inset-0 blur-[60px] rounded-full transform translate-z-[-50px] animate-pulse-slow ${theme.gradient === 'midnight' ? 'bg-blue-600/40' : theme.gradient === 'sunset' ? 'bg-orange-500/40' : theme.gradient === 'lavender' ? 'bg-purple-600/40' : theme.gradient === 'forest' ? 'bg-emerald-600/40' : 'bg-passion-600/40'}`}></div>
              
              <div className="absolute -inset-6 border border-pink-500/20 rounded-full animate-spin-slow pointer-events-none"></div>
 
@@ -542,7 +550,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
 
       {showUserLogin && (
           <div className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 animate-fade-in">
-              <div className={`bg-gradient-to-b p-8 rounded-3xl w-full max-w-sm relative animate-slide-up border border-white/20 shadow-2xl ${theme.gradient === 'midnight' ? 'from-blue-950 to-black' : 'from-passion-900 to-black'}`}>
+              <div className={`bg-gradient-to-b p-8 rounded-3xl w-full max-w-sm relative animate-slide-up border border-white/20 shadow-2xl ${theme.gradient === 'midnight' ? 'from-blue-950 to-black' : theme.gradient === 'forest' ? 'from-emerald-900 to-black' : 'from-passion-900 to-black'}`}>
                   <button onClick={() => setShowUserLogin(false)} className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors"><X size={24} /></button>
                   
                   <div className="text-center mb-8">

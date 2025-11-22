@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Home, MessageSquare, Heart, Camera, LogOut, Sparkles, Send, 
   Smile, Upload, Music, Search, User, RefreshCw, X, Image as ImageIcon, Users,
-  Crown, Radio, Megaphone
+  Crown, Radio, Megaphone, MapPin, Navigation
 } from 'lucide-react';
 import { socket } from '../socket';
 
@@ -70,6 +70,14 @@ interface GuestEntry {
     joinedAt: number;
 }
 
+interface MapMarker {
+    name: string;
+    role: 'guest' | 'couple' | 'admin';
+    lat: number;
+    lng: number;
+    timestamp: number;
+}
+
 interface Song {
     title: string;
     artist: string;
@@ -77,14 +85,16 @@ interface Song {
 }
 
 interface ThemeConfig {
-    gradient: 'royal' | 'midnight' | 'sunset';
-    effect: 'dust' | 'petals' | 'lights' | 'none';
+    gradient: 'royal' | 'midnight' | 'sunset' | 'lavender' | 'forest';
+    effect: 'dust' | 'petals' | 'lights' | 'fireflies' | 'none';
 }
 
 const THEME_BASES = {
     royal: 'bg-[#4a0404]',
     midnight: 'bg-[#020617]', 
     sunset: 'bg-[#2a0a18]',
+    lavender: 'bg-[#2e1065]',
+    forest: 'bg-[#052e16]',
 };
 
 // --- Assets & Effects ---
@@ -96,23 +106,14 @@ const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
             {/* --- THEME: MIDNIGHT (Cinematic Cool) --- */}
             {theme.gradient === 'midnight' && (
                 <>
-                    {/* Deep Cinematic Base */}
                     <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-[#0f172a] to-black"></div>
-                    
-                    {/* Anamorphic Lens Flares */}
                     <div className="absolute top-1/4 -left-1/2 w-[200%] h-[1px] bg-blue-400/30 blur-md rotate-[-10deg] animate-pulse-slow"></div>
                     <div className="absolute bottom-1/3 -left-1/2 w-[200%] h-[2px] bg-teal-500/20 blur-xl rotate-[5deg] animate-float"></div>
-                    
-                    {/* Nebulous Glow */}
                     <div className="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse-slow"></div>
                     <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-blue-800/20 rounded-full blur-[100px] animate-float" style={{animationDelay: '2s'}}></div>
-                    
-                    {/* Cinematic Grain */}
                     <div className="absolute inset-0 opacity-[0.04]" 
                          style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")` }}>
                     </div>
-
-                    {/* Stars */}
                     {[...Array(15)].map((_, i) => (
                         <div key={`star-${i}`} 
                              className="absolute rounded-full bg-blue-100 animate-pulse-slow"
@@ -132,33 +133,19 @@ const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
             {/* --- THEME: ROYAL (3D Romantic Red) --- */}
             {theme.gradient === 'royal' && (
                 <>
-                    {/* Deep 3D Room Effect - Radial Gradient */}
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,_#be123c_0%,_#881337_40%,_#4c0519_80%,_#000000_100%)]"></div>
-                    
-                    {/* Floating Rosy Orbs for Depth */}
                     <div className="absolute top-0 left-0 w-96 h-96 bg-rose-500/20 rounded-full blur-[100px] animate-float mix-blend-screen"></div>
                     <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-red-900/40 rounded-full blur-[120px] animate-float" style={{animationDelay: '-3s', animationDuration: '10s'}}></div>
-                    
-                    {/* Dynamic Light Beam */}
                     <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-rose-400/10 to-transparent opacity-60 animate-pulse-slow"></div>
-                    
-                    {/* Subtle Pattern overlay */}
                     <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay"></div>
-
-                    {/* Gold Specs */}
                     {[...Array(10)].map((_, i) => (
-                        <div key={`gold-${i}`}
-                             className="absolute rounded-full bg-amber-400 animate-float"
+                        <div key={`gold-${i}`} className="absolute rounded-full bg-amber-400 animate-float"
                              style={{
-                                 left: `${Math.random() * 100}%`,
-                                 top: `${Math.random() * 100}%`,
-                                 width: `${Math.random() * 3 + 1}px`,
-                                 height: `${Math.random() * 3 + 1}px`,
-                                 opacity: Math.random() * 0.5 + 0.2,
-                                 animationDuration: `${Math.random() * 8 + 12}s`,
+                                 left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%`,
+                                 width: `${Math.random() * 3 + 1}px`, height: `${Math.random() * 3 + 1}px`,
+                                 opacity: Math.random() * 0.5 + 0.2, animationDuration: `${Math.random() * 8 + 12}s`,
                                  boxShadow: '0 0 8px 1px rgba(251, 191, 36, 0.3)'
-                             }}>
-                        </div>
+                             }}></div>
                     ))}
                 </>
             )}
@@ -168,9 +155,33 @@ const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
                 <>
                     <div className="absolute inset-0 bg-gradient-to-b from-[#4c1d95] via-[#be185d] to-[#fb923c]"></div>
                     <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/60 to-transparent"></div>
-                    {/* Clouds/Orbs */}
                     <div className="absolute top-20 left-1/4 w-72 h-72 bg-orange-500/30 rounded-full blur-[60px] animate-float"></div>
                     <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[400px] bg-pink-600/30 rounded-full blur-[80px] animate-pulse-slow"></div>
+                </>
+            )}
+
+            {/* --- THEME: LAVENDER (Soft Mist) --- */}
+            {theme.gradient === 'lavender' && (
+                <>
+                    <div className="absolute inset-0 bg-gradient-to-b from-purple-900 via-violet-950 to-black"></div>
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_#e879f9_0%,_transparent_50%)] opacity-20"></div>
+                    {[...Array(6)].map((_, i) => (
+                         <div key={`mist-${i}`} className="absolute bg-purple-400/10 rounded-full blur-[100px] animate-float"
+                              style={{
+                                  left: `${Math.random()*100}%`, top: `${Math.random()*100}%`,
+                                  width: '400px', height: '400px',
+                                  animationDelay: `${i * -2}s`, animationDuration: '15s'
+                              }}></div>
+                    ))}
+                </>
+            )}
+
+            {/* --- THEME: FOREST (Enchanted) --- */}
+            {theme.gradient === 'forest' && (
+                <>
+                    <div className="absolute inset-0 bg-gradient-to-b from-emerald-900 via-[#022c22] to-black"></div>
+                    <div className="absolute top-[-20%] left-[-10%] w-[800px] h-[800px] bg-teal-600/10 rounded-full blur-[120px]"></div>
+                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/wood-pattern.png')] opacity-10 mix-blend-overlay"></div>
                 </>
             )}
 
@@ -194,6 +205,14 @@ const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
                      {theme.effect === 'lights' && (
                          <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-50 animate-shimmer" style={{ backgroundSize: '200% 200%' }}></div>
                      )}
+                     {theme.effect === 'fireflies' && [...Array(25)].map((_, i) => (
+                         <div key={`fly-${i}`} className="absolute bg-yellow-300 rounded-full animate-float shadow-[0_0_8px_2px_rgba(253,224,71,0.4)]"
+                              style={{
+                                  left: `${Math.random()*100}%`, top: `${Math.random()*100}%`,
+                                  width: `${Math.random()*3+1}px`, height: `${Math.random()*3+1}px`,
+                                  animationDuration: `${Math.random()*5+5}s`, opacity: Math.random() * 0.8
+                              }}></div>
+                     ))}
                 </div>
             )}
         </div>
@@ -290,10 +309,11 @@ interface GuestDashboardProps {
 }
 
 const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) => {
-    const [activeTab, setActiveTab] = useState<'home' | 'chat' | 'gallery' | 'guests'>('home');
+    const [activeTab, setActiveTab] = useState<'home' | 'chat' | 'gallery' | 'guests' | 'map'>('home');
     const [messages, setMessages] = useState<Message[]>([]);
     const [gallery, setGallery] = useState<MediaItem[]>([]);
     const [guestList, setGuestList] = useState<GuestEntry[]>([]);
+    const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
     const [heartCount, setHeartCount] = useState(0);
     const [globalConfig, setGlobalConfig] = useState({ coupleName: "Sneha & Aman", date: "Nov 26" });
     const [theme, setTheme] = useState<ThemeConfig>({ gradient: 'royal', effect: 'dust' });
@@ -305,6 +325,7 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
     const [activeStickerTab, setActiveStickerTab] = useState(false);
     const chatScrollRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const mapContainerRef = useRef<HTMLDivElement>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -353,6 +374,7 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
             setGallery(state.gallery || []);
             setHeartCount(state.heartCount || 0);
             setGuestList(state.guestList || []);
+            setMapMarkers(state.mapMarkers || []);
             if(state.config) setGlobalConfig(state.config);
             if(state.theme) setTheme(state.theme);
             if(state.announcement) setAnnouncement(state.announcement);
@@ -398,6 +420,10 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                 return [...filtered, data.payload];
             });
         };
+        
+        const handleLocationUpdate = (markers: any[]) => {
+            setMapMarkers(markers);
+        };
 
         const handleAnnouncement = (data: any) => {
              setAnnouncement(data.message);
@@ -411,6 +437,7 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
         socket.on('playlist_update', handlePlaylistUpdate);
         socket.on('config_sync', handleConfigSync);
         socket.on('user_presence', handleUserPresence);
+        socket.on('location_update', handleLocationUpdate);
         socket.on('announcement', handleAnnouncement);
 
         return () => {
@@ -422,9 +449,70 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
             socket.off('playlist_update', handlePlaylistUpdate);
             socket.off('config_sync', handleConfigSync);
             socket.off('user_presence', handleUserPresence);
+            socket.off('location_update', handleLocationUpdate);
             socket.off('announcement', handleAnnouncement);
         };
     }, []);
+
+    // Map Initialization Effect
+    useEffect(() => {
+        if (activeTab === 'map' && mapContainerRef.current) {
+            const L = (window as any).L;
+            if (!L) return;
+
+            // Clean up any existing map instance on the container if we re-render
+            // We do a simple check by clearing innerHTML if we wanted to be brutal, 
+            // but Leaflet usually handles this if we track the instance. 
+            // For simplicity in this robust re-render cycle:
+            mapContainerRef.current.innerHTML = "<div id='leaflet-map' style='width:100%; height:100%;'></div>";
+            
+            const map = L.map('leaflet-map').setView([20.5937, 78.9629], 4); // Default India view
+            
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 19
+            }).addTo(map);
+
+            // Add markers
+            mapMarkers.forEach((m: MapMarker) => {
+                const isCouple = m.role === 'couple';
+                const isMe = m.name === userName;
+                
+                const iconHtml = `
+                    <div class="flex flex-col items-center">
+                        <div class="w-8 h-8 rounded-full border-2 ${isCouple ? 'border-yellow-400 bg-yellow-500 text-black' : isMe ? 'border-pink-400 bg-pink-600 text-white animate-bounce' : 'border-white bg-passion-800 text-white'} flex items-center justify-center font-bold shadow-lg">
+                           ${isCouple ? '👑' : m.name.charAt(0)}
+                        </div>
+                        <div class="bg-black/70 text-white text-[10px] px-2 py-0.5 rounded-md mt-1 whitespace-nowrap font-bold">${m.name}</div>
+                    </div>
+                `;
+
+                const icon = L.divIcon({
+                    className: 'custom-marker',
+                    html: iconHtml,
+                    iconSize: [40, 60],
+                    iconAnchor: [20, 60]
+                });
+
+                L.marker([m.lat, m.lng], { icon }).addTo(map);
+            });
+
+            // Try to center on self if available
+            const myMarker = mapMarkers.find(m => m.name === userName);
+            if (myMarker) {
+                map.setView([myMarker.lat, myMarker.lng], 15);
+            } else if (mapMarkers.length > 0) {
+                // Center on couple or first marker
+                const couple = mapMarkers.find(m => m.role === 'couple');
+                if(couple) map.setView([couple.lat, couple.lng], 15);
+            }
+
+            return () => {
+                map.remove();
+            }
+        }
+    }, [activeTab, mapMarkers]);
 
     useEffect(() => {
         if (activeTab === 'chat' && chatScrollRef.current) {
@@ -482,6 +570,32 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                 alert("Upload failed. Please try a smaller image.");
             }
             setIsUploading(false);
+        }
+    };
+
+    const handleShareLocation = () => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition((pos) => {
+                const { latitude, longitude } = pos.coords;
+                const markerData: MapMarker = {
+                    name: userName,
+                    role: 'guest',
+                    lat: latitude,
+                    lng: longitude,
+                    timestamp: Date.now()
+                };
+                // Optimistic
+                setMapMarkers(prev => {
+                    const others = prev.filter(m => m.name !== userName);
+                    return [...others, markerData];
+                });
+                socket.emit('location_share', markerData);
+                alert("Location shared with the wedding party!");
+            }, (err) => {
+                alert("Could not get location. Please allow permissions.");
+            });
+        } else {
+            alert("Geolocation is not supported by your browser.");
         }
     };
 
@@ -756,6 +870,21 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                          </div>
                      </div>
                  )}
+
+                 {/* MAP TAB */}
+                 {activeTab === 'map' && (
+                     <div className="flex-grow relative z-10 flex flex-col h-full">
+                         <div ref={mapContainerRef} className="flex-grow w-full h-full bg-black/50" style={{minHeight: '300px'}}></div>
+                         <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[1000]">
+                             <button 
+                                onClick={handleShareLocation}
+                                className="bg-pink-600 text-white px-6 py-3 rounded-full font-bold shadow-xl border border-pink-400/50 flex items-center gap-2 hover:bg-pink-500 transition-all animate-bounce"
+                             >
+                                 <Navigation size={18} /> Share Location
+                             </button>
+                         </div>
+                     </div>
+                 )}
              </main>
              
              {/* Bottom Navigation */}
@@ -763,16 +892,17 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                  {[
                      { id: 'home', icon: Home, label: 'Home' },
                      { id: 'chat', icon: MessageSquare, label: 'Chat' },
+                     { id: 'map', icon: MapPin, label: 'Map' },
                      { id: 'gallery', icon: ImageIcon, label: 'Gallery' },
                      { id: 'guests', icon: Users, label: 'Guests' },
                  ].map(item => (
                      <button 
                         key={item.id}
                         onClick={() => setActiveTab(item.id as any)}
-                        className={`flex flex-col items-center gap-1 px-4 py-2 rounded-2xl transition-all duration-300 ${activeTab === item.id ? 'bg-pink-500 text-white -translate-y-1 shadow-lg shadow-pink-500/30' : 'text-pink-400/60 hover:text-pink-200'}`}
+                        className={`flex flex-col items-center gap-1 px-3 py-2 rounded-2xl transition-all duration-300 ${activeTab === item.id ? 'bg-pink-500 text-white -translate-y-1 shadow-lg shadow-pink-500/30' : 'text-pink-400/60 hover:text-pink-200'}`}
                      >
-                         <item.icon size={22} className={activeTab === item.id ? 'animate-pulse' : ''} />
-                         <span className="text-[9px] uppercase tracking-widest font-bold">{item.label}</span>
+                         <item.icon size={20} className={activeTab === item.id ? 'animate-pulse' : ''} />
+                         <span className="text-[8px] uppercase tracking-widest font-bold">{item.label}</span>
                      </button>
                  ))}
              </nav>

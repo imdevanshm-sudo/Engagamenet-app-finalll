@@ -1,8 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Settings, MessageSquare, Home, Users, 
-  Trash2, Check, X, Save, Upload, Image as ImageIcon, Ban, Send, Megaphone, Palette, Sparkles, CloudFog, Flower, Camera, LogOut, Search
+  Trash2, Check, X, Save, Upload, Image as ImageIcon, Ban, Send, Megaphone, Palette, Sparkles, CloudFog, Flower, Camera, LogOut, Search,
+  Eye, RotateCcw, CheckCircle, MapPin
 } from 'lucide-react';
 import { socket } from '../socket';
 
@@ -61,15 +62,25 @@ interface GuestEntry {
     joinedAt: number;
 }
 
+interface MapMarker {
+    name: string;
+    role: 'guest' | 'couple' | 'admin';
+    lat: number;
+    lng: number;
+    timestamp: number;
+}
+
 interface ThemeConfig {
-    gradient: 'royal' | 'midnight' | 'sunset';
-    effect: 'dust' | 'petals' | 'lights' | 'none';
+    gradient: 'royal' | 'midnight' | 'sunset' | 'lavender' | 'forest';
+    effect: 'dust' | 'petals' | 'lights' | 'fireflies' | 'none';
 }
 
 const THEME_BASES = {
     royal: 'bg-[#4a0404]',
     midnight: 'bg-[#020617]', 
     sunset: 'bg-[#2a0a18]',
+    lavender: 'bg-[#2e1065]',
+    forest: 'bg-[#052e16]',
 };
 
 const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
@@ -79,23 +90,14 @@ const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
             {/* --- THEME: MIDNIGHT (Cinematic Cool) --- */}
             {theme.gradient === 'midnight' && (
                 <>
-                    {/* Deep Cinematic Base */}
                     <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-[#0f172a] to-black"></div>
-                    
-                    {/* Anamorphic Lens Flares */}
                     <div className="absolute top-1/4 -left-1/2 w-[200%] h-[1px] bg-blue-400/30 blur-md rotate-[-10deg] animate-pulse-slow"></div>
                     <div className="absolute bottom-1/3 -left-1/2 w-[200%] h-[2px] bg-teal-500/20 blur-xl rotate-[5deg] animate-float"></div>
-                    
-                    {/* Nebulous Glow */}
                     <div className="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse-slow"></div>
                     <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-blue-800/20 rounded-full blur-[100px] animate-float" style={{animationDelay: '2s'}}></div>
-                    
-                    {/* Cinematic Grain */}
                     <div className="absolute inset-0 opacity-[0.04]" 
                          style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")` }}>
                     </div>
-
-                    {/* Stars */}
                     {[...Array(15)].map((_, i) => (
                         <div key={`star-${i}`} 
                              className="absolute rounded-full bg-blue-100 animate-pulse-slow"
@@ -115,33 +117,19 @@ const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
             {/* --- THEME: ROYAL (3D Romantic Red) --- */}
             {theme.gradient === 'royal' && (
                 <>
-                    {/* Deep 3D Room Effect - Radial Gradient */}
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,_#be123c_0%,_#881337_40%,_#4c0519_80%,_#000000_100%)]"></div>
-                    
-                    {/* Floating Rosy Orbs for Depth */}
                     <div className="absolute top-0 left-0 w-96 h-96 bg-rose-500/20 rounded-full blur-[100px] animate-float mix-blend-screen"></div>
                     <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-red-900/40 rounded-full blur-[120px] animate-float" style={{animationDelay: '-3s', animationDuration: '10s'}}></div>
-                    
-                    {/* Dynamic Light Beam */}
                     <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-rose-400/10 to-transparent opacity-60 animate-pulse-slow"></div>
-                    
-                    {/* Subtle Pattern overlay */}
                     <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay"></div>
-
-                    {/* Gold Specs */}
                     {[...Array(10)].map((_, i) => (
-                        <div key={`gold-${i}`}
-                             className="absolute rounded-full bg-amber-400 animate-float"
+                        <div key={`gold-${i}`} className="absolute rounded-full bg-amber-400 animate-float"
                              style={{
-                                 left: `${Math.random() * 100}%`,
-                                 top: `${Math.random() * 100}%`,
-                                 width: `${Math.random() * 3 + 1}px`,
-                                 height: `${Math.random() * 3 + 1}px`,
-                                 opacity: Math.random() * 0.5 + 0.2,
-                                 animationDuration: `${Math.random() * 8 + 12}s`,
+                                 left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%`,
+                                 width: `${Math.random() * 3 + 1}px`, height: `${Math.random() * 3 + 1}px`,
+                                 opacity: Math.random() * 0.5 + 0.2, animationDuration: `${Math.random() * 8 + 12}s`,
                                  boxShadow: '0 0 8px 1px rgba(251, 191, 36, 0.3)'
-                             }}>
-                        </div>
+                             }}></div>
                     ))}
                 </>
             )}
@@ -151,9 +139,33 @@ const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
                 <>
                     <div className="absolute inset-0 bg-gradient-to-b from-[#4c1d95] via-[#be185d] to-[#fb923c]"></div>
                     <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/60 to-transparent"></div>
-                    {/* Clouds/Orbs */}
                     <div className="absolute top-20 left-1/4 w-72 h-72 bg-orange-500/30 rounded-full blur-[60px] animate-float"></div>
                     <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[400px] bg-pink-600/30 rounded-full blur-[80px] animate-pulse-slow"></div>
+                </>
+            )}
+
+            {/* --- THEME: LAVENDER (Soft Mist) --- */}
+            {theme.gradient === 'lavender' && (
+                <>
+                    <div className="absolute inset-0 bg-gradient-to-b from-purple-900 via-violet-950 to-black"></div>
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_#e879f9_0%,_transparent_50%)] opacity-20"></div>
+                    {[...Array(6)].map((_, i) => (
+                         <div key={`mist-${i}`} className="absolute bg-purple-400/10 rounded-full blur-[100px] animate-float"
+                              style={{
+                                  left: `${Math.random()*100}%`, top: `${Math.random()*100}%`,
+                                  width: '400px', height: '400px',
+                                  animationDelay: `${i * -2}s`, animationDuration: '15s'
+                              }}></div>
+                    ))}
+                </>
+            )}
+
+            {/* --- THEME: FOREST (Enchanted) --- */}
+            {theme.gradient === 'forest' && (
+                <>
+                    <div className="absolute inset-0 bg-gradient-to-b from-emerald-900 via-[#022c22] to-black"></div>
+                    <div className="absolute top-[-20%] left-[-10%] w-[800px] h-[800px] bg-teal-600/10 rounded-full blur-[120px]"></div>
+                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/wood-pattern.png')] opacity-10 mix-blend-overlay"></div>
                 </>
             )}
 
@@ -163,12 +175,9 @@ const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
                      {theme.effect === 'petals' && [...Array(12)].map((_, i) => (
                          <div key={`petal-${i}`} className="absolute bg-rose-300/40 rounded-[100%_0%_100%_0%] animate-float shadow-sm"
                               style={{
-                                  left: `${Math.random() * 100}%`,
-                                  top: `${Math.random() * 120}%`,
-                                  width: `${Math.random() * 15 + 8}px`,
-                                  height: `${Math.random() * 15 + 8}px`,
-                                  animationDuration: `${Math.random() * 10 + 15}s`,
-                                  animationDelay: `${Math.random() * -5}s`,
+                                  left: `${Math.random() * 100}%`, top: `${Math.random() * 120}%`,
+                                  width: `${Math.random() * 15 + 8}px`, height: `${Math.random() * 15 + 8}px`,
+                                  animationDuration: `${Math.random() * 10 + 15}s`, animationDelay: `${Math.random() * -5}s`,
                                   transform: `rotate(${Math.random() * 360}deg)`
                               }}></div>
                      ))}
@@ -178,6 +187,14 @@ const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
                      {theme.effect === 'lights' && (
                          <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-50 animate-shimmer" style={{ backgroundSize: '200% 200%' }}></div>
                      )}
+                     {theme.effect === 'fireflies' && [...Array(25)].map((_, i) => (
+                         <div key={`fly-${i}`} className="absolute bg-yellow-300 rounded-full animate-float shadow-[0_0_8px_2px_rgba(253,224,71,0.4)]"
+                              style={{
+                                  left: `${Math.random()*100}%`, top: `${Math.random()*100}%`,
+                                  width: `${Math.random()*3+1}px`, height: `${Math.random()*3+1}px`,
+                                  animationDuration: `${Math.random()*5+5}s`, opacity: Math.random() * 0.8
+                              }}></div>
+                     ))}
                 </div>
             )}
         </div>
@@ -185,19 +202,23 @@ const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
 };
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'guests' | 'gallery' | 'messages' | 'settings' | 'theme'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'guests' | 'gallery' | 'messages' | 'settings' | 'theme' | 'map'>('overview');
   const [config, setConfig] = useState({ coupleName: "", date: "", welcomeMsg: "", coupleImage: "" });
   const [theme, setTheme] = useState<ThemeConfig>({ gradient: 'royal', effect: 'dust' });
+  const [draftTheme, setDraftTheme] = useState<ThemeConfig>({ gradient: 'royal', effect: 'dust' });
   const [guestList, setGuestList] = useState<GuestEntry[]>([]);
+  const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
   const [msgCount, setMsgCount] = useState(0);
   const [heartCount, setHeartCount] = useState(0);
   const [messages, setMessages] = useState<any[]>([]);
   const [photos, setPhotos] = useState<MediaItem[]>([]);
   
+  const [isDirty, setIsDirty] = useState(false);
   const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
   const [editCaption, setEditCaption] = useState("");
   const [announceMsg, setAnnounceMsg] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const mapContainerRef = useRef<HTMLDivElement>(null);
 
   const handleBroadcast = () => {
       if (!announceMsg.trim()) return;
@@ -250,7 +271,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       } else {
           setConfig({ coupleName: "Sneha & Aman", date: "2025-11-26", welcomeMsg: "Join us as we begin our forever.", coupleImage: savedImage || "" });
       }
-      if (savedTheme) setTheme(JSON.parse(savedTheme));
+      if (savedTheme) {
+          const t = JSON.parse(savedTheme);
+          setTheme(t);
+          setDraftTheme(t);
+      }
 
       // Socket Sync
       socket.emit('request_sync');
@@ -261,8 +286,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
           setPhotos(state.gallery || []);
           setHeartCount(state.heartCount || 0);
           setGuestList(state.guestList || []);
+          setMapMarkers(state.mapMarkers || []);
           if(state.config) setConfig(state.config);
-          if(state.theme) setTheme(state.theme);
+          if(state.theme) {
+              setTheme(state.theme);
+              if (!isDirty) setDraftTheme(state.theme);
+          }
       };
 
       socket.on('full_sync', handleFullSync);
@@ -276,6 +305,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       socket.on('heart_update', (data) => setHeartCount(data.count));
       socket.on('gallery_sync', (data) => setPhotos(data.payload));
       socket.on('user_presence', (data) => setGuestList(prev => [...prev.filter(g => g.name !== data.payload.name), data.payload]));
+      socket.on('location_update', (markers) => setMapMarkers(markers));
       
       return () => {
           socket.off('full_sync', handleFullSync);
@@ -283,8 +313,50 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
           socket.off('heart_update');
           socket.off('gallery_sync');
           socket.off('user_presence');
+          socket.off('location_update');
       };
-  }, []);
+  }, [isDirty]);
+
+  useEffect(() => {
+      if (activeTab === 'map' && mapContainerRef.current) {
+          const L = (window as any).L;
+          if (!L) return;
+
+          mapContainerRef.current.innerHTML = "<div id='admin-map' style='width:100%; height:100%;'></div>";
+          
+          const map = L.map('admin-map').setView([20.5937, 78.9629], 4);
+          
+          L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+              maxZoom: 19
+          }).addTo(map);
+
+          mapMarkers.forEach((m: MapMarker) => {
+              const isCouple = m.role === 'couple';
+              const iconHtml = `
+                  <div class="flex flex-col items-center">
+                      <div class="w-8 h-8 rounded-full border-2 ${isCouple ? 'border-yellow-400 bg-yellow-500 text-black' : 'border-white bg-passion-800 text-white'} flex items-center justify-center font-bold shadow-lg">
+                         ${isCouple ? '👑' : m.name.charAt(0)}
+                      </div>
+                      <div class="bg-black/70 text-white text-[10px] px-2 py-0.5 rounded-md mt-1 whitespace-nowrap font-bold">${m.name}</div>
+                  </div>
+              `;
+              const icon = L.divIcon({
+                  className: 'custom-marker',
+                  html: iconHtml,
+                  iconSize: [40, 60],
+                  iconAnchor: [20, 60]
+              });
+              L.marker([m.lat, m.lng], { icon }).addTo(map);
+          });
+
+          if (mapMarkers.length > 0) {
+              const group = L.featureGroup(mapMarkers.map((m: MapMarker) => L.marker([m.lat, m.lng])));
+              map.fitBounds(group.getBounds().pad(0.2));
+          }
+
+          return () => map.remove();
+      }
+  }, [activeTab, mapMarkers]);
 
   const handleSaveConfig = () => {
       socket.emit('config_update', config);
@@ -293,11 +365,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       alert("Settings Updated!");
   };
 
-  const handleThemeUpdate = (newTheme: Partial<ThemeConfig>) => {
-      const updated = { ...theme, ...newTheme };
-      setTheme(updated);
-      socket.emit('theme_update', updated);
-      localStorage.setItem('wedding_theme_config', JSON.stringify(updated));
+  const handlePreviewTheme = (newThemeParts: Partial<ThemeConfig>) => {
+      setDraftTheme(prev => ({ ...prev, ...newThemeParts }));
+      setIsDirty(true);
+  };
+
+  const handleSaveTheme = () => {
+      setTheme(draftTheme);
+      socket.emit('theme_update', draftTheme);
+      localStorage.setItem('wedding_theme_config', JSON.stringify(draftTheme));
+      setIsDirty(false);
+  };
+
+  const handleResetTheme = () => {
+      const def = { gradient: 'royal' as const, effect: 'dust' as const };
+      setDraftTheme(def);
+      setIsDirty(true);
   };
 
   const handleClearData = () => {
@@ -349,9 +432,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const filteredGuests = guestList.filter(g => g.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
-    <div className={`w-full h-full flex flex-col font-serif text-pink-100 transition-all duration-1000 ${THEME_BASES[theme.gradient] || THEME_BASES.royal}`}>
+    <div className={`w-full h-full flex flex-col font-serif text-pink-100 transition-all duration-1000 ${THEME_BASES[draftTheme.gradient] || THEME_BASES.royal}`}>
       
-      <Atmosphere theme={theme} />
+      <Atmosphere theme={draftTheme} />
 
       {/* Header */}
       <header className="p-4 bg-black/50 backdrop-blur-md border-b border-pink-500/20 flex justify-between items-center shadow-lg z-20 relative">
@@ -375,6 +458,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
               {[
                   { id: 'overview', icon: Home, label: 'Home' },
                   { id: 'guests', icon: Users, label: 'Guests' },
+                  { id: 'map', icon: MapPin, label: 'Map' },
                   { id: 'gallery', icon: Camera, label: 'Media' },
                   { id: 'messages', icon: MessageSquare, label: 'Chat' },
                   { id: 'theme', icon: Palette, label: 'Theme' },
@@ -528,36 +612,69 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                       </div>
                   </div>
               )}
+              
+              {/* MAP TAB */}
+              {activeTab === 'map' && (
+                   <div className="flex-grow relative z-10 flex flex-col h-full">
+                       <h2 className="text-2xl font-romantic text-white drop-shadow-md mb-4">Guest Locations</h2>
+                       <div ref={mapContainerRef} className="flex-grow w-full bg-black/50 rounded-xl overflow-hidden border border-pink-500/20" style={{minHeight: '400px'}}></div>
+                   </div>
+              )}
 
               {activeTab === 'theme' && (
-                  <div className="space-y-8 animate-fade-in max-w-2xl">
-                      <h2 className="text-2xl font-romantic text-white flex items-center gap-3 drop-shadow-md">
-                          <Palette className="text-pink-500"/> Mood & Vibe
-                      </h2>
+                  <div className="space-y-8 animate-fade-in max-w-3xl pb-20">
+                      <div className="flex justify-between items-center">
+                           <h2 className="text-2xl font-romantic text-white flex items-center gap-3 drop-shadow-md">
+                              <Palette className="text-pink-500"/> Mood & Vibe
+                           </h2>
+                           <div className="flex items-center gap-3">
+                               <button 
+                                  onClick={handleResetTheme} 
+                                  className="px-4 py-2 rounded-lg border border-white/20 text-pink-200 hover:bg-white/10 hover:text-white transition-colors text-sm flex items-center gap-2"
+                               >
+                                   <RotateCcw size={14} /> Reset
+                               </button>
+                               <button 
+                                  onClick={handleSaveTheme}
+                                  disabled={!isDirty}
+                                  className={`px-6 py-2 rounded-lg font-bold flex items-center gap-2 shadow-lg transition-all ${isDirty ? 'bg-green-600 text-white hover:bg-green-500 hover:scale-105' : 'bg-white/10 text-stone-400 cursor-not-allowed'}`}
+                               >
+                                   {isDirty ? <Save size={16} /> : <CheckCircle size={16} />}
+                                   {isDirty ? 'Broadcast Changes' : 'Published'}
+                               </button>
+                           </div>
+                      </div>
                       
                       <div className="bg-white/5 p-6 rounded-xl border border-pink-500/20 shadow-xl">
-                           <h3 className="text-pink-400 font-bold text-sm uppercase tracking-widest mb-4">Artistic Theme</h3>
-                           <div className="grid grid-cols-3 gap-4">
+                           <h3 className="text-pink-400 font-bold text-sm uppercase tracking-widest mb-4">Background Theme</h3>
+                           <div className="grid grid-cols-3 sm:grid-cols-5 gap-4">
                                {[
-                                   { id: 'royal', label: 'Romantic Red (3D)', class: 'bg-[radial-gradient(circle_at_center,#be123c,#4c0519)]' },
+                                   { id: 'royal', label: 'Romantic Red', class: 'bg-[radial-gradient(circle_at_center,#be123c,#4c0519)]' },
                                    { id: 'midnight', label: 'Cinematic Cool', class: 'bg-gradient-to-br from-slate-900 via-blue-950 to-black' },
                                    { id: 'sunset', label: 'Golden Hour', class: 'bg-gradient-to-b from-[#be123c] to-[#f59e0b]' },
+                                   { id: 'lavender', label: 'Lavender Mist', class: 'bg-gradient-to-b from-purple-700 to-black' },
+                                   { id: 'forest', label: 'Enchanted Forest', class: 'bg-gradient-to-b from-emerald-800 to-black' },
                                ].map(opt => (
                                    <button 
                                         key={opt.id}
-                                        onClick={() => handleThemeUpdate({ gradient: opt.id as any })}
-                                        className={`relative h-24 rounded-lg border-2 transition-all overflow-hidden group ${theme.gradient === opt.id ? 'border-pink-500 scale-105 shadow-glow' : 'border-white/10 hover:border-white/30'}`}
+                                        onClick={() => handlePreviewTheme({ gradient: opt.id as any })}
+                                        className={`relative h-32 rounded-lg border-2 transition-all overflow-hidden group flex flex-col ${draftTheme.gradient === opt.id ? 'border-pink-500 scale-105 shadow-glow ring-2 ring-pink-500/50' : 'border-white/10 hover:border-white/30'}`}
                                    >
                                        <div className={`absolute inset-0 ${opt.class}`}></div>
-                                       {/* Preview for Midnight */}
+                                       {/* Previews */}
                                        {opt.id === 'midnight' && <div className="absolute inset-0 opacity-30 bg-[conic-gradient(from_0deg,transparent,white,transparent)] animate-spin-slow blur-md"></div>}
-                                        {/* Preview for Royal */}
                                        {opt.id === 'royal' && <div className="absolute inset-0 bg-rose-500/20 rounded-full blur-xl"></div>}
+                                       {opt.id === 'lavender' && <div className="absolute top-0 left-0 w-full h-full bg-purple-500/20 blur-lg"></div>}
                                        
-                                       <div className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-transparent transition-colors">
-                                            <span className="font-bold text-white text-sm shadow-black/50 drop-shadow-md text-center leading-tight px-2">{opt.label}</span>
+                                       <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 group-hover:bg-transparent transition-colors p-2">
+                                            <span className="font-bold text-white text-xs shadow-black/50 drop-shadow-md text-center leading-tight mb-2">{opt.label}</span>
+                                            {draftTheme.gradient !== opt.id && (
+                                                <span className="text-[10px] bg-white/20 px-2 py-1 rounded-full flex items-center gap-1 backdrop-blur-sm border border-white/20 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <Eye size={10} /> Preview
+                                                </span>
+                                            )}
                                        </div>
-                                       {theme.gradient === opt.id && (
+                                       {draftTheme.gradient === opt.id && (
                                            <div className="absolute top-2 right-2 bg-pink-500 text-white rounded-full p-0.5"><Check size={12}/></div>
                                        )}
                                    </button>
@@ -566,21 +683,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                       </div>
 
                       <div className="bg-white/5 p-6 rounded-xl border border-pink-500/20 shadow-xl">
-                           <h3 className="text-pink-400 font-bold text-sm uppercase tracking-widest mb-4">Overlay Effects</h3>
-                           <div className="grid grid-cols-4 gap-4">
+                           <h3 className="text-pink-400 font-bold text-sm uppercase tracking-widest mb-4">Atmospheric Effects</h3>
+                           <div className="grid grid-cols-5 gap-4">
                                {[
                                    { id: 'dust', label: 'Sparkle', icon: Sparkles },
                                    { id: 'petals', label: 'Petals', icon: Flower },
                                    { id: 'lights', label: 'Shimmer', icon: CloudFog },
+                                   { id: 'fireflies', label: 'Fireflies', icon: Send },
                                    { id: 'none', label: 'Clean', icon: Ban },
                                ].map(opt => (
                                    <button 
                                         key={opt.id}
-                                        onClick={() => handleThemeUpdate({ effect: opt.id as any })}
-                                        className={`flex flex-col items-center justify-center gap-3 py-6 rounded-lg border transition-all ${theme.effect === opt.id ? 'bg-white/10 border-pink-500 text-white' : 'bg-black/20 border-white/10 text-stone-400 hover:bg-white/5'}`}
+                                        onClick={() => handlePreviewTheme({ effect: opt.id as any })}
+                                        className={`flex flex-col items-center justify-center gap-3 py-6 rounded-lg border transition-all relative overflow-hidden group ${draftTheme.effect === opt.id ? 'bg-white/10 border-pink-500 text-white' : 'bg-black/20 border-white/10 text-stone-400 hover:bg-white/5'}`}
                                    >
-                                       <opt.icon size={24} className={theme.effect === opt.id ? 'text-pink-400' : ''} />
+                                       <opt.icon size={24} className={draftTheme.effect === opt.id ? 'text-pink-400' : 'group-hover:text-pink-200'} />
                                        <span className="text-xs font-bold uppercase">{opt.label}</span>
+                                       {draftTheme.effect !== opt.id && (
+                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <Eye size={16} className="text-white"/>
+                                            </div>
+                                       )}
                                    </button>
                                ))}
                            </div>
