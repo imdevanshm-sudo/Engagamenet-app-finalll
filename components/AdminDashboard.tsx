@@ -3,9 +3,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Settings, MessageSquare, Home, Users, 
   Trash2, Check, X, Save, Upload, Image as ImageIcon, Ban, Send, Megaphone, Palette, Sparkles, CloudFog, Flower, Camera, LogOut, Search,
-  Eye, RotateCcw, CheckCircle, MapPin
+  Eye, RotateCcw, CheckCircle
 } from 'lucide-react';
 import { socket } from '../socket';
+import { useTheme, ThemeConfig } from '../ThemeContext';
 
 // --- Image Resizer for LocalStorage ---
 const resizeImage = (file: File): Promise<string> => {
@@ -62,19 +63,6 @@ interface GuestEntry {
     joinedAt: number;
 }
 
-interface MapMarker {
-    name: string;
-    role: 'guest' | 'couple' | 'admin';
-    lat: number;
-    lng: number;
-    timestamp: number;
-}
-
-interface ThemeConfig {
-    gradient: 'royal' | 'midnight' | 'sunset' | 'lavender' | 'forest';
-    effect: 'dust' | 'petals' | 'lights' | 'fireflies' | 'none';
-}
-
 const THEME_BASES = {
     royal: 'bg-[#4a0404]',
     midnight: 'bg-[#020617]', 
@@ -90,45 +78,43 @@ const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
             {/* --- THEME: MIDNIGHT (Cinematic Cool) --- */}
             {theme.gradient === 'midnight' && (
                 <>
-                    <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-[#0f172a] to-black"></div>
-                    <div className="absolute top-1/4 -left-1/2 w-[200%] h-[1px] bg-blue-400/30 blur-md rotate-[-10deg] animate-pulse-slow"></div>
-                    <div className="absolute bottom-1/3 -left-1/2 w-[200%] h-[2px] bg-teal-500/20 blur-xl rotate-[5deg] animate-float"></div>
-                    <div className="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse-slow"></div>
-                    <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-blue-800/20 rounded-full blur-[100px] animate-float" style={{animationDelay: '2s'}}></div>
-                    <div className="absolute inset-0 opacity-[0.04]" 
+                    <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-[#0f172a] to-black"></div>
+                    {/* Anamorphic Lens Flares */}
+                    <div className="absolute top-1/4 -left-1/2 w-[200%] h-[2px] bg-blue-500/40 blur-sm rotate-[-12deg] animate-pulse-slow shadow-[0_0_30px_rgba(59,130,246,0.6)]"></div>
+                    <div className="absolute bottom-1/3 -left-1/2 w-[200%] h-[1px] bg-teal-400/30 blur-md rotate-[8deg] animate-float"></div>
+                    
+                    {/* Deep Glows */}
+                    <div className="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-indigo-800/20 rounded-full blur-[120px] animate-pulse-slow"></div>
+                    <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-blue-900/20 rounded-full blur-[100px] animate-float" style={{animationDelay: '2s'}}></div>
+                    
+                    {/* Cinematic Grain */}
+                    <div className="absolute inset-0 opacity-[0.07] mix-blend-overlay" 
                          style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")` }}>
                     </div>
-                    {[...Array(15)].map((_, i) => (
-                        <div key={`star-${i}`} 
-                             className="absolute rounded-full bg-blue-100 animate-pulse-slow"
-                             style={{
-                                 top: `${Math.random() * 100}%`,
-                                 left: `${Math.random() * 100}%`,
-                                 width: `${Math.random() * 2 + 1}px`,
-                                 height: `${Math.random() * 2 + 1}px`,
-                                 animationDelay: `${Math.random() * 4}s`,
-                                 opacity: Math.random() * 0.7 + 0.3
-                             }}
-                        />
-                    ))}
                 </>
             )}
 
             {/* --- THEME: ROYAL (3D Romantic Red) --- */}
             {theme.gradient === 'royal' && (
                 <>
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,_#be123c_0%,_#881337_40%,_#4c0519_80%,_#000000_100%)]"></div>
-                    <div className="absolute top-0 left-0 w-96 h-96 bg-rose-500/20 rounded-full blur-[100px] animate-float mix-blend-screen"></div>
-                    <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-red-900/40 rounded-full blur-[120px] animate-float" style={{animationDelay: '-3s', animationDuration: '10s'}}></div>
-                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-rose-400/10 to-transparent opacity-60 animate-pulse-slow"></div>
+                    {/* Deep Radial Vignette for 3D feel */}
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,_#be123c_0%,_#881337_40%,_#4c0519_80%,_#1a0105_100%)]"></div>
+                    
+                    {/* Floating Rosy Orbs */}
+                    <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-rose-600/20 rounded-full blur-[120px] animate-float mix-blend-screen"></div>
+                    <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-red-600/20 rounded-full blur-[100px] animate-float" style={{animationDelay: '-3s', animationDuration: '10s'}}></div>
+                    
+                    {/* Subtle Cube Texture for Depth */}
                     <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay"></div>
-                    {[...Array(10)].map((_, i) => (
-                        <div key={`gold-${i}`} className="absolute rounded-full bg-amber-400 animate-float"
+                    
+                    {/* Gold Embers */}
+                    {[...Array(8)].map((_, i) => (
+                        <div key={`gold-${i}`} className="absolute rounded-full bg-amber-400/60 animate-float"
                              style={{
                                  left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%`,
-                                 width: `${Math.random() * 3 + 1}px`, height: `${Math.random() * 3 + 1}px`,
-                                 opacity: Math.random() * 0.5 + 0.2, animationDuration: `${Math.random() * 8 + 12}s`,
-                                 boxShadow: '0 0 8px 1px rgba(251, 191, 36, 0.3)'
+                                 width: `${Math.random() * 4 + 1}px`, height: `${Math.random() * 4 + 1}px`,
+                                 opacity: Math.random() * 0.6 + 0.2, animationDuration: `${Math.random() * 10 + 15}s`,
+                                 boxShadow: '0 0 10px 2px rgba(251, 191, 36, 0.2)'
                              }}></div>
                     ))}
                 </>
@@ -202,12 +188,11 @@ const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
 };
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'guests' | 'gallery' | 'messages' | 'settings' | 'theme' | 'map'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'guests' | 'gallery' | 'messages' | 'settings' | 'theme'>('overview');
   const [config, setConfig] = useState({ coupleName: "", date: "", welcomeMsg: "", coupleImage: "" });
-  const [theme, setTheme] = useState<ThemeConfig>({ gradient: 'royal', effect: 'dust' });
-  const [draftTheme, setDraftTheme] = useState<ThemeConfig>({ gradient: 'royal', effect: 'dust' });
+  const { theme, setTheme } = useTheme();
+  const [draftTheme, setDraftTheme] = useState<ThemeConfig>(theme);
   const [guestList, setGuestList] = useState<GuestEntry[]>([]);
-  const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
   const [msgCount, setMsgCount] = useState(0);
   const [heartCount, setHeartCount] = useState(0);
   const [messages, setMessages] = useState<any[]>([]);
@@ -218,7 +203,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [editCaption, setEditCaption] = useState("");
   const [announceMsg, setAnnounceMsg] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const mapContainerRef = useRef<HTMLDivElement>(null);
 
   const handleBroadcast = () => {
       if (!announceMsg.trim()) return;
@@ -249,16 +233,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   useEffect(() => {
       localStorage.setItem('wedding_heart_count', heartCount.toString());
   }, [heartCount]);
-  
+
   useEffect(() => {
-      localStorage.setItem('wedding_theme_config', JSON.stringify(theme));
+      // Sync draft theme with global theme on load unless dirty
+      if (!isDirty) {
+          setDraftTheme(theme);
+      }
   }, [theme]);
 
   useEffect(() => {
       // Initial load from local storage
       const savedConfig = localStorage.getItem('wedding_global_config');
       const savedImage = localStorage.getItem('wedding_couple_image');
-      const savedTheme = localStorage.getItem('wedding_theme_config');
       
       if (savedConfig) {
           const parsed = JSON.parse(savedConfig);
@@ -271,11 +257,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       } else {
           setConfig({ coupleName: "Sneha & Aman", date: "2025-11-26", welcomeMsg: "Join us as we begin our forever.", coupleImage: savedImage || "" });
       }
-      if (savedTheme) {
-          const t = JSON.parse(savedTheme);
-          setTheme(t);
-          setDraftTheme(t);
-      }
 
       // Socket Sync
       socket.emit('request_sync');
@@ -286,12 +267,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
           setPhotos(state.gallery || []);
           setHeartCount(state.heartCount || 0);
           setGuestList(state.guestList || []);
-          setMapMarkers(state.mapMarkers || []);
           if(state.config) setConfig(state.config);
-          if(state.theme) {
-              setTheme(state.theme);
-              if (!isDirty) setDraftTheme(state.theme);
-          }
+          // Note: theme is handled by Context now
       };
 
       socket.on('full_sync', handleFullSync);
@@ -305,7 +282,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       socket.on('heart_update', (data) => setHeartCount(data.count));
       socket.on('gallery_sync', (data) => setPhotos(data.payload));
       socket.on('user_presence', (data) => setGuestList(prev => [...prev.filter(g => g.name !== data.payload.name), data.payload]));
-      socket.on('location_update', (markers) => setMapMarkers(markers));
       
       return () => {
           socket.off('full_sync', handleFullSync);
@@ -313,50 +289,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
           socket.off('heart_update');
           socket.off('gallery_sync');
           socket.off('user_presence');
-          socket.off('location_update');
       };
-  }, [isDirty]);
-
-  useEffect(() => {
-      if (activeTab === 'map' && mapContainerRef.current) {
-          const L = (window as any).L;
-          if (!L) return;
-
-          mapContainerRef.current.innerHTML = "<div id='admin-map' style='width:100%; height:100%;'></div>";
-          
-          const map = L.map('admin-map').setView([20.5937, 78.9629], 4);
-          
-          L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-              maxZoom: 19
-          }).addTo(map);
-
-          mapMarkers.forEach((m: MapMarker) => {
-              const isCouple = m.role === 'couple';
-              const iconHtml = `
-                  <div class="flex flex-col items-center">
-                      <div class="w-8 h-8 rounded-full border-2 ${isCouple ? 'border-yellow-400 bg-yellow-500 text-black' : 'border-white bg-passion-800 text-white'} flex items-center justify-center font-bold shadow-lg">
-                         ${isCouple ? '👑' : m.name.charAt(0)}
-                      </div>
-                      <div class="bg-black/70 text-white text-[10px] px-2 py-0.5 rounded-md mt-1 whitespace-nowrap font-bold">${m.name}</div>
-                  </div>
-              `;
-              const icon = L.divIcon({
-                  className: 'custom-marker',
-                  html: iconHtml,
-                  iconSize: [40, 60],
-                  iconAnchor: [20, 60]
-              });
-              L.marker([m.lat, m.lng], { icon }).addTo(map);
-          });
-
-          if (mapMarkers.length > 0) {
-              const group = L.featureGroup(mapMarkers.map((m: MapMarker) => L.marker([m.lat, m.lng])));
-              map.fitBounds(group.getBounds().pad(0.2));
-          }
-
-          return () => map.remove();
-      }
-  }, [activeTab, mapMarkers]);
+  }, []);
 
   const handleSaveConfig = () => {
       socket.emit('config_update', config);
@@ -371,9 +305,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   };
 
   const handleSaveTheme = () => {
-      setTheme(draftTheme);
-      socket.emit('theme_update', draftTheme);
-      localStorage.setItem('wedding_theme_config', JSON.stringify(draftTheme));
+      setTheme(draftTheme); // Update Context (instant local update)
+      socket.emit('theme_update', draftTheme); // Broadcast to everyone else
       setIsDirty(false);
   };
 
@@ -458,7 +391,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
               {[
                   { id: 'overview', icon: Home, label: 'Home' },
                   { id: 'guests', icon: Users, label: 'Guests' },
-                  { id: 'map', icon: MapPin, label: 'Map' },
                   { id: 'gallery', icon: Camera, label: 'Media' },
                   { id: 'messages', icon: MessageSquare, label: 'Chat' },
                   { id: 'theme', icon: Palette, label: 'Theme' },
@@ -612,14 +544,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                       </div>
                   </div>
               )}
-              
-              {/* MAP TAB */}
-              {activeTab === 'map' && (
-                   <div className="flex-grow relative z-10 flex flex-col h-full">
-                       <h2 className="text-2xl font-romantic text-white drop-shadow-md mb-4">Guest Locations</h2>
-                       <div ref={mapContainerRef} className="flex-grow w-full bg-black/50 rounded-xl overflow-hidden border border-pink-500/20" style={{minHeight: '400px'}}></div>
-                   </div>
-              )}
 
               {activeTab === 'theme' && (
                   <div className="space-y-8 animate-fade-in max-w-3xl pb-20">
@@ -649,167 +573,133 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                            <h3 className="text-pink-400 font-bold text-sm uppercase tracking-widest mb-4">Background Theme</h3>
                            <div className="grid grid-cols-3 sm:grid-cols-5 gap-4">
                                {[
-                                   { id: 'royal', label: 'Romantic Red', class: 'bg-[radial-gradient(circle_at_center,#be123c,#4c0519)]' },
-                                   { id: 'midnight', label: 'Cinematic Cool', class: 'bg-gradient-to-br from-slate-900 via-blue-950 to-black' },
-                                   { id: 'sunset', label: 'Golden Hour', class: 'bg-gradient-to-b from-[#be123c] to-[#f59e0b]' },
-                                   { id: 'lavender', label: 'Lavender Mist', class: 'bg-gradient-to-b from-purple-700 to-black' },
-                                   { id: 'forest', label: 'Enchanted Forest', class: 'bg-gradient-to-b from-emerald-800 to-black' },
-                               ].map(opt => (
+                                   { id: 'royal', label: '3D Romantic Red', class: 'bg-[radial-gradient(circle_at_center,#be123c,#4c0519_100%)]' },
+                                   { id: 'midnight', label: 'Cinematic Midnight', class: 'bg-slate-900' },
+                                   { id: 'sunset', label: 'Living Art Sunset', class: 'bg-gradient-to-br from-purple-900 to-orange-500' },
+                                   { id: 'lavender', label: 'Soft Mist Lavender', class: 'bg-purple-900' },
+                                   { id: 'forest', label: 'Enchanted Forest', class: 'bg-emerald-900' },
+                               ].map((t) => (
                                    <button 
-                                        key={opt.id}
-                                        onClick={() => handlePreviewTheme({ gradient: opt.id as any })}
-                                        className={`relative h-32 rounded-lg border-2 transition-all overflow-hidden group flex flex-col ${draftTheme.gradient === opt.id ? 'border-pink-500 scale-105 shadow-glow ring-2 ring-pink-500/50' : 'border-white/10 hover:border-white/30'}`}
+                                      key={t.id}
+                                      onClick={() => handlePreviewTheme({ gradient: t.id as any })}
+                                      className={`aspect-square rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 p-2 ${draftTheme.gradient === t.id ? 'border-white scale-105 shadow-glow' : 'border-white/10 opacity-60 hover:opacity-100'}`}
                                    >
-                                       <div className={`absolute inset-0 ${opt.class}`}></div>
-                                       {/* Previews */}
-                                       {opt.id === 'midnight' && <div className="absolute inset-0 opacity-30 bg-[conic-gradient(from_0deg,transparent,white,transparent)] animate-spin-slow blur-md"></div>}
-                                       {opt.id === 'royal' && <div className="absolute inset-0 bg-rose-500/20 rounded-full blur-xl"></div>}
-                                       {opt.id === 'lavender' && <div className="absolute top-0 left-0 w-full h-full bg-purple-500/20 blur-lg"></div>}
-                                       
-                                       <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 group-hover:bg-transparent transition-colors p-2">
-                                            <span className="font-bold text-white text-xs shadow-black/50 drop-shadow-md text-center leading-tight mb-2">{opt.label}</span>
-                                            {draftTheme.gradient !== opt.id && (
-                                                <span className="text-[10px] bg-white/20 px-2 py-1 rounded-full flex items-center gap-1 backdrop-blur-sm border border-white/20 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <Eye size={10} /> Preview
-                                                </span>
-                                            )}
-                                       </div>
-                                       {draftTheme.gradient === opt.id && (
-                                           <div className="absolute top-2 right-2 bg-pink-500 text-white rounded-full p-0.5"><Check size={12}/></div>
-                                       )}
+                                       <div className={`w-full h-full rounded-lg ${t.class} shadow-inner`}></div>
+                                       <span className="text-[9px] uppercase font-bold text-center leading-tight">{t.label}</span>
                                    </button>
                                ))}
                            </div>
                       </div>
 
                       <div className="bg-white/5 p-6 rounded-xl border border-pink-500/20 shadow-xl">
-                           <h3 className="text-pink-400 font-bold text-sm uppercase tracking-widest mb-4">Atmospheric Effects</h3>
-                           <div className="grid grid-cols-5 gap-4">
-                               {[
-                                   { id: 'dust', label: 'Sparkle', icon: Sparkles },
-                                   { id: 'petals', label: 'Petals', icon: Flower },
-                                   { id: 'lights', label: 'Shimmer', icon: CloudFog },
-                                   { id: 'fireflies', label: 'Fireflies', icon: Send },
-                                   { id: 'none', label: 'Clean', icon: Ban },
-                               ].map(opt => (
+                           <h3 className="text-pink-400 font-bold text-sm uppercase tracking-widest mb-4">Overlay Effects</h3>
+                           <div className="grid grid-cols-3 sm:grid-cols-5 gap-4">
+                               {['none', 'dust', 'petals', 'lights', 'fireflies'].map((e) => (
                                    <button 
-                                        key={opt.id}
-                                        onClick={() => handlePreviewTheme({ effect: opt.id as any })}
-                                        className={`flex flex-col items-center justify-center gap-3 py-6 rounded-lg border transition-all relative overflow-hidden group ${draftTheme.effect === opt.id ? 'bg-white/10 border-pink-500 text-white' : 'bg-black/20 border-white/10 text-stone-400 hover:bg-white/5'}`}
+                                      key={e}
+                                      onClick={() => handlePreviewTheme({ effect: e as any })}
+                                      className={`px-4 py-3 rounded-lg border transition-all text-xs font-bold uppercase tracking-wider ${draftTheme.effect === e ? 'bg-pink-600 text-white border-pink-500 shadow-glow' : 'bg-black/40 text-stone-400 border-white/10 hover:bg-white/5'}`}
                                    >
-                                       <opt.icon size={24} className={draftTheme.effect === opt.id ? 'text-pink-400' : 'group-hover:text-pink-200'} />
-                                       <span className="text-xs font-bold uppercase">{opt.label}</span>
-                                       {draftTheme.effect !== opt.id && (
-                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Eye size={16} className="text-white"/>
-                                            </div>
-                                       )}
+                                       {e}
                                    </button>
                                ))}
                            </div>
                       </div>
                   </div>
               )}
-              
-              {activeTab === 'gallery' && (
-                   <div className="space-y-6 animate-fade-in">
-                       <h2 className="text-2xl font-romantic text-white drop-shadow-md">Media Gallery</h2>
-                       <div className="grid grid-cols-3 gap-4">
-                           {photos.map(photo => (
-                               <div key={photo.id} className="relative group aspect-square rounded-lg overflow-hidden border border-white/10 bg-black/40 shadow-md">
-                                   <img src={photo.url} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" alt="Gallery" />
-                                   
-                                   {/* Overlay Controls */}
-                                   <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-2">
-                                       <button onClick={() => handleEditPhotoClick(photo)} className="text-blue-400 bg-white/10 p-2 rounded-full hover:bg-white/20"><Settings size={20}/></button>
-                                       <button onClick={() => handleDeletePhoto(photo.id)} className="text-red-400 bg-white/10 p-2 rounded-full hover:bg-white/20"><Trash2 size={20}/></button>
-                                   </div>
 
-                                   {/* Caption Display / Edit Mode */}
-                                   <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/80 min-h-[40px] flex items-center">
-                                       {editingPhotoId === photo.id ? (
-                                           <div className="flex w-full gap-1">
-                                               <input 
-                                                  type="text" 
-                                                  value={editCaption} 
-                                                  onChange={e => setEditCaption(e.target.value)} 
-                                                  className="w-full bg-white/10 border border-white/20 rounded px-1 text-[10px] text-white"
-                                                  autoFocus
-                                               />
-                                               <button onClick={() => handleSavePhotoCaption(photo.id)} className="text-green-400"><Check size={14}/></button>
-                                               <button onClick={() => setEditingPhotoId(null)} className="text-red-400"><X size={14}/></button>
-                                           </div>
-                                       ) : (
-                                           <p className="text-[10px] text-white truncate w-full text-center">{photo.caption || 'No Caption'}</p>
-                                       )}
-                                   </div>
-                               </div>
-                           ))}
-                           {photos.length === 0 && <p className="col-span-3 text-stone-500 italic">No photos shared.</p>}
-                       </div>
-                   </div>
-              )}
               {activeTab === 'settings' && (
-                  <div className="space-y-6 animate-fade-in max-w-md">
-                      <h2 className="text-2xl font-romantic text-white drop-shadow-md">Event Settings</h2>
+                  <div className="space-y-6 animate-fade-in max-w-2xl">
+                      <h2 className="text-2xl font-romantic text-white drop-shadow-md">Global Configuration</h2>
                       
-                      <div className="space-y-4">
+                      <div className="bg-white/5 p-6 rounded-xl border border-pink-500/20 shadow-lg space-y-4">
                           <div>
-                              <label className="block text-xs text-pink-400 uppercase tracking-widest mb-2">Couple Names</label>
+                              <label className="block text-xs font-bold uppercase text-pink-400 mb-2">Couple Names</label>
                               <input 
                                 type="text" 
-                                value={config.coupleName} 
+                                value={config.coupleName}
                                 onChange={e => setConfig({...config, coupleName: e.target.value})}
-                                className="w-full bg-black/30 border border-pink-500/30 rounded-lg p-3 text-white focus:border-pink-500 focus:outline-none"
+                                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-pink-500 focus:outline-none"
                               />
                           </div>
                           <div>
-                              <label className="block text-xs text-pink-400 uppercase tracking-widest mb-2">Event Date</label>
+                              <label className="block text-xs font-bold uppercase text-pink-400 mb-2">Wedding Date</label>
                               <input 
                                 type="date" 
-                                value={config.date} 
+                                value={config.date}
                                 onChange={e => setConfig({...config, date: e.target.value})}
-                                className="w-full bg-black/30 border border-pink-500/30 rounded-lg p-3 text-white focus:border-pink-500 focus:outline-none"
+                                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-pink-500 focus:outline-none"
                               />
                           </div>
-                          
                           <div>
-                              <label className="block text-xs text-pink-400 uppercase tracking-widest mb-2">Main Photo (Welcome Screen)</label>
-                              <div className="flex gap-4 items-start">
-                                  <div className="flex-grow space-y-3">
-                                      <label className="flex cursor-pointer bg-pink-600/20 border border-pink-500/30 hover:bg-pink-600/30 rounded-lg p-3 flex items-center justify-center gap-2 transition-colors group">
-                                          <Upload size={16} className="text-pink-500 group-hover:scale-110 transition-transform"/>
-                                          <span className="text-xs font-bold text-pink-100">Upload New Photo</span>
-                                          <input type="file" className="hidden" accept="image/*" onChange={handleCoupleImageUpload} />
-                                      </label>
+                              <label className="block text-xs font-bold uppercase text-pink-400 mb-2">Welcome Message</label>
+                              <textarea 
+                                value={config.welcomeMsg}
+                                onChange={e => setConfig({...config, welcomeMsg: e.target.value})}
+                                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-pink-500 focus:outline-none h-24 resize-none"
+                              />
+                          </div>
+                          <div>
+                              <label className="block text-xs font-bold uppercase text-pink-400 mb-2">Couple Photo</label>
+                              <div className="flex items-center gap-4">
+                                  <div className="w-20 h-20 bg-black/40 rounded-lg overflow-hidden border border-white/10">
+                                      {config.coupleImage ? <img src={config.coupleImage} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-stone-500"><ImageIcon size={20}/></div>}
                                   </div>
-                                  <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-pink-500/30 bg-black/50 shrink-0 relative">
-                                        {config.coupleImage ? (
-                                            <img src={config.coupleImage} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-stone-600">
-                                                <ImageIcon size={24} />
-                                            </div>
-                                        )}
-                                  </div>
+                                  <label className="cursor-pointer bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-sm font-bold text-white transition-colors flex items-center gap-2">
+                                      <Upload size={16} /> Change Photo
+                                      <input type="file" className="hidden" accept="image/*" onChange={handleCoupleImageUpload} />
+                                  </label>
                               </div>
                           </div>
 
-                          <div>
-                              <label className="block text-xs text-pink-400 uppercase tracking-widest mb-2">Welcome Note</label>
-                              <textarea 
-                                rows={4}
-                                value={config.welcomeMsg} 
-                                onChange={e => setConfig({...config, welcomeMsg: e.target.value})}
-                                className="w-full bg-black/30 border border-pink-500/30 rounded-lg p-3 text-white focus:border-pink-500 focus:outline-none"
-                              />
+                          <div className="pt-4 border-t border-white/5 flex justify-end">
+                              <button onClick={handleSaveConfig} className="bg-pink-600 text-white font-bold px-6 py-3 rounded-lg shadow-lg hover:bg-pink-500 transition-all flex items-center gap-2">
+                                  <Save size={18}/> Save Settings
+                              </button>
                           </div>
-                          <button onClick={handleSaveConfig} className="w-full bg-pink-600 text-white font-bold py-3 rounded-lg hover:bg-pink-500 transition-colors flex items-center justify-center gap-2 shadow-glow">
-                              <Save size={18} /> Save Changes
-                          </button>
                       </div>
                   </div>
               )}
+
+              {activeTab === 'gallery' && (
+                  <div className="space-y-6 animate-fade-in">
+                      <h2 className="text-2xl font-romantic text-white drop-shadow-md">Media Gallery</h2>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                          {photos.map((p) => (
+                              <div key={p.id} className="group relative aspect-square rounded-xl overflow-hidden bg-black/40 border border-pink-500/20">
+                                  <img src={p.url} className="w-full h-full object-cover" loading="lazy" />
+                                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2 text-center">
+                                      {editingPhotoId === p.id ? (
+                                          <div className="flex flex-col gap-2 w-full">
+                                              <input 
+                                                 type="text" 
+                                                 value={editCaption}
+                                                 onChange={e => setEditCaption(e.target.value)}
+                                                 className="bg-white/10 border border-white/20 rounded px-2 py-1 text-xs text-white w-full"
+                                                 autoFocus
+                                              />
+                                              <button onClick={() => handleSavePhotoCaption(p.id)} className="bg-green-600 text-white text-xs py-1 rounded">Save</button>
+                                          </div>
+                                      ) : (
+                                          <>
+                                              <p className="text-xs font-bold text-white line-clamp-2">{p.caption}</p>
+                                              <div className="flex gap-2">
+                                                  <button onClick={() => handleEditPhotoClick(p)} className="p-2 bg-blue-600/80 rounded-lg text-white hover:bg-blue-500"><Settings size={14} /></button>
+                                                  <button onClick={() => handleDeletePhoto(p.id)} className="p-2 bg-red-600/80 rounded-lg text-white hover:bg-red-500"><Trash2 size={14} /></button>
+                                              </div>
+                                          </>
+                                      )}
+                                  </div>
+                                  <div className="absolute bottom-2 right-2 bg-black/60 px-2 py-0.5 rounded text-[10px] text-pink-300 pointer-events-none">
+                                      {p.type}
+                                  </div>
+                              </div>
+                          ))}
+                          {photos.length === 0 && <div className="col-span-full py-10 text-center text-stone-500 italic">Gallery is empty.</div>}
+                      </div>
+                  </div>
+              )}
+
           </main>
       </div>
     </div>

@@ -3,9 +3,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Home, MessageSquare, Heart, Camera, LogOut, Sparkles, Send, 
   Smile, Upload, Music, Search, User, RefreshCw, X, Image as ImageIcon, Users,
-  Crown, Radio, Megaphone, MapPin, Navigation
+  Crown, Radio, Megaphone
 } from 'lucide-react';
 import { socket } from '../socket';
+import { useTheme, ThemeConfig } from '../ThemeContext';
 
 // --- Image Resizer for LocalStorage ---
 const resizeImage = (file: File): Promise<string> => {
@@ -70,23 +71,10 @@ interface GuestEntry {
     joinedAt: number;
 }
 
-interface MapMarker {
-    name: string;
-    role: 'guest' | 'couple' | 'admin';
-    lat: number;
-    lng: number;
-    timestamp: number;
-}
-
 interface Song {
     title: string;
     artist: string;
     cover: string;
-}
-
-interface ThemeConfig {
-    gradient: 'royal' | 'midnight' | 'sunset' | 'lavender' | 'forest';
-    effect: 'dust' | 'petals' | 'lights' | 'fireflies' | 'none';
 }
 
 const THEME_BASES = {
@@ -309,14 +297,13 @@ interface GuestDashboardProps {
 }
 
 const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) => {
-    const [activeTab, setActiveTab] = useState<'home' | 'chat' | 'gallery' | 'guests' | 'map'>('home');
+    const [activeTab, setActiveTab] = useState<'home' | 'chat' | 'gallery' | 'guests'>('home');
     const [messages, setMessages] = useState<Message[]>([]);
     const [gallery, setGallery] = useState<MediaItem[]>([]);
     const [guestList, setGuestList] = useState<GuestEntry[]>([]);
-    const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
     const [heartCount, setHeartCount] = useState(0);
     const [globalConfig, setGlobalConfig] = useState({ coupleName: "Sneha & Aman", date: "Nov 26" });
-    const [theme, setTheme] = useState<ThemeConfig>({ gradient: 'royal', effect: 'dust' });
+    const { theme } = useTheme();
     const [nowPlaying, setNowPlaying] = useState<Song | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [announcement, setAnnouncement] = useState<string | null>(null);
@@ -325,9 +312,12 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
     const [activeStickerTab, setActiveStickerTab] = useState(false);
     const chatScrollRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const mapContainerRef = useRef<HTMLDivElement>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+
+    // Typing indicator state
+    const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+    const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // --- Local Persistence Effects ---
     useEffect(() => {
@@ -346,10 +336,6 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
         localStorage.setItem('wedding_heart_count', heartCount.toString());
     }, [heartCount]);
     
-    useEffect(() => {
-        localStorage.setItem('wedding_theme_config', JSON.stringify(theme));
-    }, [theme]);
-
     // --- Sync Logic ---
     useEffect(() => {
         // Load cached data initially for fast render
@@ -362,9 +348,6 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
         const pics = localStorage.getItem('wedding_gallery_media');
         if (pics) setGallery(JSON.parse(pics));
 
-        const savedTheme = localStorage.getItem('wedding_theme_config');
-        if (savedTheme) setTheme(JSON.parse(savedTheme));
-
         // Request fresh state from server
         socket.emit('request_sync');
 
@@ -374,9 +357,7 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
             setGallery(state.gallery || []);
             setHeartCount(state.heartCount || 0);
             setGuestList(state.guestList || []);
-            setMapMarkers(state.mapMarkers || []);
             if(state.config) setGlobalConfig(state.config);
-            if(state.theme) setTheme(state.theme);
             if(state.announcement) setAnnouncement(state.announcement);
             if(state.currentSong) {
                 setNowPlaying(state.currentSong);
@@ -400,10 +381,6 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
             setGallery(data.payload);
         };
 
-        const handleThemeSync = (data: any) => {
-            setTheme(data.payload);
-        };
-
         const handlePlaylistUpdate = (data: any) => {
             setNowPlaying(data.currentSong);
             setIsPlaying(data.isPlaying);
@@ -420,105 +397,71 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                 return [...filtered, data.payload];
             });
         };
-        
-        const handleLocationUpdate = (markers: any[]) => {
-            setMapMarkers(markers);
-        };
 
         const handleAnnouncement = (data: any) => {
              setAnnouncement(data.message);
+        };
+
+        const handleTyping = (data: { user: string, isTyping: boolean }) => {
+            setTypingUsers(prev => {
+                const newSet = new Set(prev);
+                if (data.isTyping) {
+                    newSet.add(data.user);
+                } else {
+                    newSet.delete(data.user);
+                }
+                return newSet;
+            });
         };
 
         socket.on('full_sync', handleFullSync);
         socket.on('message', handleMessage);
         socket.on('heart_update', handleHeartUpdate);
         socket.on('gallery_sync', handleGallerySync);
-        socket.on('theme_sync', handleThemeSync);
         socket.on('playlist_update', handlePlaylistUpdate);
         socket.on('config_sync', handleConfigSync);
         socket.on('user_presence', handleUserPresence);
-        socket.on('location_update', handleLocationUpdate);
         socket.on('announcement', handleAnnouncement);
+        socket.on('typing', handleTyping);
 
         return () => {
             socket.off('full_sync', handleFullSync);
             socket.off('message', handleMessage);
             socket.off('heart_update', handleHeartUpdate);
             socket.off('gallery_sync', handleGallerySync);
-            socket.off('theme_sync', handleThemeSync);
             socket.off('playlist_update', handlePlaylistUpdate);
             socket.off('config_sync', handleConfigSync);
             socket.off('user_presence', handleUserPresence);
-            socket.off('location_update', handleLocationUpdate);
             socket.off('announcement', handleAnnouncement);
+            socket.off('typing', handleTyping);
         };
     }, []);
-
-    // Map Initialization Effect
-    useEffect(() => {
-        if (activeTab === 'map' && mapContainerRef.current) {
-            const L = (window as any).L;
-            if (!L) return;
-
-            // Clean up any existing map instance on the container if we re-render
-            // We do a simple check by clearing innerHTML if we wanted to be brutal, 
-            // but Leaflet usually handles this if we track the instance. 
-            // For simplicity in this robust re-render cycle:
-            mapContainerRef.current.innerHTML = "<div id='leaflet-map' style='width:100%; height:100%;'></div>";
-            
-            const map = L.map('leaflet-map').setView([20.5937, 78.9629], 4); // Default India view
-            
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-                subdomains: 'abcd',
-                maxZoom: 19
-            }).addTo(map);
-
-            // Add markers
-            mapMarkers.forEach((m: MapMarker) => {
-                const isCouple = m.role === 'couple';
-                const isMe = m.name === userName;
-                
-                const iconHtml = `
-                    <div class="flex flex-col items-center">
-                        <div class="w-8 h-8 rounded-full border-2 ${isCouple ? 'border-yellow-400 bg-yellow-500 text-black' : isMe ? 'border-pink-400 bg-pink-600 text-white animate-bounce' : 'border-white bg-passion-800 text-white'} flex items-center justify-center font-bold shadow-lg">
-                           ${isCouple ? '👑' : m.name.charAt(0)}
-                        </div>
-                        <div class="bg-black/70 text-white text-[10px] px-2 py-0.5 rounded-md mt-1 whitespace-nowrap font-bold">${m.name}</div>
-                    </div>
-                `;
-
-                const icon = L.divIcon({
-                    className: 'custom-marker',
-                    html: iconHtml,
-                    iconSize: [40, 60],
-                    iconAnchor: [20, 60]
-                });
-
-                L.marker([m.lat, m.lng], { icon }).addTo(map);
-            });
-
-            // Try to center on self if available
-            const myMarker = mapMarkers.find(m => m.name === userName);
-            if (myMarker) {
-                map.setView([myMarker.lat, myMarker.lng], 15);
-            } else if (mapMarkers.length > 0) {
-                // Center on couple or first marker
-                const couple = mapMarkers.find(m => m.role === 'couple');
-                if(couple) map.setView([couple.lat, couple.lng], 15);
-            }
-
-            return () => {
-                map.remove();
-            }
-        }
-    }, [activeTab, mapMarkers]);
 
     useEffect(() => {
         if (activeTab === 'chat' && chatScrollRef.current) {
             chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
         }
     }, [messages, activeTab]);
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        setInputText(val);
+        
+        if (!typingTimeoutRef.current && val.length > 0) {
+             socket.emit('typing', { user: userName, isTyping: true });
+        }
+        
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        
+        if (val.length > 0) {
+            typingTimeoutRef.current = setTimeout(() => {
+                socket.emit('typing', { user: userName, isTyping: false });
+                typingTimeoutRef.current = null;
+            }, 2000);
+        } else {
+            socket.emit('typing', { user: userName, isTyping: false });
+        }
+    };
 
     const handleSendMessage = (text: string = "", stickerKey?: string) => {
         if (!text.trim() && !stickerKey) return;
@@ -537,6 +480,10 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
         setMessages(prev => [...prev, newMessage]); 
         
         socket.emit('message', newMessage);
+        // Stop typing indicator immediately
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        socket.emit('typing', { user: userName, isTyping: false });
+        typingTimeoutRef.current = null;
         
         setInputText("");
         setActiveStickerTab(false);
@@ -570,32 +517,6 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                 alert("Upload failed. Please try a smaller image.");
             }
             setIsUploading(false);
-        }
-    };
-
-    const handleShareLocation = () => {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition((pos) => {
-                const { latitude, longitude } = pos.coords;
-                const markerData: MapMarker = {
-                    name: userName,
-                    role: 'guest',
-                    lat: latitude,
-                    lng: longitude,
-                    timestamp: Date.now()
-                };
-                // Optimistic
-                setMapMarkers(prev => {
-                    const others = prev.filter(m => m.name !== userName);
-                    return [...others, markerData];
-                });
-                socket.emit('location_share', markerData);
-                alert("Location shared with the wedding party!");
-            }, (err) => {
-                alert("Could not get location. Please allow permissions.");
-            });
-        } else {
-            alert("Geolocation is not supported by your browser.");
         }
     };
 
@@ -726,7 +647,7 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                                                      'bg-black/40 border border-pink-500/30 text-pink-100 rounded-2xl rounded-tl-sm shadow-black/20'
                                               }`}>
                                                   {msg.type === 'sticker' && msg.stickerKey ? (
-                                                      <div className="w-28 h-28 drop-shadow-xl transform hover:scale-105 transition-transform">{STICKER_MAP[msg.stickerKey]}</div>
+                                                      <div className="w-28 h-28 drop-shadow-xl transform hover:scale-105 transition-transform animate-pop-in">{STICKER_MAP[msg.stickerKey]}</div>
                                                   ) : (
                                                       <p className="text-sm font-serif leading-relaxed">{msg.text}</p>
                                                   )}
@@ -744,6 +665,23 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
 
                          {/* Input Area */}
                          <div className="p-3 sm:p-4 relative z-20 bg-passion-900/90 border-t border-pink-500/20 pb-safe backdrop-blur-lg shadow-2xl">
+                             
+                             {/* Typing Indicator */}
+                             {typingUsers.size > 0 && (
+                                <div className="absolute bottom-full left-4 mb-2 text-[10px] text-pink-300 bg-black/60 px-3 py-1 rounded-full backdrop-blur-md animate-fade-in flex items-center gap-2">
+                                    <div className="flex gap-1">
+                                        <div className="w-1 h-1 bg-pink-400 rounded-full animate-bounce" style={{animationDelay: '0s'}}></div>
+                                        <div className="w-1 h-1 bg-pink-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                                        <div className="w-1 h-1 bg-pink-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                                    </div>
+                                    <span>
+                                        {Array.from(typingUsers).slice(0, 2).join(', ')} 
+                                        {typingUsers.size > 2 ? ` and ${typingUsers.size - 2} others` : ''} 
+                                        {typingUsers.size === 1 ? ' is' : ' are'} typing...
+                                    </span>
+                                </div>
+                             )}
+
                              <div className="flex items-center gap-2 bg-black/40 rounded-full px-2 py-1.5 border border-pink-500/30 focus-within:border-pink-500 transition-colors shadow-inner">
                                   <button 
                                      onClick={() => setActiveStickerTab(!activeStickerTab)}
@@ -754,7 +692,7 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                                   <input 
                                      type="text" 
                                      value={inputText}
-                                     onChange={(e) => setInputText(e.target.value)}
+                                     onChange={handleInputChange}
                                      placeholder="Whisper a wish..."
                                      className="flex-grow bg-transparent border-none text-white placeholder-pink-300/30 focus:ring-0 focus:outline-none h-10 text-sm font-serif"
                                      onKeyDown={(e) => e.key === 'Enter' && handleSendMessage(inputText)}
@@ -870,21 +808,6 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                          </div>
                      </div>
                  )}
-
-                 {/* MAP TAB */}
-                 {activeTab === 'map' && (
-                     <div className="flex-grow relative z-10 flex flex-col h-full">
-                         <div ref={mapContainerRef} className="flex-grow w-full h-full bg-black/50" style={{minHeight: '300px'}}></div>
-                         <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[1000]">
-                             <button 
-                                onClick={handleShareLocation}
-                                className="bg-pink-600 text-white px-6 py-3 rounded-full font-bold shadow-xl border border-pink-400/50 flex items-center gap-2 hover:bg-pink-500 transition-all animate-bounce"
-                             >
-                                 <Navigation size={18} /> Share Location
-                             </button>
-                         </div>
-                     </div>
-                 )}
              </main>
              
              {/* Bottom Navigation */}
@@ -892,7 +815,6 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                  {[
                      { id: 'home', icon: Home, label: 'Home' },
                      { id: 'chat', icon: MessageSquare, label: 'Chat' },
-                     { id: 'map', icon: MapPin, label: 'Map' },
                      { id: 'gallery', icon: ImageIcon, label: 'Gallery' },
                      { id: 'guests', icon: Users, label: 'Guests' },
                  ].map(item => (

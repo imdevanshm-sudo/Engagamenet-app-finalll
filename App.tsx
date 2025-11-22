@@ -7,9 +7,10 @@ import CoupleDashboard from './components/CoupleDashboard';
 import AdminDashboard from './components/AdminDashboard';
 import { X, Cookie, RefreshCw, Heart, AlertTriangle, Loader } from 'lucide-react';
 import { socket } from './socket';
+import { ThemeProvider } from './ThemeContext';
 
 // Update this version string whenever you deploy a significant update to force a cache clear
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.0.1';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<'welcome' | 'guest-dashboard' | 'couple-dashboard' | 'admin-dashboard'>('welcome');
@@ -160,89 +161,91 @@ const App: React.FC = () => {
   };
 
   return (
-    <div 
-        className="w-full h-full bg-passion-900 text-romance-100 font-serif overflow-hidden relative"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-    >
-      {/* Refresh Indicator */}
+    <ThemeProvider>
       <div 
-        className="absolute top-0 left-0 right-0 flex justify-center items-center pointer-events-none z-[200]"
-        style={{ 
-            height: `${pullChange}px`, 
-            opacity: Math.min(pullChange / 100, 1),
-            transition: isRefreshing ? 'height 0.2s ease-in' : 'none'
-        }}
+          className="w-full h-full bg-passion-900 text-romance-100 font-serif overflow-hidden relative"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
       >
-          <div className="bg-passion-600 text-white rounded-full p-2 shadow-lg transform translate-y-4">
-              {isRefreshing ? <Loader className="animate-spin" size={24} /> : <Heart size={24} className="text-white fill-white" style={{ transform: `scale(${1 + pullChange/200})` }} />}
-          </div>
+        {/* Refresh Indicator */}
+        <div 
+          className="absolute top-0 left-0 right-0 flex justify-center items-center pointer-events-none z-[200]"
+          style={{ 
+              height: `${pullChange}px`, 
+              opacity: Math.min(pullChange / 100, 1),
+              transition: isRefreshing ? 'height 0.2s ease-in' : 'none'
+          }}
+        >
+            <div className="bg-passion-600 text-white rounded-full p-2 shadow-lg transform translate-y-4">
+                {isRefreshing ? <Loader className="animate-spin" size={24} /> : <Heart size={24} className="text-white fill-white" style={{ transform: `scale(${1 + pullChange/200})` }} />}
+            </div>
+        </div>
+
+        <div 
+          ref={contentRef}
+          className={`w-full h-full transition-all duration-500 ease-out transform ${isTransitioning ? 'opacity-0 scale-[0.98] blur-sm' : 'opacity-100 scale-100 blur-0'}`}
+          style={{ transform: `translateY(${isRefreshing ? 50 : Math.min(pullChange, 150)}px)` }}
+        >
+          {currentView === 'welcome' && (
+              <WelcomeScreen onLoginSuccess={handleLoginSuccess} />
+          )}
+          {currentView === 'guest-dashboard' && (
+              <GuestDashboard userName={userName} onLogout={handleLogout} />
+          )}
+          {currentView === 'couple-dashboard' && (
+              <CoupleDashboard userName={userName} onLogout={handleLogout} />
+          )}
+          {currentView === 'admin-dashboard' && (
+              <AdminDashboard onLogout={handleLogout} />
+          )}
+        </div>
+
+        {/* Global Announcement Toast */}
+        {announcement && (
+            <div className="fixed top-0 left-0 right-0 z-[200] flex items-start justify-center p-4 animate-slide-down pointer-events-none">
+                <div className="bg-gradient-to-r from-passion-600 to-passion-500 text-white p-[1px] rounded-xl shadow-glow-lg max-w-md w-full pointer-events-auto">
+                    <div className="bg-passion-900/90 backdrop-blur-md rounded-[10px] p-4 flex gap-4 items-start relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-pink-400 to-transparent animate-shimmer"></div>
+                        <div className="p-3 bg-passion-700 rounded-full shrink-0 animate-pulse">
+                            <Heart size={20} fill="white" className="text-white" />
+                        </div>
+                        <div className="flex-grow">
+                            <h4 className="font-heading font-bold text-lg text-pink-200 mb-1">{announcement.title}</h4>
+                            <p className="font-serif text-pink-100 leading-snug">{announcement.msg}</p>
+                        </div>
+                        <button onClick={() => setAnnouncement(null)} className="text-pink-300 hover:text-white"><X size={18}/></button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Cookie Consent Banner */}
+        {showCookieConsent && (
+            <div className="fixed bottom-4 left-4 right-4 z-[100] bg-black/80 backdrop-blur-lg p-4 rounded-xl border border-passion-500/30 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-in slide-in-from-bottom-10 fade-in duration-500">
+                <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-passion-600 flex items-center justify-center text-white"><Cookie size={20} /></div>
+                    <div>
+                        <h4 className="font-bold text-pink-100 text-sm">Shared with Love & Cookies</h4>
+                        <p className="text-[10px] text-pink-300">We use local storage to save your memories and session.</p>
+                    </div>
+                </div>
+                <div className="flex gap-2 w-full sm:w-auto">
+                    <button onClick={acceptCookies} className="flex-1 sm:flex-none bg-pink-500 text-white px-6 py-2 rounded-lg font-bold text-xs hover:bg-pink-400 transition-colors shadow-glow">Accept</button>
+                    <button onClick={() => setShowCookieConsent(false)} className="p-2 hover:bg-white/10 rounded-lg text-pink-400"><X size={16}/></button>
+                </div>
+            </div>
+        )}
+
+        {/* Update Toast */}
+        {showUpdateToast && (
+            <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[110] bg-passion-600 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3 animate-bounce cursor-pointer" onClick={() => window.location.reload()}>
+                <RefreshCw size={18} className="animate-spin" />
+                <span className="text-xs font-bold">New Memories Available. Refresh!</span>
+            </div>
+        )}
       </div>
-
-      <div 
-        ref={contentRef}
-        className={`w-full h-full transition-all duration-500 ease-out transform ${isTransitioning ? 'opacity-0 scale-[0.98] blur-sm' : 'opacity-100 scale-100 blur-0'}`}
-        style={{ transform: `translateY(${isRefreshing ? 50 : Math.min(pullChange, 150)}px)` }}
-      >
-        {currentView === 'welcome' && (
-            <WelcomeScreen onLoginSuccess={handleLoginSuccess} />
-        )}
-        {currentView === 'guest-dashboard' && (
-            <GuestDashboard userName={userName} onLogout={handleLogout} />
-        )}
-        {currentView === 'couple-dashboard' && (
-            <CoupleDashboard userName={userName} onLogout={handleLogout} />
-        )}
-        {currentView === 'admin-dashboard' && (
-            <AdminDashboard onLogout={handleLogout} />
-        )}
-      </div>
-
-      {/* Global Announcement Toast */}
-      {announcement && (
-          <div className="fixed top-0 left-0 right-0 z-[200] flex items-start justify-center p-4 animate-slide-down pointer-events-none">
-              <div className="bg-gradient-to-r from-passion-600 to-passion-500 text-white p-[1px] rounded-xl shadow-glow-lg max-w-md w-full pointer-events-auto">
-                  <div className="bg-passion-900/90 backdrop-blur-md rounded-[10px] p-4 flex gap-4 items-start relative overflow-hidden">
-                       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-pink-400 to-transparent animate-shimmer"></div>
-                       <div className="p-3 bg-passion-700 rounded-full shrink-0 animate-pulse">
-                           <Heart size={20} fill="white" className="text-white" />
-                       </div>
-                       <div className="flex-grow">
-                           <h4 className="font-heading font-bold text-lg text-pink-200 mb-1">{announcement.title}</h4>
-                           <p className="font-serif text-pink-100 leading-snug">{announcement.msg}</p>
-                       </div>
-                       <button onClick={() => setAnnouncement(null)} className="text-pink-300 hover:text-white"><X size={18}/></button>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {/* Cookie Consent Banner */}
-      {showCookieConsent && (
-          <div className="fixed bottom-4 left-4 right-4 z-[100] bg-black/80 backdrop-blur-lg p-4 rounded-xl border border-passion-500/30 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-in slide-in-from-bottom-10 fade-in duration-500">
-              <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-passion-600 flex items-center justify-center text-white"><Cookie size={20} /></div>
-                  <div>
-                      <h4 className="font-bold text-pink-100 text-sm">Shared with Love & Cookies</h4>
-                      <p className="text-[10px] text-pink-300">We use local storage to save your memories and session.</p>
-                  </div>
-              </div>
-              <div className="flex gap-2 w-full sm:w-auto">
-                  <button onClick={acceptCookies} className="flex-1 sm:flex-none bg-pink-500 text-white px-6 py-2 rounded-lg font-bold text-xs hover:bg-pink-400 transition-colors shadow-glow">Accept</button>
-                  <button onClick={() => setShowCookieConsent(false)} className="p-2 hover:bg-white/10 rounded-lg text-pink-400"><X size={16}/></button>
-              </div>
-          </div>
-      )}
-
-      {/* Update Toast */}
-      {showUpdateToast && (
-          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[110] bg-passion-600 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3 animate-bounce cursor-pointer" onClick={() => window.location.reload()}>
-              <RefreshCw size={18} className="animate-spin" />
-              <span className="text-xs font-bold">New Memories Available. Refresh!</span>
-          </div>
-      )}
-    </div>
+    </ThemeProvider>
   );
 };
 

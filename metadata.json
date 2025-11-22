@@ -1,7 +1,5 @@
 {
   "name": "Royal Engagement Portal",
   "description": "A traditional Indian engagement welcome and login page featuring elegant design patterns and gradients.",
-  "requestFramePermissions": [
-    "geolocation"
-  ]
+  "requestFramePermissions": []
 }

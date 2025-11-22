@@ -28,7 +28,6 @@ let currentState = {
   messages: [],
   gallery: [],
   guestList: [],
-  mapMarkers: [], // { name, role, lat, lng, timestamp, id }
   theme: { gradient: 'royal', effect: 'dust' },
   config: { coupleName: "Sneha & Aman", date: "2025-11-26", welcomeMsg: "Join us as we begin our forever.", coupleImage: "" },
   currentSong: null,
@@ -67,6 +66,10 @@ io.on('connection', (socket) => {
     // Keep only last 100 messages to save memory
     if (currentState.messages.length > 100) currentState.messages.shift();
     io.emit('message', { payload: msg });
+  });
+
+  socket.on('typing', (data) => {
+      socket.broadcast.emit('typing', data);
   });
   
   // Admin clearing messages
@@ -116,21 +119,7 @@ io.on('connection', (socket) => {
   
   socket.on('block_user', (name) => {
       currentState.guestList = currentState.guestList.filter(g => g.name !== name);
-      currentState.mapMarkers = currentState.mapMarkers.filter(m => m.name !== name);
       io.emit('block_user', { name });
-      io.emit('location_update', currentState.mapMarkers);
-  });
-
-  // --- Map Location Sync ---
-  socket.on('location_share', (data) => {
-      // Update or add marker for user
-      const existingIdx = currentState.mapMarkers.findIndex(m => m.name === data.name);
-      if (existingIdx > -1) {
-          currentState.mapMarkers[existingIdx] = { ...data, timestamp: Date.now() };
-      } else {
-          currentState.mapMarkers.push({ ...data, timestamp: Date.now() });
-      }
-      io.emit('location_update', currentState.mapMarkers);
   });
 });
 

@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { User, Sparkles, Lock, X, Heart, Volume2, VolumeX, ChevronRight, Loader } from 'lucide-react';
 import { socket } from '../socket';
+import { useTheme, ThemeConfig } from '../ThemeContext';
 
 // --- Audio Utilities ---
 const isAudioMuted = () => localStorage.getItem('wedding_audio_muted') === 'true';
@@ -77,11 +78,6 @@ const useTilt = (ref: React.RefObject<HTMLDivElement>) => {
 
 // --- Visual Components ---
 
-interface ThemeConfig {
-    gradient: 'royal' | 'midnight' | 'sunset' | 'lavender' | 'forest';
-    effect: 'dust' | 'petals' | 'lights' | 'fireflies' | 'none';
-}
-
 // Base background colors that sit behind the artistic layers
 const THEME_BASES = {
     royal: 'bg-[#4a0404]', 
@@ -98,45 +94,43 @@ const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
             {/* --- THEME: MIDNIGHT (Cinematic Cool) --- */}
             {theme.gradient === 'midnight' && (
                 <>
-                    <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-[#0f172a] to-black"></div>
-                    <div className="absolute top-1/4 -left-1/2 w-[200%] h-[1px] bg-blue-400/30 blur-md rotate-[-10deg] animate-pulse-slow"></div>
-                    <div className="absolute bottom-1/3 -left-1/2 w-[200%] h-[2px] bg-teal-500/20 blur-xl rotate-[5deg] animate-float"></div>
-                    <div className="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse-slow"></div>
-                    <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-blue-800/20 rounded-full blur-[100px] animate-float" style={{animationDelay: '2s'}}></div>
-                    <div className="absolute inset-0 opacity-[0.04]" 
+                    <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-[#0f172a] to-black"></div>
+                    {/* Anamorphic Lens Flares */}
+                    <div className="absolute top-1/4 -left-1/2 w-[200%] h-[2px] bg-blue-500/40 blur-sm rotate-[-12deg] animate-pulse-slow shadow-[0_0_30px_rgba(59,130,246,0.6)]"></div>
+                    <div className="absolute bottom-1/3 -left-1/2 w-[200%] h-[1px] bg-teal-400/30 blur-md rotate-[8deg] animate-float"></div>
+                    
+                    {/* Deep Glows */}
+                    <div className="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-indigo-800/20 rounded-full blur-[120px] animate-pulse-slow"></div>
+                    <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-blue-900/20 rounded-full blur-[100px] animate-float" style={{animationDelay: '2s'}}></div>
+                    
+                    {/* Cinematic Grain */}
+                    <div className="absolute inset-0 opacity-[0.07] mix-blend-overlay" 
                          style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")` }}>
                     </div>
-                    {[...Array(15)].map((_, i) => (
-                        <div key={`star-${i}`} 
-                             className="absolute rounded-full bg-blue-100 animate-pulse-slow"
-                             style={{
-                                 top: `${Math.random() * 100}%`,
-                                 left: `${Math.random() * 100}%`,
-                                 width: `${Math.random() * 2 + 1}px`,
-                                 height: `${Math.random() * 2 + 1}px`,
-                                 animationDelay: `${Math.random() * 4}s`,
-                                 opacity: Math.random() * 0.7 + 0.3
-                             }}
-                        />
-                    ))}
                 </>
             )}
 
             {/* --- THEME: ROYAL (3D Romantic Red) --- */}
             {theme.gradient === 'royal' && (
                 <>
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,_#be123c_0%,_#881337_40%,_#4c0519_80%,_#000000_100%)]"></div>
-                    <div className="absolute top-0 left-0 w-96 h-96 bg-rose-500/20 rounded-full blur-[100px] animate-float mix-blend-screen"></div>
-                    <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-red-900/40 rounded-full blur-[120px] animate-float" style={{animationDelay: '-3s', animationDuration: '10s'}}></div>
-                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-rose-400/10 to-transparent opacity-60 animate-pulse-slow"></div>
+                    {/* Deep Radial Vignette for 3D feel */}
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,_#be123c_0%,_#881337_40%,_#4c0519_80%,_#1a0105_100%)]"></div>
+                    
+                    {/* Floating Rosy Orbs */}
+                    <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-rose-600/20 rounded-full blur-[120px] animate-float mix-blend-screen"></div>
+                    <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-red-600/20 rounded-full blur-[100px] animate-float" style={{animationDelay: '-3s', animationDuration: '10s'}}></div>
+                    
+                    {/* Subtle Cube Texture for Depth */}
                     <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay"></div>
-                    {[...Array(10)].map((_, i) => (
-                        <div key={`gold-${i}`} className="absolute rounded-full bg-amber-400 animate-float"
+                    
+                    {/* Gold Embers */}
+                    {[...Array(8)].map((_, i) => (
+                        <div key={`gold-${i}`} className="absolute rounded-full bg-amber-400/60 animate-float"
                              style={{
                                  left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%`,
-                                 width: `${Math.random() * 3 + 1}px`, height: `${Math.random() * 3 + 1}px`,
-                                 opacity: Math.random() * 0.5 + 0.2, animationDuration: `${Math.random() * 8 + 12}s`,
-                                 boxShadow: '0 0 8px 1px rgba(251, 191, 36, 0.3)'
+                                 width: `${Math.random() * 4 + 1}px`, height: `${Math.random() * 4 + 1}px`,
+                                 opacity: Math.random() * 0.6 + 0.2, animationDuration: `${Math.random() * 10 + 15}s`,
+                                 boxShadow: '0 0 10px 2px rgba(251, 191, 36, 0.2)'
                              }}></div>
                     ))}
                 </>
@@ -266,7 +260,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
   const [config, setConfig] = useState({ coupleName: "Sneha & Aman", date: "2025-11-26" });
   const [welcomeMsg, setWelcomeMsg] = useState(DEFAULT_WELCOME);
   const [muted, setMuted] = useState(isAudioMuted());
-  const [theme, setTheme] = useState<ThemeConfig>({ gradient: 'royal', effect: 'dust' });
+  const { theme } = useTheme();
   const [coupleImage, setCoupleImage] = useState(DEFAULT_IMAGE);
 
   const [showAdminLogin, setShowAdminLogin] = useState(false);
@@ -286,9 +280,6 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
       }
       const msg = localStorage.getItem('wedding_welcome_msg');
       if (msg) setWelcomeMsg(msg);
-      
-      const savedTheme = localStorage.getItem('wedding_theme_config');
-      if (savedTheme) setTheme(JSON.parse(savedTheme));
 
       const img = localStorage.getItem('wedding_couple_image');
       if (img) setCoupleImage(img);
@@ -304,26 +295,18 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
           localStorage.setItem('wedding_global_config', JSON.stringify(newConfig));
       };
 
-      const handleThemeSync = (data: any) => {
-          setTheme(data.payload);
-          localStorage.setItem('wedding_theme_config', JSON.stringify(data.payload));
-      };
-
       const handleFullSync = (state: any) => {
           if(state.config) {
               setConfig(state.config);
               if (state.config.coupleImage) setCoupleImage(state.config.coupleImage);
           }
-          if(state.theme) setTheme(state.theme);
       };
 
       socket.on('config_sync', handleConfigSync);
-      socket.on('theme_sync', handleThemeSync);
       socket.on('full_sync', handleFullSync);
 
       return () => {
           socket.off('config_sync', handleConfigSync);
-          socket.off('theme_sync', handleThemeSync);
           socket.off('full_sync', handleFullSync);
       };
   }, []);

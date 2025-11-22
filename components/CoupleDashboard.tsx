@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, MessageSquare, Heart, Music, LogOut, Send, Play, Pause, SkipForward, SkipBack, Image as ImageIcon, RefreshCw, Users, Crown, Radio, Megaphone, MapPin } from 'lucide-react';
+import { Home, MessageSquare, Heart, Music, LogOut, Send, Play, Pause, SkipForward, SkipBack, Image as ImageIcon, RefreshCw, Users, Crown, Radio, Megaphone } from 'lucide-react';
 import { socket } from '../socket';
+import { useTheme, ThemeConfig } from '../ThemeContext';
 
 // --- Types ---
 interface Message {
@@ -28,14 +29,6 @@ interface GuestEntry {
     joinedAt: number;
 }
 
-interface MapMarker {
-    name: string;
-    role: 'guest' | 'couple' | 'admin';
-    lat: number;
-    lng: number;
-    timestamp: number;
-}
-
 interface Song {
     id: string;
     title: string;
@@ -44,11 +37,6 @@ interface Song {
     cover: string;
     album: string;
     durationStr: string;
-}
-
-interface ThemeConfig {
-    gradient: 'royal' | 'midnight' | 'sunset' | 'lavender' | 'forest';
-    effect: 'dust' | 'petals' | 'lights' | 'fireflies' | 'none';
 }
 
 const THEME_BASES = {
@@ -185,17 +173,15 @@ interface CoupleDashboardProps {
 }
 
 const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'home' | 'chat' | 'gallery' | 'guests' | 'music' | 'map'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'chat' | 'gallery' | 'guests' | 'music'>('home');
   const [messages, setMessages] = useState<Message[]>([]);
   const [heartCount, setHeartCount] = useState(0);
   const [gallery, setGallery] = useState<MediaItem[]>([]);
   const [guestList, setGuestList] = useState<GuestEntry[]>([]);
-  const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
   const [chatInput, setChatInput] = useState("");
   const chatScrollRef = useRef<HTMLDivElement>(null);
-  const mapContainerRef = useRef<HTMLDivElement>(null);
   const [announcement, setAnnouncement] = useState<string | null>(null);
-  const [theme, setTheme] = useState<ThemeConfig>({ gradient: 'royal', effect: 'dust' });
+  const { theme } = useTheme();
   
   // Music State
   const [playlist, setPlaylist] = useState<Song[]>([]);
@@ -213,10 +199,6 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
     localStorage.setItem('wedding_heart_count', heartCount.toString());
   }, [heartCount]);
 
-  useEffect(() => {
-    localStorage.setItem('wedding_theme_config', JSON.stringify(theme));
-  }, [theme]);
-
   // --- Initial Data Load ---
   useEffect(() => {
       // Local Storage Init
@@ -225,9 +207,6 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
       
       const hearts = localStorage.getItem('wedding_heart_count');
       if (hearts) setHeartCount(parseInt(hearts));
-
-      const savedTheme = localStorage.getItem('wedding_theme_config');
-      if (savedTheme) setTheme(JSON.parse(savedTheme));
 
       // Romantic Playlist
       const pl = [
@@ -246,8 +225,6 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
           setGallery(state.gallery || []);
           setHeartCount(state.heartCount || 0);
           setGuestList(state.guestList || []);
-          setMapMarkers(state.mapMarkers || []);
-          if(state.theme) setTheme(state.theme);
           if(state.announcement) setAnnouncement(state.announcement);
           if(state.currentSong) {
               setCurrentSong(state.currentSong);
@@ -263,9 +240,7 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
       socket.on('heart_update', (data) => setHeartCount(data.count));
       socket.on('gallery_sync', (data) => setGallery(data.payload));
       socket.on('user_presence', (data) => setGuestList(prev => [...prev.filter(g => g.name !== data.payload.name), data.payload]));
-      socket.on('location_update', (markers) => setMapMarkers(markers));
       socket.on('announcement', (data) => setAnnouncement(data.message));
-      socket.on('theme_sync', (data) => setTheme(data.payload));
       
       return () => {
           socket.off('full_sync');
@@ -273,53 +248,9 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
           socket.off('heart_update');
           socket.off('gallery_sync');
           socket.off('user_presence');
-          socket.off('location_update');
           socket.off('announcement');
-          socket.off('theme_sync');
       };
   }, []);
-
-  useEffect(() => {
-      if (activeTab === 'map' && mapContainerRef.current) {
-          const L = (window as any).L;
-          if (!L) return;
-
-          mapContainerRef.current.innerHTML = "<div id='couple-map' style='width:100%; height:100%;'></div>";
-          
-          const map = L.map('couple-map').setView([20.5937, 78.9629], 4);
-          
-          L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-              maxZoom: 19
-          }).addTo(map);
-
-          mapMarkers.forEach((m: MapMarker) => {
-              const isCouple = m.role === 'couple';
-              const iconHtml = `
-                  <div class="flex flex-col items-center">
-                      <div class="w-8 h-8 rounded-full border-2 ${isCouple ? 'border-yellow-400 bg-yellow-500 text-black' : 'border-white bg-passion-800 text-white'} flex items-center justify-center font-bold shadow-lg">
-                         ${isCouple ? '👑' : m.name.charAt(0)}
-                      </div>
-                      <div class="bg-black/70 text-white text-[10px] px-2 py-0.5 rounded-md mt-1 whitespace-nowrap font-bold">${m.name}</div>
-                  </div>
-              `;
-              const icon = L.divIcon({
-                  className: 'custom-marker',
-                  html: iconHtml,
-                  iconSize: [40, 60],
-                  iconAnchor: [20, 60]
-              });
-              L.marker([m.lat, m.lng], { icon }).addTo(map);
-          });
-
-          // Center on couple if present
-          const couple = mapMarkers.find(m => m.role === 'couple');
-          if(couple) {
-              map.setView([couple.lat, couple.lng], 15);
-          }
-
-          return () => map.remove();
-      }
-  }, [activeTab, mapMarkers]);
 
   useEffect(() => {
       if (activeTab === 'chat' && chatScrollRef.current) {
@@ -445,10 +376,6 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
                          <button onClick={() => setActiveTab('music')} className="p-6 bg-white/5 rounded-2xl border border-pink-500/20 hover:bg-white/10 hover:border-pink-400 transition-all flex flex-col items-center gap-3 group">
                              <Music size={32} className="text-pink-400 group-hover:scale-110 transition-transform"/>
                              <span className="text-sm font-bold text-pink-100">DJ Control</span>
-                         </button>
-                         <button onClick={() => setActiveTab('map')} className="col-span-2 p-6 bg-white/5 rounded-2xl border border-pink-500/20 hover:bg-white/10 hover:border-pink-400 transition-all flex flex-col items-center gap-3 group">
-                             <MapPin size={32} className="text-pink-400 group-hover:scale-110 transition-transform"/>
-                             <span className="text-sm font-bold text-pink-100">Guest Map</span>
                          </button>
                      </div>
                 </div>
@@ -579,13 +506,6 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
                     </div>
                 </div>
             )}
-
-            {/* MAP TAB */}
-            {activeTab === 'map' && (
-                 <div className="flex-grow relative z-10 flex flex-col h-full">
-                     <div ref={mapContainerRef} className="flex-grow w-full h-full bg-black/50" style={{minHeight: '300px'}}></div>
-                 </div>
-            )}
         </main>
 
         {/* Navigation */}
@@ -593,7 +513,6 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
              {[
                  { id: 'home', icon: Home, label: 'Home' },
                  { id: 'chat', icon: MessageSquare, label: 'Chat' },
-                 { id: 'map', icon: MapPin, label: 'Map' },
                  { id: 'gallery', icon: ImageIcon, label: 'Gallery' },
                  { id: 'music', icon: Music, label: 'Music' },
              ].map(item => (
