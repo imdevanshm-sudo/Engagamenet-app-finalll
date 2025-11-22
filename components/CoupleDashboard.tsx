@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Home, MessageSquare, Heart, Music, LogOut, Send, Play, Pause, SkipForward, SkipBack, Image as ImageIcon, RefreshCw, Users, Crown, Radio, Megaphone } from 'lucide-react';
 import { socket } from '../socket';
@@ -187,6 +186,21 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
+  // --- Persistence Effects ---
+  useEffect(() => {
+    try {
+        localStorage.setItem('wedding_chat_messages', JSON.stringify(messages));
+    } catch (e) {}
+  }, [messages]);
+
+  useEffect(() => {
+    localStorage.setItem('wedding_heart_count', heartCount.toString());
+  }, [heartCount]);
+
+  useEffect(() => {
+    localStorage.setItem('wedding_theme_config', JSON.stringify(theme));
+  }, [theme]);
+
   // --- Initial Data Load ---
   useEffect(() => {
       // Local Storage Init
@@ -225,7 +239,10 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
       };
 
       socket.on('full_sync', handleFullSync);
-      socket.on('message', (data) => setMessages(prev => [...prev, data.payload]));
+      socket.on('message', (data) => setMessages(prev => {
+          if (prev.some(m => m.id === data.payload.id)) return prev;
+          return [...prev, data.payload];
+      }));
       socket.on('heart_update', (data) => setHeartCount(data.count));
       socket.on('gallery_sync', (data) => setGallery(data.payload));
       socket.on('user_presence', (data) => setGuestList(prev => [...prev.filter(g => g.name !== data.payload.name), data.payload]));
@@ -273,6 +290,8 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
           type: 'text'
       };
       
+      // Optimistic
+      setMessages(prev => [...prev, newMessage]);
       socket.emit('message', newMessage);
       setChatInput("");
   };

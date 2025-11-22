@@ -9,11 +9,14 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const httpServer = createServer(app);
+
+// Increased buffer size to 50MB to handle image uploads via socket
 const io = new Server(httpServer, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"]
-  }
+  },
+  maxHttpBufferSize: 5e7 
 });
 
 const PORT = process.env.PORT || 8080;
@@ -43,12 +46,18 @@ io.on('connection', (socket) => {
       socket.emit('full_sync', currentState);
   });
 
+  // Increment hearts atomically to handle concurrent clicks
+  socket.on('send_heart', () => {
+      currentState.heartCount++;
+      io.emit('heart_update', { count: currentState.heartCount });
+  });
+
+  // Allow admin to force set hearts (e.g. reset)
   socket.on('heart_update', (count) => {
-    // Ensure count only goes up
-    if (count > currentState.heartCount) {
-        currentState.heartCount = count;
-        io.emit('heart_update', { count });
-    }
+      if (count > currentState.heartCount) {
+          currentState.heartCount = count;
+          io.emit('heart_update', { count });
+      }
   });
 
   socket.on('message', (msg) => {
@@ -91,9 +100,9 @@ io.on('connection', (socket) => {
   });
   
   socket.on('user_join', (user) => {
-      if (!currentState.guestList.find(g => g.name === user.name)) {
-          currentState.guestList.push(user);
-      }
+      // Remove existing entry if re-joining to update timestamp
+      currentState.guestList = currentState.guestList.filter(g => g.name !== user.name);
+      currentState.guestList.push(user);
       io.emit('user_presence', { payload: user });
   });
 

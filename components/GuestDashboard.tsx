@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Home, MessageSquare, Heart, Camera, LogOut, Sparkles, Send, 
@@ -275,6 +274,27 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
     const [isUploading, setIsUploading] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
 
+    // --- Local Persistence Effects ---
+    useEffect(() => {
+        try {
+            localStorage.setItem('wedding_chat_messages', JSON.stringify(messages));
+        } catch (e) { console.warn('Storage quota', e); }
+    }, [messages]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('wedding_gallery_media', JSON.stringify(gallery));
+        } catch (e) { console.warn('Storage quota', e); }
+    }, [gallery]);
+
+    useEffect(() => {
+        localStorage.setItem('wedding_heart_count', heartCount.toString());
+    }, [heartCount]);
+    
+    useEffect(() => {
+        localStorage.setItem('wedding_theme_config', JSON.stringify(theme));
+    }, [theme]);
+
     // --- Sync Logic ---
     useEffect(() => {
         // Load cached data initially for fast render
@@ -309,7 +329,11 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
         };
 
         const handleMessage = (data: any) => {
-            setMessages(prev => [...prev, data.payload]);
+            setMessages(prev => {
+                // Deduplicate
+                if (prev.some(m => m.id === data.payload.id)) return prev;
+                return [...prev, data.payload];
+            });
         };
 
         const handleHeartUpdate = (data: any) => {
@@ -335,8 +359,9 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
 
         const handleUserPresence = (data: any) => {
             setGuestList(prev => {
-                if (prev.some(g => g.name === data.payload.name)) return prev;
-                return [...prev, data.payload];
+                // Remove duplicates based on name
+                const filtered = prev.filter(g => g.name !== data.payload.name);
+                return [...filtered, data.payload];
             });
         };
 
@@ -386,9 +411,8 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
             type: stickerKey ? 'sticker' : 'text'
         };
         
-        // Optimistic update
-        // setMessages(prev => [...prev, newMessage]); 
-        // Wait for server echo for consistency, or uncomment above for instant local feedback
+        // Optimistic update with local state
+        setMessages(prev => [...prev, newMessage]); 
         
         socket.emit('message', newMessage);
         
@@ -397,9 +421,10 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
     };
 
     const handleHeartTrigger = () => {
-        const newCount = heartCount + 1;
-        setHeartCount(newCount); // Optimistic
-        socket.emit('heart_update', newCount);
+        // Optimistic local update
+        setHeartCount(prev => prev + 1);
+        // Send increment signal
+        socket.emit('send_heart');
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -416,6 +441,8 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                     sender: userName
                 };
                 socket.emit('gallery_upload', newPhoto);
+                // Optimistic add
+                setGallery(prev => [newPhoto, ...prev]);
             } catch (err) {
                 console.error(err);
                 alert("Upload failed. Please try a smaller image.");

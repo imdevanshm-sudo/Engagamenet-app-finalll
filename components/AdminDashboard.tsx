@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Settings, MessageSquare, Home, Users, 
@@ -217,6 +216,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       }
   };
 
+  // --- Persistence Effects ---
+  useEffect(() => {
+      try {
+          localStorage.setItem('wedding_chat_messages', JSON.stringify(messages));
+      } catch (e) {}
+  }, [messages]);
+
+  useEffect(() => {
+      try {
+          localStorage.setItem('wedding_gallery_media', JSON.stringify(photos));
+      } catch (e) {}
+  }, [photos]);
+
+  useEffect(() => {
+      localStorage.setItem('wedding_heart_count', heartCount.toString());
+  }, [heartCount]);
+  
+  useEffect(() => {
+      localStorage.setItem('wedding_theme_config', JSON.stringify(theme));
+  }, [theme]);
+
   useEffect(() => {
       // Initial load from local storage
       const savedConfig = localStorage.getItem('wedding_global_config');
@@ -251,7 +271,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
       socket.on('full_sync', handleFullSync);
       socket.on('message', (data) => {
-          setMessages(prev => [...prev, data.payload]);
+          setMessages(prev => {
+              if (prev.some(m => m.id === data.payload.id)) return prev;
+              return [...prev, data.payload];
+          });
           setMsgCount(prev => prev + 1);
       });
       socket.on('heart_update', (data) => setHeartCount(data.count));
