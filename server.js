@@ -1,176 +1,208 @@
-import express from 'express';
-import { createServer } from 'http';
-import { Server } from 'socket.io';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const express = require('express');
+const http = require('http');
+const socketIO = require('socket.io');
+const cors = require('cors');
 
 const app = express();
-const httpServer = createServer(app);
+app.use(cors());
 
-// 🔥 FIX: Explicitly allow CORS for your frontend
-const io = new Server(httpServer, {
+const server = http.createServer(app);
+const io = socketIO(server, {
   cors: {
-    origin: [
-      "http://localhost:5173",                  // Local Vite Dev
-      "http://localhost:4173",                  // Local Vite Preview
-      "https://weengagedgit-95729857-ba728.web.app", // Your Firebase URL
-      "https://engagamenet-app-finalll.onrender.com" // Your Render URL
-    ],
-    methods: ["GET", "POST"],
-    credentials: true
-  },
-  maxHttpBufferSize: 5e7, // 50MB for images
-  pingTimeout: 60000,     // 60s timeout to prevent disconnects
-  transports: ['websocket', 'polling'] // Allow both
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
 });
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3001;
 
-// --- IN-MEMORY STATE ---
+// --- State Management ---
 let currentState = {
-  heartCount: 0,
-  messages: [],
-  gallery: [],
+  activeSlide: 0,
+  gallery: [
+    { id: '1', src: '/gallery/1.jpeg', caption: '' },
+    { id: '2', src: '/gallery/2.jpeg', caption: '' },
+    { id: '3', src: '/gallery/3.jpeg', caption: '' },
+    { id: '4', src: '/gallery/4.jpeg', caption: '' },
+    { id: '5', src: '/gallery/5.jpeg', caption: '' },
+    { id: '6', src: '/gallery/6.jpeg', caption: '' },
+    { id: '7', src: '/gallery/7.jpeg', caption: '' },
+    { id: '8', src: '/gallery/8.jpeg', caption: '' },
+    { id: '9', src: '/gallery/9.jpeg', caption: '' },
+    { id: '10', src: '/gallery/10.jpeg', caption: '' },
+  ],
   guestList: [],
-  lanterns: [],
   locations: {},
-  theme: { gradient: 'royal', effect: 'dust' },
-  config: { 
-    coupleName: "Sneha & Aman", 
-    date: "2025-11-26", 
-    welcomeMsg: "Join us as we begin our forever.", 
-    coupleImage: "" 
-  },
-  currentSong: null,
-  isPlaying: false,
-  announcement: null
+  quiz: {
+    questions: [
+        {
+            "id": 1,
+            "question": "Where did the couple first meet?",
+            "options": ["At a concert", "In a coffee shop", "At a wedding", "On a dating app"],
+            "answer": "At a wedding",
+            "fun_fact": "It was at the wedding of their mutual friends, Sarah and Tom!"
+        },
+        {
+            "id": 2,
+            "question": "What is the couple's favorite shared hobby?",
+            "options": ["Hiking", "Cooking", "Watching movies", "Board games"],
+            "answer": "Hiking",
+            "fun_fact": "They've hiked in 5 different national parks together!"
+        },
+        {
+            "id": 3,
+            "question": "Who is the better cook?",
+            "options": ["Partner 1", "Partner 2", "They're both amazing", "They both order takeout"],
+            "answer": "Partner 1",
+            "fun_fact": "Partner 1 makes a legendary lasagna from a secret family recipe."
+        },
+        {
+            "id": 4,
+            "question": "What was the destination of their first vacation together?",
+            "options": ["Paris", "Bali", "A local camping trip", "New York City"],
+            "answer": "A local camping trip",
+            "fun_fact": "It rained the entire time, but they still had a blast!"
+        },
+        {
+            "id": 5,
+            "question": "Who said 'I love you' first?",
+            "options": ["Partner 1", "Partner 2", "It was mutual at the same time", "Their dog"],
+            "answer": "Partner 2",
+            "fun_fact": "Partner 2 blurted it out during a movie night."
+        }
+    ],
+    "currentQuestionIndex": 0,
+    "scores": {},
+    "showResults": false
+},
+  chatMessages: [],
+  hearts: 0,
+  lanterns: []
 };
 
+const broadcastState = () => {
+    io.emit('sync_data', currentState);
+}
+
 io.on('connection', (socket) => {
-  console.log('✅ Client connected:', socket.id);
+    console.log('A user connected');
+    
+    socket.emit('sync_data', currentState);
 
-  // 1. Send Full State Immediately
-  socket.emit('full_sync', currentState);
-
-  // 2. Handle Sync Request
-  socket.on('request_sync', () => {
-      socket.emit('full_sync', currentState);
-  });
-
-  // --- User & Map Logic ---
-  socket.on('user_join', (user) => {
-      console.log(`👤 User joined: ${user.name} (${user.role})`);
-      // Remove duplicates based on name
-      currentState.guestList = currentState.guestList.filter(g => g.name !== user.name);
-      currentState.guestList.push(user);
-      io.emit('user_presence', { payload: user });
-  });
-
-  socket.on('location_update', (data) => {
-      if (data.name && data.lat && data.lng) {
-          currentState.locations[data.name] = { 
-              lat: data.lat, 
-              lng: data.lng, 
-              timestamp: Date.now() 
-          };
-          io.emit('locations_sync', currentState.locations);
-      }
-  });
-
-  socket.on('send_rsvp', (data) => {
-      const user = currentState.guestList.find(g => g.name === data.name);
-      if (user) {
-          user.rsvp = true;
-          // Broadcast update
-          io.emit('user_presence', { payload: user });
-      }
-  });
-
-  socket.on('block_user', (name) => {
-      currentState.guestList = currentState.guestList.filter(g => g.name !== name);
-      delete currentState.locations[name];
-      io.emit('block_user', { name });
-      io.emit('locations_sync', currentState.locations);
-  });
-
-  // --- Interactive Features ---
-  socket.on('send_heart', () => {
-      currentState.heartCount++;
-      io.emit('heart_update', { count: currentState.heartCount });
-  });
-
-  socket.on('send_lantern', (lantern) => {
-      currentState.lanterns.push(lantern);
-      if (currentState.lanterns.length > 20) currentState.lanterns.shift();
-      io.emit('lantern_added', { payload: lantern });
-  });
-
-  socket.on('message', (msg) => {
-      currentState.messages.push(msg);
-      if (currentState.messages.length > 100) currentState.messages.shift();
-      io.emit('message', { payload: msg });
-  });
-
-  socket.on('message_sync', (msgs) => {
-      currentState.messages = msgs;
-      io.emit('message_sync', { payload: msgs });
-  });
-
-  socket.on('gallery_upload', (item) => {
-      currentState.gallery.unshift(item);
-      if (currentState.gallery.length > 50) currentState.gallery.pop();
-      io.emit('gallery_sync', { payload: currentState.gallery });
-  });
+    // --- User & Map Logic ---
+    socket.on('user_join', (user) => {
+        console.log(`👤 User joined: ${user.name} (${user.role})`);
+        // Remove duplicates based on name
+        currentState.guestList = currentState.guestList.filter(g => g.name !== user.name);
+        currentState.guestList.push(user);
+        broadcastState();
+    });
   
-  socket.on('gallery_sync', (items) => {
-      currentState.gallery = items;
-      io.emit('gallery_sync', { payload: items });
-  });
+    socket.on('location_update', (data) => {
+        if (data.name && data.lat && data.lng) {
+            currentState.locations[data.name] = { 
+                lat: data.lat, 
+                lng: data.lng, 
+                timestamp: Date.now() 
+            };
+            io.emit('locations_sync', currentState.locations);
+        }
+    });
 
-  // --- Config & Theme ---
-  socket.on('theme_update', (theme) => {
-      console.log("🎨 Theme updated to:", theme.gradient);
-      currentState.theme = theme;
-      io.emit('theme_update', theme);
-  });
+    socket.on('send_rsvp', (data) => {
+        const user = currentState.guestList.find(g => g.name === data.name);
+        if (user) {
+            user.rsvp = true;
+            broadcastState();
+        }
+    });
 
-  socket.on('config_update', (config) => {
-      currentState.config = { ...currentState.config, ...config };
-      io.emit('config_sync', { payload: currentState.config });
-  });
+    socket.on('request_sync', () => {
+        socket.emit('sync_data', currentState);
+    });
 
-  socket.on('playlist_update', (data) => {
-      currentState.currentSong = data.currentSong;
-      currentState.isPlaying = data.isPlaying;
-      io.emit('playlist_update', data);
-  });
+    // --- Slideshow Logic ---
+    socket.on('slide_change', (newSlide) => {
+        currentState.activeSlide = newSlide;
+        io.emit('slide_changed', newSlide);
+    });
+    
+    // --- Quiz Logic ---
+    socket.on('quiz_start', () => {
+        currentState.quiz.currentQuestionIndex = 0;
+        currentState.quiz.showResults = false;
+        currentState.quiz.scores = {};
+        broadcastState();
+    });
 
-  socket.on('announcement', (msg) => {
-      currentState.announcement = msg;
-      io.emit('announcement', { message: msg });
-  });
+    socket.on('quiz_answer', (data) => {
+        const { user, questionId, answer } = data;
+        const question = currentState.quiz.questions.find(q => q.id === questionId);
 
-  socket.on('typing', (data) => {
-      socket.broadcast.emit('typing', data);
-  });
+        if (question) {
+            if (!currentState.quiz.scores[user]) {
+                currentState.quiz.scores[user] = { score: 0, name: user };
+            }
+            if (question.answer === answer) {
+                currentState.quiz.scores[user].score += 1;
+            }
+        }
+        broadcastState();
+    });
 
-  socket.on('disconnect', () => {
-      console.log('❌ Client disconnected:', socket.id);
-  });
+    socket.on('quiz_next_question', () => {
+        if (currentState.quiz.currentQuestionIndex < currentState.quiz.questions.length - 1) {
+            currentState.quiz.currentQuestionIndex++;
+        } else {
+            currentState.quiz.showResults = true;
+        }
+        broadcastState();
+    });
+
+    socket.on('quiz_reset', () => {
+        currentState.quiz.currentQuestionIndex = 0;
+        currentState.quiz.showResults = false;
+        currentState.quiz.scores = {};
+        broadcastState();
+    });
+
+    socket.on('gallery_sync', (gallery) => {
+        currentState.gallery = gallery;
+        broadcastState();
+    });
+
+    // --- Chat Logic ---
+    socket.on('send_message', (message) => {
+        currentState.chatMessages.push(message);
+        broadcastState();
+    });
+
+    // --- Heart Meter Logic ---
+    socket.on('add_heart', () => {
+        currentState.hearts++;
+        broadcastState();
+    });
+
+    // --- Lanterns Logic ---
+    socket.on('release_lantern', (lantern) => {
+        currentState.lanterns.push(lantern);
+        broadcastState();
+    });
+
+    socket.on('sync', () => {
+        broadcastState();
+    })
+
+    socket.on('disconnect', () => {
+        console.log('User disconnected');
+    });
 });
 
-// Serve Static Files (If you visit the backend URL directly)
-app.use(express.static(path.join(__dirname, 'dist')));
-
-app.get('*', (req, res) => {
-  // Send index.html for any other requests
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+app.get('/', (req, res) => {
+    res.send('<h1>Hello from the server!</h1>');
 });
 
-httpServer.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`   - Socket.io allowed origins configured.`);
+
+server.listen(PORT, () => {
+    console.log(`Server listening on port ${PORT}`);
 });
