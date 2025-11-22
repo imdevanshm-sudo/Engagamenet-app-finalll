@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { User, Sparkles, Lock, Image as ImageIcon, X, Save, Check, LogIn, Volume2, VolumeX, ChevronRight, Heart, Loader } from 'lucide-react';
+import { User, Sparkles, Lock, X, Heart, Volume2, VolumeX, ChevronRight, Loader } from 'lucide-react';
 
 // --- Audio Utilities ---
 const isAudioMuted = () => localStorage.getItem('wedding_audio_muted') === 'true';
@@ -11,67 +11,30 @@ const getAudioContext = () => {
   return AudioContext ? new AudioContext() : null;
 };
 
-const playBellSound = () => {
+// Soft Chime Effect
+const playChimeSound = () => {
   if (isAudioMuted()) return;
   const ctx = getAudioContext();
   if (!ctx) return;
 
   const t = ctx.currentTime;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(2800, t);
-  
-  const osc2 = ctx.createOscillator();
-  const gain2 = ctx.createGain();
-  osc2.type = 'sine';
-  osc2.frequency.setValueAtTime(5600, t); 
-
-  gain.gain.setValueAtTime(0, t);
-  gain.gain.linearRampToValueAtTime(0.15, t + 0.01); 
-  gain.gain.exponentialRampToValueAtTime(0.001, t + 1.5); 
-
-  gain2.gain.setValueAtTime(0, t);
-  gain2.gain.linearRampToValueAtTime(0.05, t + 0.01);
-  gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.5); 
-
-  osc.connect(gain);
-  osc2.connect(gain2);
-  gain.connect(ctx.destination);
-  gain2.connect(ctx.destination);
-
-  osc.start(t);
-  osc2.start(t);
-  osc.stop(t + 1.5);
-  osc2.stop(t + 1.5);
-};
-
-const playStrumSound = () => {
-  if (isAudioMuted()) return;
-  const ctx = getAudioContext();
-  if (!ctx) return;
-
-  const t = ctx.currentTime;
-  const notes = [329.63, 369.99, 415.30, 493.88, 554.37, 659.25];
+  const notes = [523.25, 659.25, 783.99, 1046.50]; // C Major Chord
   
   notes.forEach((freq, i) => {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    
-    osc.type = 'triangle';
+    osc.type = 'sine';
     osc.frequency.setValueAtTime(freq, t);
-    const start = t + (i * 0.06);
     
+    const start = t + (i * 0.1);
     gain.gain.setValueAtTime(0, start);
-    gain.gain.linearRampToValueAtTime(0.08, start + 0.02); 
-    gain.gain.exponentialRampToValueAtTime(0.001, start + 3.0); 
+    gain.gain.linearRampToValueAtTime(0.05, start + 0.05); 
+    gain.gain.exponentialRampToValueAtTime(0.001, start + 2.0); 
 
     osc.connect(gain);
     gain.connect(ctx.destination);
-    
     osc.start(start);
-    osc.stop(start + 3.5);
+    osc.stop(start + 2.5);
   });
 };
 
@@ -90,8 +53,8 @@ const useTilt = (ref: React.RefObject<HTMLDivElement>) => {
         const x = (clientX - left) / width;
         const y = (clientY - top) / height;
         
-        const tiltX = (0.5 - y) * 20; // Rotate X axis based on Y position
-        const tiltY = (x - 0.5) * 20; // Rotate Y axis based on X position
+        const tiltX = (0.5 - y) * 10; // Subtle tilt
+        const tiltY = (x - 0.5) * 10; 
 
         setTransform(`perspective(1000px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(1.02)`);
     };
@@ -113,7 +76,45 @@ const useTilt = (ref: React.RefObject<HTMLDivElement>) => {
 
 // --- Visual Components ---
 
-const GoldDust = () => {
+const FloatingHearts = () => {
+    const [hearts, setHearts] = useState<Array<{id: number, left: number, top: number, scale: number, speed: number}>>([]);
+
+    useEffect(() => {
+        const count = 20;
+        const newHearts = [];
+        for(let i=0; i<count; i++) {
+            newHearts.push({
+                id: i,
+                left: Math.random() * 100,
+                top: Math.random() * 100,
+                scale: Math.random() * 0.5 + 0.5,
+                speed: Math.random() * 5 + 5
+            });
+        }
+        setHearts(newHearts);
+    }, []);
+
+    return (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+            {hearts.map(h => (
+                <div 
+                    key={h.id}
+                    className="absolute text-pink-500/20 animate-float"
+                    style={{
+                        left: `${h.left}%`,
+                        top: `${h.top}%`,
+                        transform: `scale(${h.scale})`,
+                        animationDuration: `${h.speed}s`
+                    }}
+                >
+                    <Heart fill="currentColor" size={40} />
+                </div>
+            ))}
+        </div>
+    )
+}
+
+const Stardust = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -125,66 +126,47 @@ const GoldDust = () => {
     let animationFrameId: number;
     let particles: Array<{
         x: number, y: number, vx: number, vy: number, 
-        size: number, alpha: number, phase: number, depth: number 
+        size: number, alpha: number
     }> = [];
 
     const resize = () => {
-      if (canvas.parentElement) {
-        canvas.width = canvas.parentElement.clientWidth;
-        canvas.height = canvas.parentElement.clientHeight;
-      } else {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-      }
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
       initParticles();
     };
 
     const initParticles = () => {
       particles = [];
-      const count = Math.floor((canvas.width * canvas.height) / 10000); 
+      const count = 100; 
       for (let i = 0; i < count; i++) {
-        // Depth: 0 is far (slow, small, blur), 1 is near (fast, big, clear)
-        const depth = Math.random(); 
         particles.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
-          vx: (Math.random() - 0.5) * 0.2 * (depth + 0.5), 
-          vy: (-Math.random() * 0.3 - 0.1) * (depth + 0.5), 
-          size: (Math.random() * 2 + 0.5) * (depth + 0.5),
-          alpha: Math.random() * 0.5 + 0.1,
-          phase: Math.random() * Math.PI * 2,
-          depth
+          vx: (Math.random() - 0.5) * 0.2,
+          vy: (Math.random() - 0.5) * 0.2, 
+          size: Math.random() * 2,
+          alpha: Math.random() * 0.5 + 0.1
         });
       }
     };
 
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#fecdd3'; // Rose Pink
       
       particles.forEach((p) => {
         p.y += p.vy;
-        p.x += p.vx + Math.sin(p.phase) * 0.1;
-        p.phase += 0.01;
+        p.x += p.vx;
 
-        if (p.y < -5) p.y = canvas.height + 5;
-        if (p.x < -5) p.x = canvas.width + 5;
-        if (p.x > canvas.width + 5) p.x = -5;
+        if (p.y < 0) p.y = canvas.height;
+        if (p.x < 0) p.x = canvas.width;
+        if (p.x > canvas.width) p.x = 0;
 
         ctx.beginPath();
+        ctx.globalAlpha = p.alpha;
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        
-        // Depth of field effect: blur distant particles
-        if (p.depth < 0.3) {
-             ctx.fillStyle = `rgba(252, 238, 181, ${p.alpha * 0.5})`;
-             ctx.shadowBlur = 4;
-             ctx.shadowColor = '#fceeb5';
-        } else {
-             ctx.fillStyle = `rgba(252, 238, 181, ${p.alpha})`;
-             ctx.shadowBlur = 0;
-        }
         ctx.fill();
       });
-
       animationFrameId = requestAnimationFrame(draw);
     };
 
@@ -198,68 +180,12 @@ const GoldDust = () => {
     };
   }, []);
 
-  return <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none z-0 opacity-80 w-full h-full will-change-transform" />;
+  return <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none z-0 opacity-60" />;
 };
 
-const GodRays = () => (
-    <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden mix-blend-overlay">
-        <div className="absolute top-[-20%] left-[-10%] w-[120%] h-[60%] bg-gradient-to-b from-gold-200/10 to-transparent rotate-12 blur-3xl transform origin-top-left animate-breathe"></div>
-        <div className="absolute top-[-20%] right-[-10%] w-[120%] h-[60%] bg-gradient-to-b from-gold-400/5 to-transparent -rotate-12 blur-3xl transform origin-top-right animate-breathe delay-700"></div>
-    </div>
-);
-
-const PetalIcon = ({ className, style }: { className?: string, style?: React.CSSProperties }) => (
-  <svg viewBox="0 0 30 30" className={className} style={style}>
-     <path d="M15,0 C5,5 0,15 5,25 C10,30 20,30 25,25 C30,15 25,5 15,0 Z" fill="url(#petal-gradient)" />
-     <defs>
-        <linearGradient id="petal-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-           <stop offset="0%" stopColor="#be123c" /> 
-           <stop offset="50%" stopColor="#9f1239" />
-           <stop offset="100%" stopColor="#881337" /> 
-        </linearGradient>
-     </defs>
-  </svg>
-);
-
-const FallingPetals = () => {
-  const petals = Array.from({ length: 16 }).map((_, i) => {
-     const r1 = (i * 37 + 13) % 100; 
-     const r2 = (i * 23 + 7) % 100;  
-     const r3 = (i * 41 + 19) % 100; 
-     return {
-        id: i,
-        left: `${r1}%`,
-        delay: `${r2 * 0.2}s`, 
-        duration: `${15 + (r3 * 0.1)}s`, 
-        scale: 0.6 + (r2 * 0.008),
-        depth: r3 % 3 // 0: back, 1: mid, 2: front
-     };
-  });
-
-  return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
-       {petals.map(p => (
-          <div 
-            key={p.id}
-            className={`absolute -top-8 animate-petal-fall opacity-0 will-change-transform ${p.depth === 0 ? 'blur-[2px] opacity-60' : ''} ${p.depth === 2 ? 'blur-[0px] drop-shadow-lg' : ''}`}
-            style={{
-               left: p.left,
-               animationDelay: p.delay,
-               animationDuration: p.duration,
-               zIndex: p.depth * 10,
-               '--scale': p.scale
-            } as React.CSSProperties}
-          >
-            <PetalIcon className="w-5 h-5" />
-          </div>
-       ))}
-    </div>
-  );
-}
-
 // --- Constants ---
-const DEFAULT_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/Radha_Krishna_by_Raja_Ravi_Varma.jpg/480px-Radha_Krishna_by_Raja_Ravi_Varma.jpg";
-const DEFAULT_WELCOME = "Our hearts are overflowing with joy as we invite you to the beginning of our journey. Your presence makes our story complete. Welcome to our festivities!";
+const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?q=80&w=1000&auto=format&fit=crop"; // Romantic couple placeholder
+const DEFAULT_WELCOME = "Join us as we begin our forever.";
 
 // --- Main Component ---
 
@@ -272,15 +198,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const cardTransform = useTilt(cardRef);
   
-  // Parallax Refs
-  const bgBackRef = useRef<HTMLDivElement>(null); 
-  const bgMidRef = useRef<HTMLDivElement>(null);  
-  const bgFrontRef = useRef<HTMLDivElement>(null); 
-
-  const [mounted, setMounted] = useState(false);
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0 });
   const [config, setConfig] = useState({ coupleName: "Sneha & Aman", date: "2025-11-26" });
-  const [theme, setTheme] = useState<{gradient: string, effect: string}>({ gradient: 'royal', effect: 'dust' });
   const [welcomeMsg, setWelcomeMsg] = useState(DEFAULT_WELCOME);
   const [muted, setMuted] = useState(isAudioMuted());
   
@@ -301,7 +220,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-      // Listen for config/theme updates from Admin
+      // Listen for config updates
       const checkUpdates = () => {
           const savedConfig = localStorage.getItem('wedding_global_config');
           if (savedConfig) {
@@ -312,21 +231,17 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
 
           const img = localStorage.getItem('wedding_couple_image');
           if (img && img !== coupleImage) setCoupleImage(img);
-
-          const savedTheme = localStorage.getItem('wedding_theme_config');
-          if (savedTheme) {
-              setTheme(JSON.parse(savedTheme));
-          }
       };
       checkUpdates();
       const interval = setInterval(checkUpdates, 2000);
 
       const channel = new BroadcastChannel('wedding_portal_chat');
       channel.onmessage = (event) => {
-          if (event.data.type === 'theme_sync') {
-              setTheme(event.data.payload);
-          } else if (event.data.type === 'config_sync') {
-              setConfig(event.data.payload);
+          if (event.data.type === 'config_sync') {
+              const newConfig = event.data.payload;
+              setConfig(newConfig);
+              if (newConfig.coupleImage) setCoupleImage(newConfig.coupleImage);
+              if (newConfig.welcomeMsg) setWelcomeMsg(newConfig.welcomeMsg);
           }
       };
 
@@ -337,13 +252,6 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
   }, [coupleImage]);
 
   useEffect(() => {
-    setMounted(true);
-    try {
-      playStrumSound();
-    } catch (e) {
-      // Ignore
-    }
-
     const targetDate = new Date(config.date + 'T00:00:00');
 
     const calculateTimeLeft = () => {
@@ -372,29 +280,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
       localStorage.setItem('wedding_audio_muted', String(newState));
   };
 
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!scrollRef.current) return;
-      const { scrollTop } = scrollRef.current;
-      requestAnimationFrame(() => {
-         if (bgBackRef.current) bgBackRef.current.style.transform = `translate3d(0, ${-scrollTop * 0.05}px, 0)`;
-         if (bgMidRef.current) bgMidRef.current.style.transform = `translate3d(0, ${-scrollTop * 0.15}px, 0)`;
-         if (bgFrontRef.current) bgFrontRef.current.style.transform = `translate3d(0, ${-scrollTop * 0.25}px, 0)`;
-      });
-    };
-
-    const el = scrollRef.current;
-    handleScroll(); 
-    el?.addEventListener('scroll', handleScroll);
-    window.addEventListener('resize', handleScroll);
-    return () => {
-        el?.removeEventListener('scroll', handleScroll);
-        window.removeEventListener('resize', handleScroll);
-    };
-  }, []);
-  
   const handleAdminClick = () => {
-      playBellSound();
+      playChimeSound();
       setAdminPin("");
       setErrorMsg("");
       setShowAdminLogin(true);
@@ -404,17 +291,15 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
       e.preventDefault();
       setErrorMsg("");
       setIsLoading(true);
-      playBellSound();
+      playChimeSound();
 
-      // Simulate network delay for security
       setTimeout(() => {
-          // Check against Base64 hash of '2025' (MjAyNQ==)
-          if (btoa(adminPin) === "MjAyNQ==") {
+          if (btoa(adminPin) === "MjAyNQ==") { // 2025
               setShowAdminLogin(false);
               localStorage.setItem('wedding_current_user_type', 'admin');
               onLoginSuccess('admin', 'Admin');
           } else {
-              setErrorMsg("Invalid Credentials");
+              setErrorMsg("Incorrect PIN");
               setAdminPin("");
           }
           setIsLoading(false);
@@ -422,7 +307,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
   };
 
   const handleUserLoginOpen = (type: 'guest' | 'couple') => {
-    playBellSound();
+    playChimeSound();
     setLoginType(type);
     const storedName = localStorage.getItem(`wedding_${type}_name`);
     const storedPhone = localStorage.getItem(`wedding_${type}_phone`);
@@ -432,24 +317,14 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
     setShowUserLogin(true);
   };
 
-  const validatePhone = (phone: string) => {
-      const re = /^\d{10}$/;
-      return re.test(phone.replace(/[- ]/g, ""));
-  };
-
   const handleUserLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
-    playBellSound();
+    playChimeSound();
     
     if (!userName.trim() || !userPhone.trim()) {
-      setErrorMsg("Please enter both name and phone number.");
+      setErrorMsg("Please tell us who you are.");
       return;
-    }
-
-    if (!validatePhone(userPhone)) {
-        setErrorMsg("Please enter a valid 10-digit phone number.");
-        return;
     }
 
     setIsLoading(true);
@@ -465,60 +340,23 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="w-full h-full flex flex-col relative overflow-hidden bg-[#0f0505]">
-      <style>{`
-        @keyframes petal-fall {
-           0% { transform: translateY(-5vh) translateX(0) rotate(0deg) scale(var(--scale)); opacity: 0; }
-           10% { opacity: 1; }
-           90% { opacity: 1; }
-           100% { transform: translateY(105vh) translateX(20px) rotate(360deg) scale(var(--scale)); opacity: 0; }
-        }
-        .animate-petal-fall {
-           animation-name: petal-fall;
-           animation-timing-function: linear;
-           animation-iteration-count: infinite;
-           will-change: transform, opacity;
-        }
-        @keyframes bloom-enter {
-           0% { opacity: 0; transform: scale(0.4); filter: brightness(3) blur(4px); }
-           50% { opacity: 1; transform: scale(1.05); filter: brightness(1.2) blur(0px); }
-           100% { opacity: 1; transform: scale(1); filter: brightness(1); }
-        }
-        .animate-bloom {
-           animation: bloom-enter 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-           will-change: transform, opacity, filter;
-        }
-      `}</style>
+    <div className="w-full h-full flex flex-col relative overflow-hidden bg-[#4c0519]">
       
-      {/* --- Parallax Background Layers --- */}
-      <div className={`absolute inset-0 z-0 pointer-events-none overflow-hidden transition-colors duration-1000 ${
-          theme.gradient === 'midnight' ? 'bg-gradient-to-b from-[#0f172a] via-[#1e1b4b] to-[#020617]' :
-          theme.gradient === 'sunset' ? 'bg-gradient-to-b from-[#4a0404] via-[#7c2d12] to-[#2d0a0d]' :
-          'bg-gradient-to-b from-[#1a0507] via-[#2d0a0d] to-[#0f0505]'
-      }`}>
-         <div className="opacity-50">{theme.effect === 'lights' && <GodRays />}</div>
+      {/* Romantic Background */}
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-gradient-to-b from-passion-900 via-[#380410] to-black">
+         <FloatingHearts />
+         <Stardust />
          
-         <div ref={bgBackRef} className="absolute w-full h-[120%] -top-[10%] left-0 will-change-transform">
-             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_#4a0e11_0%,_transparent_70%)] opacity-80"></div>
-         </div>
-         <div ref={bgMidRef} className="absolute w-full h-[120%] -top-[10%] left-0 will-change-transform">
-            <div className="transition-opacity duration-1000" style={{ opacity: theme.effect === 'dust' ? 1 : 0 }}>
-               <GoldDust />
-            </div>
-         </div>
-         <div ref={bgFrontRef} className="absolute w-full h-[120%] -top-[10%] left-0 will-change-transform">
-             <div className="transition-opacity duration-1000" style={{ opacity: theme.effect === 'petals' ? 1 : 0 }}>
-                 <FallingPetals />
-             </div>
-         </div>
+         {/* Soft Spotlight */}
+         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1/2 bg-gradient-to-b from-passion-600/20 to-transparent blur-3xl"></div>
          
-         {/* Cinematic Fog at Bottom */}
-         <div className="absolute bottom-0 left-0 w-full h-1/3 bg-gradient-to-t from-[#000000] to-transparent opacity-60 z-0"></div>
+         {/* Vignette */}
+         <div className="absolute inset-0 bg-[radial-gradient(circle,transparent_20%,#4c0519_100%)] opacity-80"></div>
       </div>
 
       <button 
           onClick={toggleMute} 
-          className="absolute top-6 right-6 z-50 text-gold-300 p-3 bg-black/30 rounded-full backdrop-blur-md hover:bg-black/50 transition-all animate-fade-in delay-1000 border border-white/10 shadow-lg"
+          className="absolute top-6 right-6 z-50 text-pink-200 p-3 bg-black/20 rounded-full backdrop-blur-md hover:bg-black/40 transition-all border border-white/10 shadow-lg"
       >
           {muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
       </button>
@@ -526,10 +364,9 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
       {/* Admin Trigger */}
       <button 
           onClick={handleAdminClick} 
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 text-gold-500/30 hover:text-gold-400 transition-all p-2 flex items-center gap-2 group"
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 text-white/20 hover:text-white/60 transition-all p-2 flex items-center gap-2"
       >
-          <Lock size={14} className="group-hover:scale-110 transition-transform" />
-          <span className="text-[10px] font-serif uppercase tracking-widest">Admin</span>
+          <Lock size={12} />
       </button>
 
       {/* --- Scrollable Content Area --- */}
@@ -537,12 +374,21 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
         ref={scrollRef}
         className="relative z-10 flex flex-col h-full overflow-y-auto overflow-x-hidden no-scrollbar scroll-smooth overscroll-contain"
       >
-        <header className="flex-shrink-0 pt-16 pb-6 px-4 text-center relative animate-fade-in-up duration-1000 z-20">
-           <h1 className="font-cursive text-[4rem] sm:text-[5rem] leading-none text-transparent bg-clip-text bg-gradient-to-b from-gold-100 via-gold-300 to-gold-500 drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] filter animate-fade-in-up delay-100">
+        <header className="flex-shrink-0 pt-20 pb-6 px-4 text-center relative animate-fade-in-up duration-1000 z-20">
+           <div className="inline-block mb-4 animate-pulse-slow">
+                <Heart fill="url(#heart-grad)" className="w-12 h-12 text-transparent" />
+                <svg width="0" height="0">
+                    <linearGradient id="heart-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#f472b6" />
+                        <stop offset="100%" stopColor="#be123c" />
+                    </linearGradient>
+                </svg>
+           </div>
+           <h1 className="font-romantic text-6xl sm:text-7xl leading-none text-transparent bg-clip-text bg-gradient-to-br from-pink-200 via-pink-100 to-rose-300 drop-shadow-[0_5px_15px_rgba(225,29,72,0.5)] pb-2">
              {config.coupleName}
            </h1>
-           <p className="text-gold-200 font-heading text-xs tracking-[0.4em] uppercase mt-4 text-glow animate-slide-in-right delay-300">
-             The Royal Engagement
+           <p className="text-pink-300/80 font-serif italic text-sm tracking-widest mt-4 animate-slide-up delay-300">
+             Our Love Story
            </p>
         </header>
 
@@ -551,40 +397,37 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
           {/* 3D Card Container */}
           <div 
             ref={cardRef}
-            className="relative w-72 h-72 sm:w-80 sm:h-80 my-8 flex-shrink-0 animate-bloom"
+            className="relative w-72 h-72 sm:w-80 sm:h-80 my-8 flex-shrink-0"
             style={{ transform: cardTransform, transition: 'transform 0.1s ease-out', transformStyle: 'preserve-3d' }}
           >
              {/* Back Glow */}
-             <div className="absolute inset-0 bg-rose-900/40 blur-3xl rounded-full transform translate-z-[-50px]"></div>
+             <div className="absolute inset-0 bg-passion-600/40 blur-[60px] rounded-full transform translate-z-[-50px] animate-pulse-slow"></div>
              
              {/* Decorative Rings */}
-             <div className="absolute -inset-10 border border-gold-500/20 rounded-full animate-spin-slow pointer-events-none" style={{ transform: 'translateZ(20px)' }}></div>
-             <div className="absolute -inset-4 border border-gold-500/30 rounded-full animate-spin-slow pointer-events-none" style={{ animationDirection: 'reverse', transform: 'translateZ(40px)' }}></div>
+             <div className="absolute -inset-6 border border-pink-500/20 rounded-full animate-spin-slow pointer-events-none"></div>
 
              {/* Main Image Container */}
-             <div className="relative w-full h-full rounded-full p-1.5 bg-gradient-to-br from-gold-300 via-gold-100 to-gold-500 shadow-[0_20px_50px_rgba(0,0,0,0.8)] z-10">
-                <div className="w-full h-full rounded-full overflow-hidden border-4 border-[#2d0a0d] relative group">
+             <div className="relative w-full h-full rounded-full p-1 bg-gradient-to-br from-pink-400 via-passion-600 to-pink-400 shadow-[0_20px_60px_rgba(0,0,0,0.5)] z-10">
+                <div className="w-full h-full rounded-full overflow-hidden border-4 border-[#4c0519] relative group">
                     <img src={coupleImage} alt="Couple" className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110 will-change-transform" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#2d0a0d]/80 via-transparent to-transparent mix-blend-multiply"></div>
-                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-passion-900/60 via-transparent to-transparent"></div>
                 </div>
              </div>
           </div>
 
           {/* Glass Panel Content */}
-          <div className="glass-panel max-w-md mx-auto space-y-8 p-8 rounded-2xl relative z-10 animate-fade-in-up delay-500 transform hover:scale-[1.01] transition-transform duration-500">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-1/2 h-[1px] bg-gradient-to-r from-transparent via-gold-400 to-transparent"></div>
+          <div className="glass-romance max-w-md mx-auto space-y-8 p-8 rounded-3xl relative z-10 animate-fade-in-up delay-500 w-full">
               
-              <p className="font-serif text-gold-100 text-lg leading-relaxed text-center opacity-90">
+              <p className="font-romantic text-pink-100 text-2xl leading-relaxed text-center drop-shadow-md">
                   {welcomeMsg}
               </p>
               
               {/* Countdown */}
-              <div className="flex justify-center gap-6 py-2 border-t border-white/5 border-b border-white/5">
+              <div className="flex justify-center gap-4 py-4 border-t border-pink-500/20 border-b border-pink-500/20">
                  {Object.entries(timeLeft).map(([unit, val], i) => (
                      <div key={unit} className="flex flex-col items-center min-w-[60px]">
-                         <span className="text-3xl font-heading text-gradient-gold font-bold">{val}</span>
-                         <span className="text-[10px] uppercase tracking-widest text-stone-400">{unit}</span>
+                         <span className="text-2xl font-serif text-white font-bold">{val}</span>
+                         <span className="text-[9px] uppercase tracking-widest text-pink-300">{unit}</span>
                      </div>
                  ))}
               </div>
@@ -593,15 +436,15 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
               <div className="flex flex-col gap-4 items-center w-full">
                   <button 
                     onClick={() => handleUserLoginOpen('guest')}
-                    className="w-full bg-gradient-to-r from-gold-500 to-gold-700 text-[#2d0a0d] py-4 rounded-xl font-heading font-bold tracking-widest shadow-[0_0_25px_rgba(234,179,8,0.3)] hover:shadow-[0_0_35px_rgba(234,179,8,0.5)] hover:brightness-110 transition-all active:scale-[0.98] flex items-center justify-center gap-3 group relative overflow-hidden"
+                    className="w-full bg-gradient-to-r from-passion-600 to-passion-800 text-white py-4 rounded-full font-heading font-bold tracking-widest shadow-glow hover:shadow-glow-lg hover:scale-105 transition-all active:scale-95 flex items-center justify-center gap-3 group relative overflow-hidden"
                   >
                       <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:animate-[shimmer_1.5s_infinite] skew-x-12"></div>
-                      <Sparkles size={18} /> Enter as Guest
+                      <Sparkles size={18} /> Enter Celebration
                   </button>
                   
                   <button 
                     onClick={() => handleUserLoginOpen('couple')}
-                    className="text-gold-400/60 text-xs uppercase tracking-widest hover:text-gold-200 transition-colors py-2 flex items-center gap-2 hover:gap-3 duration-300"
+                    className="text-pink-400/60 text-xs uppercase tracking-widest hover:text-pink-200 transition-colors py-2 flex items-center gap-2 hover:gap-3 duration-300"
                   >
                       <Heart size={12} fill="currentColor" /> Couple Login
                   </button>
@@ -615,21 +458,21 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
       {/* Admin Login Modal */}
       {showAdminLogin && (
           <div className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-              <div className="glass-deep p-8 rounded-2xl w-full max-w-xs text-center animate-zoom-in border border-gold-500/20">
-                  <h3 className="text-gold-200 font-heading text-xl mb-6">Admin Access</h3>
+              <div className="glass-romance p-8 rounded-2xl w-full max-w-xs text-center animate-zoom-in">
+                  <h3 className="text-pink-200 font-heading text-xl mb-6">Secret Access</h3>
                   <form onSubmit={handleLoginSubmit} className="space-y-4">
                       <input 
                           type="password" 
                           value={adminPin} 
                           onChange={e => setAdminPin(e.target.value)}
-                          className={`w-full bg-black/40 border rounded-lg px-4 py-3 text-center text-gold-100 tracking-[0.5em] focus:outline-none focus:border-gold-400 transition-colors ${errorMsg ? 'border-red-500' : 'border-gold-500/30'}`}
+                          className={`w-full bg-black/40 border rounded-lg px-4 py-3 text-center text-pink-100 tracking-[0.5em] focus:outline-none focus:border-pink-400 transition-colors ${errorMsg ? 'border-red-500' : 'border-pink-500/30'}`}
                           placeholder="PIN"
                           autoFocus
                       />
                       {errorMsg && <p className="text-red-400 text-xs animate-shake">{errorMsg}</p>}
                       <div className="flex gap-3">
-                          <button type="button" onClick={() => setShowAdminLogin(false)} className="flex-1 py-2.5 rounded-lg border border-white/10 text-stone-400 hover:bg-white/5 hover:text-white transition-colors">Cancel</button>
-                          <button type="submit" disabled={isLoading} className="flex-1 py-2.5 rounded-lg bg-gold-600 text-[#2d0a0d] font-bold hover:bg-gold-500 transition-colors flex items-center justify-center">
+                          <button type="button" onClick={() => setShowAdminLogin(false)} className="flex-1 py-2.5 rounded-lg border border-white/10 text-pink-400 hover:bg-white/5 hover:text-white transition-colors">Cancel</button>
+                          <button type="submit" disabled={isLoading} className="flex-1 py-2.5 rounded-lg bg-passion-600 text-white font-bold hover:bg-passion-500 transition-colors flex items-center justify-center">
                               {isLoading ? <Loader size={16} className="animate-spin" /> : "Unlock"}
                           </button>
                       </div>
@@ -640,48 +483,47 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
 
       {/* User Login Modal */}
       {showUserLogin && (
-          <div className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 animate-fade-in">
-              <div className="glass-panel p-8 rounded-2xl w-full max-w-sm relative animate-slide-up border border-white/10 shadow-2xl">
+          <div className="fixed inset-0 z-[60] bg-passion-900/95 backdrop-blur-xl flex items-center justify-center p-4 animate-fade-in">
+              <div className="bg-gradient-to-b from-passion-800 to-black p-8 rounded-3xl w-full max-w-sm relative animate-slide-up border border-pink-500/30 shadow-2xl">
                   <button onClick={() => setShowUserLogin(false)} className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors"><X size={24} /></button>
                   
                   <div className="text-center mb-8">
-                      <div className="w-20 h-20 bg-gradient-to-br from-gold-400 to-gold-600 rounded-full flex items-center justify-center mx-auto mb-4 text-[#4a0e11] shadow-[0_0_30px_rgba(234,179,8,0.4)]">
+                      <div className="w-20 h-20 bg-gradient-to-br from-pink-500 to-passion-600 rounded-full flex items-center justify-center mx-auto mb-4 text-white shadow-glow animate-pulse-slow">
                             {loginType === 'couple' ? <Heart size={32} fill="currentColor" /> : <User size={32} />}
                       </div>
-                      <h3 className="font-heading text-3xl text-gold-100 mb-2">{loginType === 'couple' ? 'Couple Login' : 'Guest Entry'}</h3>
-                      <p className="text-xs text-gold-200/60 font-serif tracking-wider uppercase">Please provide your details</p>
+                      <h3 className="font-romantic text-4xl text-pink-100 mb-2">{loginType === 'couple' ? 'The Couple' : 'Welcome Guest'}</h3>
+                      <p className="text-xs text-pink-300/60 font-serif tracking-wider uppercase">May we have your details?</p>
                   </div>
 
                   <form onSubmit={handleUserLoginSubmit} className="space-y-5">
                       <div>
-                          <label className="block text-[10px] font-bold uppercase tracking-widest text-gold-400/80 mb-2 ml-1">Full Name</label>
+                          <label className="block text-[10px] font-bold uppercase tracking-widest text-pink-400/80 mb-2 ml-1">Your Name</label>
                           <input 
                               type="text" 
                               value={userName} 
                               onChange={e => setUserName(e.target.value)}
-                              className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-4 text-gold-100 focus:outline-none focus:border-gold-500/50 focus:bg-black/50 transition-all"
-                              placeholder="e.g. Rajesh Kumar"
+                              className="w-full bg-black/30 border border-pink-500/20 rounded-xl px-5 py-4 text-pink-100 focus:outline-none focus:border-pink-500 focus:bg-black/50 transition-all"
+                              placeholder="e.g. Romeo"
                           />
                       </div>
                       <div>
-                          <label className="block text-[10px] font-bold uppercase tracking-widest text-gold-400/80 mb-2 ml-1">Phone Number</label>
+                          <label className="block text-[10px] font-bold uppercase tracking-widest text-pink-400/80 mb-2 ml-1">Phone Number</label>
                           <input 
                               type="tel" 
                               value={userPhone} 
                               onChange={e => setUserPhone(e.target.value)}
-                              className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-4 text-gold-100 focus:outline-none focus:border-gold-500/50 focus:bg-black/50 transition-all"
-                              placeholder="10-digit mobile number"
-                              maxLength={10}
+                              className="w-full bg-black/30 border border-pink-500/20 rounded-xl px-5 py-4 text-pink-100 focus:outline-none focus:border-pink-500 focus:bg-black/50 transition-all"
+                              placeholder="10-digit number"
                           />
                       </div>
                       
                       {errorMsg && <p className="text-red-400 text-xs text-center animate-shake">{errorMsg}</p>}
 
-                      <button type="submit" disabled={isLoading} className="w-full bg-gradient-to-r from-rose-700 to-rose-900 text-white py-4 rounded-xl font-bold shadow-lg hover:brightness-110 transition-all active:scale-95 flex items-center justify-center gap-2 mt-4 group border border-rose-500/30">
+                      <button type="submit" disabled={isLoading} className="w-full bg-gradient-to-r from-pink-600 to-passion-600 text-white py-4 rounded-xl font-bold shadow-lg hover:shadow-glow transition-all active:scale-95 flex items-center justify-center gap-2 mt-4 group border border-pink-500/30">
                           {isLoading ? (
                               <Loader size={20} className="animate-spin" />
                           ) : (
-                              <><span>Begin Journey</span> <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" /></>
+                              <><span>Enter with Love</span> <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" /></>
                           )}
                       </button>
                   </form>

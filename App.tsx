@@ -1,13 +1,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom/client';
 import WelcomeScreen from './components/WelcomeScreen';
 import GuestDashboard from './components/GuestDashboard';
 import CoupleDashboard from './components/CoupleDashboard';
 import AdminDashboard from './components/AdminDashboard';
-import { X, Cookie, RefreshCw, Bell, AlertTriangle, Loader } from 'lucide-react';
+import { X, Cookie, RefreshCw, Heart, AlertTriangle, Loader } from 'lucide-react';
 
 // Update this version string whenever you deploy a significant update to force a cache clear
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '2.0.0';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<'welcome' | 'guest-dashboard' | 'couple-dashboard' | 'admin-dashboard'>('welcome');
@@ -29,8 +30,6 @@ const App: React.FC = () => {
     
     if (storedVersion !== APP_VERSION) {
        console.log(`App updated from ${storedVersion} to ${APP_VERSION}. Cleaning stale data.`);
-       
-       // Preserve session data to avoid logging users out unnecessarily
        const userType = localStorage.getItem('wedding_current_user_type');
        const guestName = localStorage.getItem('wedding_guest_name');
        const guestPhone = localStorage.getItem('wedding_guest_phone');
@@ -38,10 +37,8 @@ const App: React.FC = () => {
        const couplePhone = localStorage.getItem('wedding_couple_phone');
        const cookieConsent = localStorage.getItem('wedding_cookie_consent');
        
-       // Clear all local storage to remove stale state/caches
        localStorage.clear();
        
-       // Restore session data
        if (userType) localStorage.setItem('wedding_current_user_type', userType);
        if (guestName) localStorage.setItem('wedding_guest_name', guestName);
        if (guestPhone) localStorage.setItem('wedding_guest_phone', guestPhone);
@@ -49,7 +46,6 @@ const App: React.FC = () => {
        if (couplePhone) localStorage.setItem('wedding_couple_phone', couplePhone);
        if (cookieConsent) localStorage.setItem('wedding_cookie_consent', cookieConsent);
        
-       // Set new version
        localStorage.setItem('wedding_app_version', APP_VERSION);
     }
 
@@ -80,28 +76,9 @@ const App: React.FC = () => {
         
         // 1. Global Announcement
         if (data.type === 'announcement') {
-            setAnnouncement({ title: "Royal Proclamation", msg: data.message });
+            setAnnouncement({ title: "A Note of Love", msg: data.message });
             // Auto dismiss after 8 seconds
             setTimeout(() => setAnnouncement(null), 8000);
-            
-            // Play generic notification sound if context is allowed
-            try {
-               const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-               if (AudioContext) {
-                   const ctx = new AudioContext();
-                   const osc = ctx.createOscillator();
-                   const gain = ctx.createGain();
-                   osc.connect(gain);
-                   gain.connect(ctx.destination);
-                   osc.type = 'sine';
-                   osc.frequency.setValueAtTime(523.25, ctx.currentTime);
-                   osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1);
-                   gain.gain.setValueAtTime(0.1, ctx.currentTime);
-                   gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-                   osc.start();
-                   osc.stop(ctx.currentTime + 0.5);
-               }
-            } catch(e) {}
         }
 
         // 2. User Blocking Security Check
@@ -130,14 +107,13 @@ const App: React.FC = () => {
     if (pullStartPoint > 0 && window.scrollY === 0) {
         const pullY = e.targetTouches[0].clientY - pullStartPoint;
         if (pullY > 0) {
-            // Add resistance
             setPullChange(pullY * 0.4);
         }
     }
   };
 
   const handleTouchEnd = () => {
-      if (pullChange > 100) { // Threshold to trigger refresh
+      if (pullChange > 100) {
           setIsRefreshing(true);
           setTimeout(() => {
               window.location.reload();
@@ -153,7 +129,7 @@ const App: React.FC = () => {
       setTimeout(() => {
           setCurrentView(view);
           setIsTransitioning(false);
-      }, 500); // Slower transition for a more royal feel
+      }, 500);
   };
 
   const handleLoginSuccess = (type: 'guest' | 'couple' | 'admin', name: string) => {
@@ -182,7 +158,7 @@ const App: React.FC = () => {
 
   return (
     <div 
-        className="w-full h-full bg-[#2d0a0d] text-gold-100 font-serif overflow-hidden relative"
+        className="w-full h-full bg-passion-900 text-romance-100 font-serif overflow-hidden relative"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -196,8 +172,8 @@ const App: React.FC = () => {
             transition: isRefreshing ? 'height 0.2s ease-in' : 'none'
         }}
       >
-          <div className="bg-gold-500 text-[#2d0a0d] rounded-full p-2 shadow-lg transform translate-y-4">
-              {isRefreshing ? <Loader className="animate-spin" size={24} /> : <RefreshCw size={24} style={{ transform: `rotate(${pullChange * 2}deg)` }} />}
+          <div className="bg-passion-600 text-white rounded-full p-2 shadow-lg transform translate-y-4">
+              {isRefreshing ? <Loader className="animate-spin" size={24} /> : <Heart size={24} className="text-white fill-white" style={{ transform: `scale(${1 + pullChange/200})` }} />}
           </div>
       </div>
 
@@ -223,17 +199,17 @@ const App: React.FC = () => {
       {/* Global Announcement Toast */}
       {announcement && (
           <div className="fixed top-0 left-0 right-0 z-[200] flex items-start justify-center p-4 animate-slide-down pointer-events-none">
-              <div className="bg-gradient-to-r from-gold-600 to-gold-400 text-[#2d0a0d] p-[2px] rounded-xl shadow-2xl max-w-md w-full pointer-events-auto">
-                  <div className="bg-[#fffbf0] rounded-[10px] p-4 flex gap-4 items-start relative overflow-hidden">
-                       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-gold-500 to-transparent animate-shimmer"></div>
-                       <div className="p-3 bg-gold-100 rounded-full shrink-0">
-                           <Bell size={24} className="text-gold-600 animate-swing" />
+              <div className="bg-gradient-to-r from-passion-600 to-passion-500 text-white p-[1px] rounded-xl shadow-glow-lg max-w-md w-full pointer-events-auto">
+                  <div className="bg-passion-900/90 backdrop-blur-md rounded-[10px] p-4 flex gap-4 items-start relative overflow-hidden">
+                       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-pink-400 to-transparent animate-shimmer"></div>
+                       <div className="p-3 bg-passion-700 rounded-full shrink-0 animate-pulse">
+                           <Heart size={20} fill="white" className="text-white" />
                        </div>
                        <div className="flex-grow">
-                           <h4 className="font-heading font-bold text-lg text-gold-800 mb-1">{announcement.title}</h4>
-                           <p className="font-serif text-stone-700 leading-snug">{announcement.msg}</p>
+                           <h4 className="font-heading font-bold text-lg text-pink-200 mb-1">{announcement.title}</h4>
+                           <p className="font-serif text-pink-100 leading-snug">{announcement.msg}</p>
                        </div>
-                       <button onClick={() => setAnnouncement(null)} className="text-stone-400 hover:text-stone-600"><X size={18}/></button>
+                       <button onClick={() => setAnnouncement(null)} className="text-pink-300 hover:text-white"><X size={18}/></button>
                   </div>
               </div>
           </div>
@@ -241,26 +217,26 @@ const App: React.FC = () => {
 
       {/* Cookie Consent Banner */}
       {showCookieConsent && (
-          <div className="fixed bottom-4 left-4 right-4 z-[100] bg-black/90 backdrop-blur-lg p-4 rounded-xl border border-gold-500/30 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-in slide-in-from-bottom-10 fade-in duration-500">
+          <div className="fixed bottom-4 left-4 right-4 z-[100] bg-black/80 backdrop-blur-lg p-4 rounded-xl border border-passion-500/30 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-in slide-in-from-bottom-10 fade-in duration-500">
               <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-gold-100 flex items-center justify-center text-[#4a0e11]"><Cookie size={20} /></div>
+                  <div className="w-10 h-10 rounded-full bg-passion-600 flex items-center justify-center text-white"><Cookie size={20} /></div>
                   <div>
-                      <h4 className="font-bold text-gold-100 text-sm">We use cookies (and love!)</h4>
-                      <p className="text-[10px] text-stone-400">We use local storage to save your preferences, login session, and cached media for a better experience.</p>
+                      <h4 className="font-bold text-pink-100 text-sm">Shared with Love & Cookies</h4>
+                      <p className="text-[10px] text-pink-300">We use local storage to save your memories and session.</p>
                   </div>
               </div>
               <div className="flex gap-2 w-full sm:w-auto">
-                  <button onClick={acceptCookies} className="flex-1 sm:flex-none bg-gold-500 text-[#2d0a0d] px-6 py-2 rounded-lg font-bold text-xs hover:bg-gold-400 transition-colors">Accept</button>
-                  <button onClick={() => setShowCookieConsent(false)} className="p-2 hover:bg-white/10 rounded-lg text-stone-400"><X size={16}/></button>
+                  <button onClick={acceptCookies} className="flex-1 sm:flex-none bg-pink-500 text-white px-6 py-2 rounded-lg font-bold text-xs hover:bg-pink-400 transition-colors shadow-glow">Accept</button>
+                  <button onClick={() => setShowCookieConsent(false)} className="p-2 hover:bg-white/10 rounded-lg text-pink-400"><X size={16}/></button>
               </div>
           </div>
       )}
 
       {/* Update Toast */}
       {showUpdateToast && (
-          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[110] bg-blue-600 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3 animate-bounce cursor-pointer" onClick={() => window.location.reload()}>
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[110] bg-passion-600 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3 animate-bounce cursor-pointer" onClick={() => window.location.reload()}>
               <RefreshCw size={18} className="animate-spin" />
-              <span className="text-xs font-bold">New Version Available. Tap to Refresh!</span>
+              <span className="text-xs font-bold">New Memories Available. Refresh!</span>
           </div>
       )}
     </div>
