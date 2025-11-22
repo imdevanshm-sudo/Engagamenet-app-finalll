@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Home, MessageSquare, Heart, Camera, LogOut, Sparkles, Send, 
@@ -92,65 +93,70 @@ const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
     return (
         <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 transition-all duration-1000">
             
-            {/* --- THEME: MIDNIGHT (Van Gogh Starry Night) --- */}
+            {/* --- THEME: MIDNIGHT (Cinematic Cool) --- */}
             {theme.gradient === 'midnight' && (
                 <>
-                    <div className="absolute inset-0 bg-gradient-to-b from-[#1e1b4b] via-[#0f172a] to-[#000000]"></div>
-                    <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] opacity-20 animate-[spin_60s_linear_infinite]" 
-                         style={{
-                             background: 'repeating-conic-gradient(from 0deg, transparent 0deg, transparent 20deg, rgba(100, 149, 237, 0.2) 40deg, transparent 60deg)',
-                             filter: 'blur(30px)',
-                         }}>
+                    {/* Deep Cinematic Base */}
+                    <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-[#0f172a] to-black"></div>
+                    
+                    {/* Anamorphic Lens Flares */}
+                    <div className="absolute top-1/4 -left-1/2 w-[200%] h-[1px] bg-blue-400/30 blur-md rotate-[-10deg] animate-pulse-slow"></div>
+                    <div className="absolute bottom-1/3 -left-1/2 w-[200%] h-[2px] bg-teal-500/20 blur-xl rotate-[5deg] animate-float"></div>
+                    
+                    {/* Nebulous Glow */}
+                    <div className="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse-slow"></div>
+                    <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-blue-800/20 rounded-full blur-[100px] animate-float" style={{animationDelay: '2s'}}></div>
+                    
+                    {/* Cinematic Grain */}
+                    <div className="absolute inset-0 opacity-[0.04]" 
+                         style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")` }}>
                     </div>
-                    <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] opacity-10 animate-[spin_45s_linear_infinite_reverse]" 
-                         style={{
-                             background: 'repeating-conic-gradient(from 180deg, transparent 0deg, transparent 15deg, rgba(255, 215, 0, 0.15) 30deg, transparent 50deg)',
-                             filter: 'blur(40px)',
-                         }}>
-                    </div>
-                    <div className="absolute inset-0 opacity-5 mix-blend-overlay pointer-events-none" 
-                         style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")` }}>
-                    </div>
-                    {[...Array(12)].map((_, i) => (
+
+                    {/* Stars */}
+                    {[...Array(15)].map((_, i) => (
                         <div key={`star-${i}`} 
-                             className="absolute rounded-full bg-[#fcd34d] animate-pulse-slow"
+                             className="absolute rounded-full bg-blue-100 animate-pulse-slow"
                              style={{
-                                 top: `${Math.random() * 80}%`,
+                                 top: `${Math.random() * 100}%`,
                                  left: `${Math.random() * 100}%`,
-                                 width: `${Math.random() * 6 + 3}px`,
-                                 height: `${Math.random() * 6 + 3}px`,
-                                 boxShadow: '0 0 20px 4px rgba(253, 224, 71, 0.5)',
+                                 width: `${Math.random() * 2 + 1}px`,
+                                 height: `${Math.random() * 2 + 1}px`,
                                  animationDelay: `${Math.random() * 4}s`,
-                                 opacity: 0.8
+                                 opacity: Math.random() * 0.7 + 0.3
                              }}
                         />
                     ))}
                 </>
             )}
 
-            {/* --- THEME: ROYAL (Velvet & Gold) --- */}
+            {/* --- THEME: ROYAL (3D Romantic Red) --- */}
             {theme.gradient === 'royal' && (
                 <>
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#500724] via-[#831843] to-[#500724]"></div>
-                    <div className="absolute inset-0 opacity-30 mix-blend-screen animate-sway"
-                         style={{
-                             background: 'linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.1) 45%, rgba(255,255,255,0.05) 50%, transparent 60%)',
-                             backgroundSize: '200% 200%',
-                             filter: 'blur(8px)'
-                         }}>
-                    </div>
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,rgba(0,0,0,0.6)_100%)]"></div>
-                    {[...Array(15)].map((_, i) => (
+                    {/* Deep 3D Room Effect - Radial Gradient */}
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,_#be123c_0%,_#881337_40%,_#4c0519_80%,_#000000_100%)]"></div>
+                    
+                    {/* Floating Rosy Orbs for Depth */}
+                    <div className="absolute top-0 left-0 w-96 h-96 bg-rose-500/20 rounded-full blur-[100px] animate-float mix-blend-screen"></div>
+                    <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-red-900/40 rounded-full blur-[120px] animate-float" style={{animationDelay: '-3s', animationDuration: '10s'}}></div>
+                    
+                    {/* Dynamic Light Beam */}
+                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-rose-400/10 to-transparent opacity-60 animate-pulse-slow"></div>
+                    
+                    {/* Subtle Pattern overlay */}
+                    <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay"></div>
+
+                    {/* Gold Specs */}
+                    {[...Array(10)].map((_, i) => (
                         <div key={`gold-${i}`}
-                             className="absolute rounded-full bg-[#fbbf24] animate-float"
+                             className="absolute rounded-full bg-amber-400 animate-float"
                              style={{
                                  left: `${Math.random() * 100}%`,
                                  top: `${Math.random() * 100}%`,
-                                 width: `${Math.random() * 2 + 2}px`,
-                                 height: `${Math.random() * 2 + 2}px`,
-                                 opacity: Math.random() * 0.5 + 0.3,
+                                 width: `${Math.random() * 3 + 1}px`,
+                                 height: `${Math.random() * 3 + 1}px`,
+                                 opacity: Math.random() * 0.5 + 0.2,
                                  animationDuration: `${Math.random() * 8 + 12}s`,
-                                 boxShadow: '0 0 8px 1px rgba(251, 191, 36, 0.6)'
+                                 boxShadow: '0 0 8px 1px rgba(251, 191, 36, 0.3)'
                              }}>
                         </div>
                     ))}
@@ -160,44 +166,33 @@ const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
             {/* --- THEME: SUNSET (Living Art) --- */}
             {theme.gradient === 'sunset' && (
                 <>
-                    <div className="absolute inset-0 bg-gradient-to-b from-[#3b0764] via-[#be185d] to-[#fb923c]"></div>
-                    <div className="absolute bottom-[-20%] left-1/2 -translate-x-1/2 w-[80%] h-[50%] bg-[#fbbf24] blur-[120px] opacity-50 rounded-full animate-pulse-slow"></div>
-                    {[...Array(6)].map((_, i) => (
-                        <div key={`cloud-${i}`}
-                             className="absolute rounded-full blur-3xl opacity-20 animate-float"
-                             style={{
-                                 background: i % 2 === 0 ? '#db2777' : '#fcd34d',
-                                 left: `${Math.random() * 100}%`,
-                                 top: `${Math.random() * 60}%`,
-                                 width: `${Math.random() * 200 + 100}px`,
-                                 height: `${Math.random() * 80 + 40}px`,
-                                 animationDuration: `${Math.random() * 25 + 30}s`,
-                                 animationDelay: `${Math.random() * -15}s`,
-                                 transform: `translateX(-50%)`
-                             }}>
-                        </div>
-                    ))}
+                    <div className="absolute inset-0 bg-gradient-to-b from-[#4c1d95] via-[#be185d] to-[#fb923c]"></div>
+                    <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/60 to-transparent"></div>
+                    {/* Clouds/Orbs */}
+                    <div className="absolute top-20 left-1/4 w-72 h-72 bg-orange-500/30 rounded-full blur-[60px] animate-float"></div>
+                    <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[400px] bg-pink-600/30 rounded-full blur-[80px] animate-pulse-slow"></div>
                 </>
             )}
 
             {theme.effect !== 'none' && (
                 <div className="absolute inset-0 z-0">
-                     {theme.effect === 'petals' && [...Array(8)].map((_, i) => (
-                         <div key={`petal-${i}`} className="absolute bg-pink-200/40 rounded-full animate-float blur-[1px]"
+                     {theme.effect === 'petals' && [...Array(12)].map((_, i) => (
+                         <div key={`petal-${i}`} className="absolute bg-rose-300/40 rounded-[100%_0%_100%_0%] animate-float shadow-sm"
                               style={{
                                   left: `${Math.random() * 100}%`,
                                   top: `${Math.random() * 120}%`,
-                                  width: `${Math.random() * 10 + 5}px`,
-                                  height: `${Math.random() * 10 + 5}px`,
+                                  width: `${Math.random() * 15 + 8}px`,
+                                  height: `${Math.random() * 15 + 8}px`,
                                   animationDuration: `${Math.random() * 10 + 15}s`,
-                                  animationDelay: `${Math.random() * -5}s`
+                                  animationDelay: `${Math.random() * -5}s`,
+                                  transform: `rotate(${Math.random() * 360}deg)`
                               }}></div>
                      ))}
                      {theme.effect === 'dust' && (
                          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 animate-pulse"></div>
                      )}
                      {theme.effect === 'lights' && (
-                         <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-60 animate-shimmer" style={{ backgroundSize: '200% 200%' }}></div>
+                         <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-50 animate-shimmer" style={{ backgroundSize: '200% 200%' }}></div>
                      )}
                 </div>
             )}
@@ -223,27 +218,66 @@ const STICKER_MAP: Record<string, React.ReactNode> = {
 };
 
 const AdoreMeter = ({ count, onTrigger }: { count: number, onTrigger: () => void }) => {
-    const [scale, setScale] = useState(1);
+    const [isActive, setIsActive] = useState(false);
 
     const handleClick = () => {
         onTrigger();
-        setScale(0.9);
-        setTimeout(() => setScale(1), 150);
+        setIsActive(true);
+        setTimeout(() => setIsActive(false), 150);
     };
 
     return (
-        <div className="relative z-50 flex flex-col items-center">
-            <div className="absolute inset-0 bg-rose-500/20 blur-3xl rounded-full animate-pulse-slow"></div>
+        <div className="relative z-50 flex flex-col items-center group select-none">
+             {/* Ambient Background Pulse - Enhanced */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 bg-rose-500/20 blur-[60px] rounded-full animate-pulse-slow group-hover:bg-rose-500/40 transition-colors duration-500"></div>
+            
             <button 
                 onClick={handleClick}
-                className="relative w-24 h-24 rounded-full group transition-transform duration-200 active:scale-90 flex items-center justify-center"
-                style={{ transform: `scale(${scale})` }}
+                className={`
+                    relative w-28 h-28 rounded-full flex items-center justify-center
+                    transition-all duration-100 cubic-bezier(0.4, 0, 0.2, 1)
+                    ${isActive ? 'scale-95 shadow-inner' : 'scale-100 hover:scale-110 shadow-glow-lg'}
+                `}
             >
-                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-rose-500 to-passion-600 animate-pulse shadow-glow"></div>
-                <Heart size={48} fill="white" className="text-white z-10 filter drop-shadow-md" />
+                {/* Button Background with Dynamic Gradient */}
+                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-rose-500 via-passion-600 to-rose-900 overflow-hidden border-2 border-white/20 shadow-[inset_0_4px_20px_rgba(0,0,0,0.5)]">
+                     {/* Shimmer Flash */}
+                     <div className={`
+                        absolute inset-0 bg-gradient-to-tr from-transparent via-white/60 to-transparent
+                        transition-transform duration-700 ease-in-out transform
+                        ${isActive ? 'translate-x-full opacity-100' : '-translate-x-full opacity-0'}
+                     `}></div>
+                </div>
+
+                {/* Shockwave Rings */}
+                {isActive && (
+                    <>
+                        <div className="absolute inset-0 rounded-full border-4 border-pink-300/60 animate-ping"></div>
+                        <div className="absolute inset-0 rounded-full border-2 border-white/40 animate-ping" style={{ animationDelay: '0.1s' }}></div>
+                    </>
+                )}
+
+                {/* Heart Icon - Pronounced Pulse */}
+                <div className={`relative z-10 transition-transform duration-150 ${isActive ? 'scale-150 rotate-6' : 'animate-heartbeat'}`}>
+                    <Heart 
+                        size={52} 
+                        fill="currentColor" 
+                        className="text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.3)]" 
+                    />
+                    {/* Inner Glow Heart */}
+                    <Heart 
+                        size={52} 
+                        className="absolute inset-0 text-pink-200 blur-sm animate-pulse" 
+                    />
+                </div>
             </button>
-            <div className="mt-4 bg-black/40 px-4 py-1 rounded-full border border-rose-500/30 text-rose-200 font-bold font-heading">
-                {count} Loves Shared
+
+            {/* Count Display */}
+            <div className="mt-6 bg-black/40 backdrop-blur-xl px-6 py-2 rounded-full border border-pink-500/30 text-rose-100 font-bold font-heading flex items-center gap-3 shadow-xl transform transition-all duration-300 group-hover:scale-105">
+                <span className="text-xl tabular-nums tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-white to-pink-200 drop-shadow-sm">
+                    {count.toLocaleString()}
+                </span>
+                <span className="text-[10px] uppercase text-pink-400 tracking-[0.2em] font-bold">Adore</span>
             </div>
         </div>
     );
