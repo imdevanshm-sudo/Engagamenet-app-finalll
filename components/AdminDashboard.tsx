@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Settings, MessageSquare, Home, Users, 
-  Trash2, Check, X, Save, Upload, Image as ImageIcon, Film, Ban, Send, Megaphone, Palette, Sparkles, CloudFog, Flower, Camera, LogOut
+  Trash2, Check, X, Save, Upload, Image as ImageIcon, Ban, Send, Megaphone, Palette, Sparkles, CloudFog, Flower, Camera, LogOut, Search
 } from 'lucide-react';
 
 // --- Image Resizer for LocalStorage ---
@@ -65,6 +65,64 @@ interface ThemeConfig {
     effect: 'dust' | 'petals' | 'lights' | 'none';
 }
 
+const THEME_GRADIENTS = {
+    royal: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#881337] via-[#4c0519] to-black',
+    midnight: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1e1b4b] via-[#020617] to-black',
+    sunset: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#9f1239] via-[#450a0a] to-black',
+};
+
+const Atmosphere = ({ effect }: { effect: string }) => {
+    return (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+            {effect === 'dust' && (
+                // Starry Dust - Multi-layered parallax stars
+                <div className="absolute inset-0">
+                    <div className="absolute w-full h-full animate-[pulse_4s_ease-in-out_infinite]" 
+                         style={{
+                             backgroundImage: 'radial-gradient(white 1px, transparent 1px)',
+                             backgroundSize: '50px 50px',
+                             opacity: 0.3
+                         }}>
+                    </div>
+                     <div className="absolute w-full h-full animate-[pulse_7s_ease-in-out_infinite]" 
+                         style={{
+                             backgroundImage: 'radial-gradient(white 1.5px, transparent 1.5px)',
+                             backgroundSize: '120px 120px',
+                             opacity: 0.2,
+                             backgroundPosition: '20px 20px'
+                         }}>
+                    </div>
+                </div>
+            )}
+            {effect === 'petals' && (
+                // Floating Petals - Organic movement
+                <div className="absolute inset-0">
+                   {[...Array(8)].map((_, i) => (
+                       <div key={i} 
+                            className="absolute bg-pink-400/20 rounded-full animate-float blur-[1px]"
+                            style={{
+                                left: `${Math.random() * 100}%`,
+                                top: `${Math.random() * 100}%`,
+                                width: `${Math.random() * 8 + 4}px`,
+                                height: `${Math.random() * 8 + 4}px`,
+                                animationDuration: `${Math.random() * 10 + 15}s`,
+                                animationDelay: `${Math.random() * 5}s`
+                            }}
+                       ></div>
+                   ))}
+                </div>
+            )}
+            {effect === 'lights' && (
+                // Aurora Glow - Smoother gradients
+                <>
+                   <div className="absolute top-[-20%] left-[-10%] w-[80%] h-[80%] bg-pink-500/10 blur-[120px] rounded-full animate-pulse-slow mix-blend-screen"></div>
+                   <div className="absolute bottom-[-20%] right-[-10%] w-[80%] h-[80%] bg-purple-500/10 blur-[120px] rounded-full animate-pulse-slow mix-blend-screen" style={{animationDelay: '2s'}}></div>
+                </>
+            )}
+        </div>
+    );
+};
+
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'guests' | 'gallery' | 'messages' | 'settings' | 'theme'>('overview');
   const [config, setConfig] = useState({ coupleName: "", date: "", welcomeMsg: "", coupleImage: "" });
@@ -78,6 +136,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
   const [editCaption, setEditCaption] = useState("");
   const [announceMsg, setAnnounceMsg] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Broadcast Helper
   const broadcastSync = (type: string, payload: any) => {
@@ -88,8 +147,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   
   const handleBroadcast = () => {
       if (!announceMsg.trim()) return;
+      const msg = announceMsg;
+
+      // Save persistent announcement
+      try {
+          localStorage.setItem('wedding_last_announcement', msg);
+      } catch (e) {
+          console.error("Storage full", e);
+      }
+
       const channel = new BroadcastChannel('wedding_portal_chat');
-      channel.postMessage({ type: 'announcement', message: announceMsg });
+      channel.postMessage({ type: 'announcement', message: msg });
       channel.close();
       setAnnounceMsg("");
       alert("Love Note Sent to All Guests!");
@@ -100,6 +168,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
           const channel = new BroadcastChannel('wedding_portal_chat');
           channel.postMessage({ type: 'block_user', name: name });
           channel.close();
+          
           const newMessages = messages.filter(m => m.sender !== name);
           setMessages(newMessages);
           setMsgCount(newMessages.length);
@@ -189,13 +258,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   }, []);
 
   const handleSaveConfig = () => {
-      localStorage.setItem('wedding_global_config', JSON.stringify(config));
-      localStorage.setItem('wedding_welcome_msg', config.welcomeMsg);
-      if (config.coupleImage) {
-          localStorage.setItem('wedding_couple_image', config.coupleImage);
+      try {
+          localStorage.setItem('wedding_global_config', JSON.stringify(config));
+          localStorage.setItem('wedding_welcome_msg', config.welcomeMsg);
+          if (config.coupleImage) {
+              localStorage.setItem('wedding_couple_image', config.coupleImage);
+          }
+          broadcastSync('config_sync', config);
+          alert("Settings Updated!");
+      } catch (e) {
+          alert("Storage full! Try using a smaller image or clearing old data.");
       }
-      broadcastSync('config_sync', config);
-      alert("Settings Updated!");
   };
 
   const handleThemeUpdate = (newTheme: Partial<ThemeConfig>) => {
@@ -254,10 +327,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       setEditingPhotoId(null);
   };
 
+  const filteredGuests = guestList.filter(g => g.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
   return (
-    <div className="w-full h-full flex flex-col font-serif bg-passion-900 text-pink-100 transition-colors duration-1000">
+    <div className={`w-full h-full flex flex-col font-serif text-pink-100 transition-all duration-1000 ${THEME_GRADIENTS[theme.gradient] || THEME_GRADIENTS.royal}`}>
+      
+      <Atmosphere effect={theme.effect} />
+
       {/* Header */}
-      <header className="p-4 bg-black/50 backdrop-blur-md border-b border-pink-500/20 flex justify-between items-center shadow-lg z-20">
+      <header className="p-4 bg-black/50 backdrop-blur-md border-b border-pink-500/20 flex justify-between items-center shadow-lg z-20 relative">
           <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-pink-600 text-white rounded-lg flex items-center justify-center font-bold shadow-md">
                   <Settings size={20} />
@@ -272,7 +350,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
           </button>
       </header>
 
-      <div className="flex flex-grow overflow-hidden">
+      <div className="flex flex-grow overflow-hidden relative z-10">
           {/* Sidebar */}
           <aside className="w-20 bg-black/30 border-r border-white/5 flex flex-col items-center py-4 gap-4 z-10 backdrop-blur-sm">
               {[
@@ -351,6 +429,87 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                   </div>
               )}
 
+              {activeTab === 'guests' && (
+                  <div className="space-y-6 animate-fade-in">
+                       <div className="flex justify-between items-center">
+                          <h2 className="text-2xl font-romantic text-white">Guest Management</h2>
+                          <div className="relative w-64">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-pink-400" size={16}/>
+                              <input 
+                                type="text" 
+                                placeholder="Search guests..." 
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                                className="w-full bg-black/30 border border-pink-500/30 rounded-full py-2 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-pink-500"
+                              />
+                          </div>
+                       </div>
+
+                       <div className="bg-white/5 rounded-xl border border-pink-500/20 overflow-hidden">
+                           <table className="w-full text-left border-collapse">
+                               <thead>
+                                   <tr className="bg-black/20 border-b border-pink-500/10 text-pink-400 text-xs uppercase tracking-wider">
+                                       <th className="p-4">Name</th>
+                                       <th className="p-4">Role</th>
+                                       <th className="p-4">Joined</th>
+                                       <th className="p-4 text-right">Action</th>
+                                   </tr>
+                               </thead>
+                               <tbody className="divide-y divide-pink-500/10">
+                                   {filteredGuests.map((guest, i) => (
+                                       <tr key={i} className="hover:bg-white/5">
+                                           <td className="p-4 font-bold text-pink-100">{guest.name}</td>
+                                           <td className="p-4">
+                                               <span className={`text-[10px] px-2 py-1 rounded-full border ${
+                                                   guest.role === 'couple' ? 'bg-white text-passion-900 font-bold' : 'border-pink-500/30 text-pink-300'
+                                               }`}>{guest.role}</span>
+                                           </td>
+                                           <td className="p-4 text-sm text-stone-400">{new Date(guest.joinedAt).toLocaleString()}</td>
+                                           <td className="p-4 text-right">
+                                               {guest.role !== 'admin' && (
+                                                   <button onClick={() => handleBlockUser(guest.name)} className="text-red-400 hover:text-red-200 bg-red-500/10 hover:bg-red-500/30 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
+                                                       Block
+                                                   </button>
+                                               )}
+                                           </td>
+                                       </tr>
+                                   ))}
+                               </tbody>
+                           </table>
+                           {filteredGuests.length === 0 && (
+                               <div className="p-8 text-center text-stone-500 italic">No guests found.</div>
+                           )}
+                       </div>
+                  </div>
+              )}
+
+              {activeTab === 'messages' && (
+                  <div className="space-y-6 animate-fade-in">
+                      <h2 className="text-2xl font-romantic text-white">Chat Moderation</h2>
+                      <div className="space-y-3">
+                          {messages.map((msg, i) => (
+                              <div key={msg.id || i} className="bg-white/5 p-4 rounded-xl border border-pink-500/10 flex justify-between items-start group hover:border-pink-500/30 transition-colors">
+                                   <div className="max-w-[80%]">
+                                       <div className="flex items-center gap-2 mb-1">
+                                           <span className="font-bold text-pink-200">{msg.sender}</span>
+                                           <span className="text-[10px] text-stone-500 bg-black/30 px-2 rounded-full">{msg.timestamp}</span>
+                                       </div>
+                                       {msg.type === 'sticker' ? (
+                                           <span className="text-xs bg-pink-500/20 text-pink-300 px-2 py-0.5 rounded border border-pink-500/20">Sticker</span>
+                                       ) : (
+                                           <p className="text-stone-300 text-sm">{msg.text}</p>
+                                       )}
+                                   </div>
+                                   <button onClick={() => handleDeleteMessage(msg.id)} className="text-stone-500 hover:text-red-400 p-2 bg-black/20 rounded-lg hover:bg-red-500/10 transition-all opacity-50 group-hover:opacity-100">
+                                       <Trash2 size={16} />
+                                   </button>
+                              </div>
+                          ))}
+                          {messages.length === 0 && <div className="text-center text-stone-500 italic py-10">No messages yet.</div>}
+                      </div>
+                  </div>
+              )}
+
               {activeTab === 'theme' && (
                   <div className="space-y-8 animate-fade-in max-w-2xl">
                       <h2 className="text-2xl font-romantic text-white flex items-center gap-3">
@@ -386,7 +545,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                            <h3 className="text-pink-400 font-bold text-sm uppercase tracking-widest mb-4">Atmosphere</h3>
                            <div className="grid grid-cols-4 gap-4">
                                {[
-                                   { id: 'dust', label: 'Stardust', icon: Sparkles },
+                                   { id: 'dust', label: 'Starry', icon: Sparkles },
                                    { id: 'petals', label: 'Petals', icon: Flower },
                                    { id: 'lights', label: 'Glow', icon: CloudFog },
                                    { id: 'none', label: 'Clean', icon: Ban },

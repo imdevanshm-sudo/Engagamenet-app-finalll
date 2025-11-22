@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Home, MessageSquare, Heart, Camera, LogOut, Sparkles, Send, 
   Smile, Upload, Music, Search, User, RefreshCw, X, Image as ImageIcon, Users,
-  Crown, Radio
+  Crown, Radio, Megaphone
 } from 'lucide-react';
 
 // --- Image Resizer for LocalStorage ---
@@ -80,17 +80,65 @@ interface ThemeConfig {
     effect: 'dust' | 'petals' | 'lights' | 'none';
 }
 
+const THEME_GRADIENTS = {
+    royal: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#881337] via-[#4c0519] to-black',
+    midnight: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1e1b4b] via-[#020617] to-black',
+    sunset: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#9f1239] via-[#450a0a] to-black',
+};
+
 // --- Assets & Effects ---
 
-const FloatingParticles = () => {
+const Atmosphere = ({ effect }: { effect: string }) => {
     return (
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-            <div className="absolute top-0 left-1/4 w-1 h-1 bg-pink-400 rounded-full animate-float" style={{animationDelay: '0s'}}></div>
-            <div className="absolute top-1/3 left-3/4 w-2 h-2 bg-rose-500 rounded-full animate-float" style={{animationDelay: '2s', opacity: 0.5}}></div>
-            <div className="absolute bottom-1/4 left-1/2 w-1.5 h-1.5 bg-white rounded-full animate-float" style={{animationDelay: '4s', opacity: 0.3}}></div>
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+            {effect === 'dust' && (
+                // Starry Dust - Multi-layered parallax stars
+                <div className="absolute inset-0">
+                    <div className="absolute w-full h-full animate-[pulse_4s_ease-in-out_infinite]" 
+                         style={{
+                             backgroundImage: 'radial-gradient(white 1px, transparent 1px)',
+                             backgroundSize: '50px 50px',
+                             opacity: 0.3
+                         }}>
+                    </div>
+                     <div className="absolute w-full h-full animate-[pulse_7s_ease-in-out_infinite]" 
+                         style={{
+                             backgroundImage: 'radial-gradient(white 1.5px, transparent 1.5px)',
+                             backgroundSize: '120px 120px',
+                             opacity: 0.2,
+                             backgroundPosition: '20px 20px'
+                         }}>
+                    </div>
+                </div>
+            )}
+            {effect === 'petals' && (
+                // Floating Petals - Organic movement
+                <div className="absolute inset-0">
+                   {[...Array(8)].map((_, i) => (
+                       <div key={i} 
+                            className="absolute bg-pink-400/20 rounded-full animate-float blur-[1px]"
+                            style={{
+                                left: `${Math.random() * 100}%`,
+                                top: `${Math.random() * 100}%`,
+                                width: `${Math.random() * 8 + 4}px`,
+                                height: `${Math.random() * 8 + 4}px`,
+                                animationDuration: `${Math.random() * 10 + 15}s`,
+                                animationDelay: `${Math.random() * 5}s`
+                            }}
+                       ></div>
+                   ))}
+                </div>
+            )}
+            {effect === 'lights' && (
+                // Aurora Glow - Smoother gradients
+                <>
+                   <div className="absolute top-[-20%] left-[-10%] w-[80%] h-[80%] bg-pink-500/10 blur-[120px] rounded-full animate-pulse-slow mix-blend-screen"></div>
+                   <div className="absolute bottom-[-20%] right-[-10%] w-[80%] h-[80%] bg-purple-500/10 blur-[120px] rounded-full animate-pulse-slow mix-blend-screen" style={{animationDelay: '2s'}}></div>
+                </>
+            )}
         </div>
     );
-}
+};
 
 // Stickers
 const StickerHeart = () => (<svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md"><path d="M50,85 L20,55 Q5,40 20,25 Q35,10 50,35 Q65,10 80,25 Q95,40 65,55 Z" fill="#e11d48" stroke="#be123c" strokeWidth="2" /><path d="M30,30 Q25,25 30,20" stroke="white" strokeWidth="3" strokeLinecap="round" opacity="0.5"/></svg>);
@@ -152,6 +200,7 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
     const [theme, setTheme] = useState<ThemeConfig>({ gradient: 'royal', effect: 'dust' });
     const [nowPlaying, setNowPlaying] = useState<Song | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [announcement, setAnnouncement] = useState<string | null>(null);
     
     const [inputText, setInputText] = useState("");
     const [activeStickerTab, setActiveStickerTab] = useState(false);
@@ -170,6 +219,9 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
 
         const pics = localStorage.getItem('wedding_gallery_media');
         if (pics) setGallery(JSON.parse(pics));
+
+        const savedAnnounce = localStorage.getItem('wedding_last_announcement');
+        if (savedAnnounce) setAnnouncement(savedAnnounce);
 
         const savedGuests = localStorage.getItem('wedding_guest_registry');
         if (savedGuests) {
@@ -240,6 +292,9 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                 case 'playlist_update':
                     setNowPlaying(data.currentSong);
                     setIsPlaying(data.isPlaying);
+                    break;
+                case 'announcement':
+                    setAnnouncement(data.message);
                     break;
             }
         };
@@ -326,11 +381,12 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
     const filteredGuests = guestList.filter(g => g.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
     return (
-        <div className={`w-full h-full flex flex-col relative overflow-hidden transition-colors duration-1000 bg-gradient-to-b from-passion-900 via-[#380410] to-black text-pink-100 font-serif`}>
-             <FloatingParticles />
+        <div className={`w-full h-full flex flex-col relative overflow-hidden transition-all duration-1000 ${THEME_GRADIENTS[theme.gradient] || THEME_GRADIENTS.royal} text-pink-100 font-serif`}>
+             
+             <Atmosphere effect={theme.effect} />
 
              {/* Header */}
-             <header className="p-4 flex justify-between items-center z-20 border-b border-pink-500/20 bg-passion-900/80 backdrop-blur-md shrink-0 shadow-lg">
+             <header className="p-4 flex justify-between items-center z-20 border-b border-pink-500/20 bg-passion-900/10 backdrop-blur-md shrink-0 shadow-lg">
                  <div className="flex items-center gap-3">
                      <div className="w-10 h-10 rounded-full bg-pink-500/20 border border-pink-400 flex items-center justify-center font-bold text-white font-romantic text-xl">
                          {userName.charAt(0)}
@@ -357,6 +413,19 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                  {activeTab === 'home' && (
                      <div className="h-full overflow-y-auto p-6 space-y-8 animate-fade-in flex flex-col items-center justify-center text-center">
                          
+                         {/* Announcement Banner */}
+                         {announcement && (
+                             <div className="w-full max-w-sm bg-gradient-to-r from-passion-600/80 to-pink-600/80 p-4 rounded-2xl border border-pink-400/30 shadow-lg flex items-start gap-3 mb-4 animate-fade-in-up">
+                                 <div className="bg-white/20 p-2 rounded-full shrink-0">
+                                     <Megaphone size={18} className="text-white animate-pulse"/>
+                                 </div>
+                                 <div className="text-left">
+                                     <h4 className="text-xs font-bold uppercase text-pink-200 tracking-widest mb-1">Latest News</h4>
+                                     <p className="text-sm text-white font-serif leading-snug">{announcement}</p>
+                                 </div>
+                             </div>
+                         )}
+
                          {/* Love Welcome */}
                          <div className="bg-white/5 p-8 rounded-3xl border border-pink-500/20 backdrop-blur-sm shadow-glow max-w-sm w-full">
                              <h2 className="text-4xl font-romantic text-pink-200 mb-2">Hello, {userName}</h2>
@@ -576,7 +645,7 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
              </main>
              
              {/* Bottom Navigation */}
-             <nav className="flex-shrink-0 p-2 bg-passion-900 border-t border-pink-500/20 flex justify-around z-20 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.3)]">
+             <nav className="flex-shrink-0 p-2 bg-passion-900/90 border-t border-pink-500/20 flex justify-around z-20 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.3)] backdrop-blur-lg">
                  {[
                      { id: 'home', icon: Home, label: 'Home' },
                      { id: 'chat', icon: MessageSquare, label: 'Chat' },

@@ -76,6 +76,69 @@ const useTilt = (ref: React.RefObject<HTMLDivElement>) => {
 
 // --- Visual Components ---
 
+interface ThemeConfig {
+    gradient: 'royal' | 'midnight' | 'sunset';
+    effect: 'dust' | 'petals' | 'lights' | 'none';
+}
+
+const THEME_GRADIENTS = {
+    royal: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#881337] via-[#4c0519] to-black',
+    midnight: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1e1b4b] via-[#020617] to-black',
+    sunset: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#9f1239] via-[#450a0a] to-black',
+};
+
+const Atmosphere = ({ effect }: { effect: string }) => {
+    return (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+            {effect === 'dust' && (
+                // Starry Dust - Multi-layered parallax stars
+                <div className="absolute inset-0">
+                    <div className="absolute w-full h-full animate-[pulse_4s_ease-in-out_infinite]" 
+                         style={{
+                             backgroundImage: 'radial-gradient(white 1px, transparent 1px)',
+                             backgroundSize: '50px 50px',
+                             opacity: 0.3
+                         }}>
+                    </div>
+                     <div className="absolute w-full h-full animate-[pulse_7s_ease-in-out_infinite]" 
+                         style={{
+                             backgroundImage: 'radial-gradient(white 1.5px, transparent 1.5px)',
+                             backgroundSize: '120px 120px',
+                             opacity: 0.2,
+                             backgroundPosition: '20px 20px'
+                         }}>
+                    </div>
+                </div>
+            )}
+            {effect === 'petals' && (
+                // Floating Petals - Organic movement
+                <div className="absolute inset-0">
+                   {[...Array(8)].map((_, i) => (
+                       <div key={i} 
+                            className="absolute bg-pink-400/20 rounded-full animate-float blur-[1px]"
+                            style={{
+                                left: `${Math.random() * 100}%`,
+                                top: `${Math.random() * 100}%`,
+                                width: `${Math.random() * 8 + 4}px`,
+                                height: `${Math.random() * 8 + 4}px`,
+                                animationDuration: `${Math.random() * 10 + 15}s`,
+                                animationDelay: `${Math.random() * 5}s`
+                            }}
+                       ></div>
+                   ))}
+                </div>
+            )}
+            {effect === 'lights' && (
+                // Aurora Glow - Smoother gradients
+                <>
+                   <div className="absolute top-[-20%] left-[-10%] w-[80%] h-[80%] bg-pink-500/10 blur-[120px] rounded-full animate-pulse-slow mix-blend-screen"></div>
+                   <div className="absolute bottom-[-20%] right-[-10%] w-[80%] h-[80%] bg-purple-500/10 blur-[120px] rounded-full animate-pulse-slow mix-blend-screen" style={{animationDelay: '2s'}}></div>
+                </>
+            )}
+        </div>
+    );
+};
+
 const FloatingHearts = () => {
     const [hearts, setHearts] = useState<Array<{id: number, left: number, top: number, scale: number, speed: number}>>([]);
 
@@ -114,75 +177,6 @@ const FloatingHearts = () => {
     )
 }
 
-const Stardust = () => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let animationFrameId: number;
-    let particles: Array<{
-        x: number, y: number, vx: number, vy: number, 
-        size: number, alpha: number
-    }> = [];
-
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      initParticles();
-    };
-
-    const initParticles = () => {
-      particles = [];
-      const count = 100; 
-      for (let i = 0; i < count; i++) {
-        particles.push({
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height,
-          vx: (Math.random() - 0.5) * 0.2,
-          vy: (Math.random() - 0.5) * 0.2, 
-          size: Math.random() * 2,
-          alpha: Math.random() * 0.5 + 0.1
-        });
-      }
-    };
-
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#fecdd3'; // Rose Pink
-      
-      particles.forEach((p) => {
-        p.y += p.vy;
-        p.x += p.vx;
-
-        if (p.y < 0) p.y = canvas.height;
-        if (p.x < 0) p.x = canvas.width;
-        if (p.x > canvas.width) p.x = 0;
-
-        ctx.beginPath();
-        ctx.globalAlpha = p.alpha;
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
-      });
-      animationFrameId = requestAnimationFrame(draw);
-    };
-
-    window.addEventListener('resize', resize);
-    resize();
-    draw();
-
-    return () => {
-      window.removeEventListener('resize', resize);
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, []);
-
-  return <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none z-0 opacity-60" />;
-};
-
 // --- Constants ---
 const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?q=80&w=1000&auto=format&fit=crop"; // Romantic couple placeholder
 const DEFAULT_WELCOME = "Join us as we begin our forever.";
@@ -202,6 +196,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
   const [config, setConfig] = useState({ coupleName: "Sneha & Aman", date: "2025-11-26" });
   const [welcomeMsg, setWelcomeMsg] = useState(DEFAULT_WELCOME);
   const [muted, setMuted] = useState(isAudioMuted());
+  const [theme, setTheme] = useState<ThemeConfig>({ gradient: 'royal', effect: 'dust' });
   
   const [coupleImage, setCoupleImage] = useState<string>(() => {
       if (typeof window !== 'undefined') {
@@ -231,6 +226,9 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
 
           const img = localStorage.getItem('wedding_couple_image');
           if (img && img !== coupleImage) setCoupleImage(img);
+
+          const savedTheme = localStorage.getItem('wedding_theme_config');
+          if (savedTheme) setTheme(JSON.parse(savedTheme));
       };
       checkUpdates();
       const interval = setInterval(checkUpdates, 2000);
@@ -242,6 +240,9 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
               setConfig(newConfig);
               if (newConfig.coupleImage) setCoupleImage(newConfig.coupleImage);
               if (newConfig.welcomeMsg) setWelcomeMsg(newConfig.welcomeMsg);
+          }
+          if (event.data.type === 'theme_sync') {
+              setTheme(event.data.payload);
           }
       };
 
@@ -343,15 +344,15 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
     <div className="w-full h-full flex flex-col relative overflow-hidden bg-[#4c0519]">
       
       {/* Romantic Background */}
-      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-gradient-to-b from-passion-900 via-[#380410] to-black">
+      <div className={`absolute inset-0 z-0 pointer-events-none overflow-hidden transition-all duration-1000 ${THEME_GRADIENTS[theme.gradient] || THEME_GRADIENTS.royal}`}>
          <FloatingHearts />
-         <Stardust />
+         <Atmosphere effect={theme.effect} />
          
          {/* Soft Spotlight */}
-         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1/2 bg-gradient-to-b from-passion-600/20 to-transparent blur-3xl"></div>
+         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1/2 bg-gradient-to-b from-white/5 to-transparent blur-3xl mix-blend-overlay"></div>
          
          {/* Vignette */}
-         <div className="absolute inset-0 bg-[radial-gradient(circle,transparent_20%,#4c0519_100%)] opacity-80"></div>
+         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_40%,rgba(0,0,0,0.4)_100%)]"></div>
       </div>
 
       <button 

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, MessageSquare, Heart, Music, LogOut, Send, Play, Pause, SkipForward, SkipBack, Image as ImageIcon, RefreshCw, Users, Crown, Radio } from 'lucide-react';
+import { Home, MessageSquare, Heart, Music, LogOut, Send, Play, Pause, SkipForward, SkipBack, Image as ImageIcon, RefreshCw, Users, Crown, Radio, Megaphone } from 'lucide-react';
 
 // --- Types ---
 interface Message {
@@ -37,6 +37,69 @@ interface Song {
     durationStr: string;
 }
 
+interface ThemeConfig {
+    gradient: 'royal' | 'midnight' | 'sunset';
+    effect: 'dust' | 'petals' | 'lights' | 'none';
+}
+
+const THEME_GRADIENTS = {
+    royal: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#881337] via-[#4c0519] to-black',
+    midnight: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1e1b4b] via-[#020617] to-black',
+    sunset: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#9f1239] via-[#450a0a] to-black',
+};
+
+const Atmosphere = ({ effect }: { effect: string }) => {
+    return (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+            {effect === 'dust' && (
+                // Starry Dust - Multi-layered parallax stars
+                <div className="absolute inset-0">
+                    <div className="absolute w-full h-full animate-[pulse_4s_ease-in-out_infinite]" 
+                         style={{
+                             backgroundImage: 'radial-gradient(white 1px, transparent 1px)',
+                             backgroundSize: '50px 50px',
+                             opacity: 0.3
+                         }}>
+                    </div>
+                     <div className="absolute w-full h-full animate-[pulse_7s_ease-in-out_infinite]" 
+                         style={{
+                             backgroundImage: 'radial-gradient(white 1.5px, transparent 1.5px)',
+                             backgroundSize: '120px 120px',
+                             opacity: 0.2,
+                             backgroundPosition: '20px 20px'
+                         }}>
+                    </div>
+                </div>
+            )}
+            {effect === 'petals' && (
+                // Floating Petals - Organic movement
+                <div className="absolute inset-0">
+                   {[...Array(8)].map((_, i) => (
+                       <div key={i} 
+                            className="absolute bg-pink-400/20 rounded-full animate-float blur-[1px]"
+                            style={{
+                                left: `${Math.random() * 100}%`,
+                                top: `${Math.random() * 100}%`,
+                                width: `${Math.random() * 8 + 4}px`,
+                                height: `${Math.random() * 8 + 4}px`,
+                                animationDuration: `${Math.random() * 10 + 15}s`,
+                                animationDelay: `${Math.random() * 5}s`
+                            }}
+                       ></div>
+                   ))}
+                </div>
+            )}
+            {effect === 'lights' && (
+                // Aurora Glow - Smoother gradients
+                <>
+                   <div className="absolute top-[-20%] left-[-10%] w-[80%] h-[80%] bg-pink-500/10 blur-[120px] rounded-full animate-pulse-slow mix-blend-screen"></div>
+                   <div className="absolute bottom-[-20%] right-[-10%] w-[80%] h-[80%] bg-purple-500/10 blur-[120px] rounded-full animate-pulse-slow mix-blend-screen" style={{animationDelay: '2s'}}></div>
+                </>
+            )}
+        </div>
+    );
+};
+
 interface CoupleDashboardProps {
   userName: string;
   onLogout: () => void;
@@ -50,6 +113,8 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
   const [guestList, setGuestList] = useState<GuestEntry[]>([]);
   const [chatInput, setChatInput] = useState("");
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  const [announcement, setAnnouncement] = useState<string | null>(null);
+  const [theme, setTheme] = useState<ThemeConfig>({ gradient: 'royal', effect: 'dust' });
   
   // Music State
   const [playlist, setPlaylist] = useState<Song[]>([]);
@@ -70,6 +135,12 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
 
           const savedGuests = localStorage.getItem('wedding_guest_registry');
           if (savedGuests) setGuestList(JSON.parse(savedGuests));
+
+          const savedAnnounce = localStorage.getItem('wedding_last_announcement');
+          if (savedAnnounce) setAnnouncement(savedAnnounce);
+
+          const savedTheme = localStorage.getItem('wedding_theme_config');
+          if (savedTheme) setTheme(JSON.parse(savedTheme));
 
           // Romantic Playlist
           const pl = [
@@ -108,6 +179,12 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
                       localStorage.setItem('wedding_guest_registry', JSON.stringify(newList));
                       return newList;
                   });
+                  break;
+              case 'announcement':
+                  setAnnouncement(data.message);
+                  break;
+              case 'theme_sync':
+                  setTheme(data.payload);
                   break;
           }
       };
@@ -179,17 +256,13 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
   };
 
   return (
-    <div className="w-full h-full text-pink-100 font-serif flex flex-col relative overflow-hidden bg-gradient-to-b from-passion-900 via-[#380410] to-black">
+    <div className={`w-full h-full text-pink-100 font-serif flex flex-col relative overflow-hidden transition-all duration-1000 ${THEME_GRADIENTS[theme.gradient] || THEME_GRADIENTS.royal}`}>
         
         {/* Background Effects */}
-        <div className="absolute inset-0 pointer-events-none z-0">
-            <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
-            <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-pink-500/20 blur-[100px] rounded-full"></div>
-            <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-passion-600/20 blur-[100px] rounded-full"></div>
-        </div>
+        <Atmosphere effect={theme.effect} />
 
         {/* Header */}
-        <header className="flex-shrink-0 p-4 flex justify-between items-center z-20 border-b border-pink-500/20 bg-passion-900/80 backdrop-blur-md shadow-lg">
+        <header className="flex-shrink-0 p-4 flex justify-between items-center z-20 border-b border-pink-500/20 bg-passion-900/10 backdrop-blur-md shadow-lg">
             <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full border-2 border-white p-0.5 bg-passion-700 shadow-glow">
                     <div className="w-full h-full rounded-full bg-pink-500 flex items-center justify-center text-white font-bold text-xl">
@@ -215,6 +288,20 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
         <main className="flex-grow overflow-hidden relative z-10">
             {activeTab === 'home' && (
                 <div className="h-full overflow-y-auto p-6 animate-fade-in">
+                     
+                     {/* Announcement Banner */}
+                     {announcement && (
+                         <div className="w-full bg-gradient-to-r from-passion-600/80 to-pink-600/80 p-4 rounded-2xl border border-pink-400/30 shadow-lg flex items-start gap-3 mb-6 animate-fade-in-up">
+                             <div className="bg-white/20 p-2 rounded-full shrink-0">
+                                 <Megaphone size={18} className="text-white animate-pulse"/>
+                             </div>
+                             <div className="text-left">
+                                 <h4 className="text-xs font-bold uppercase text-pink-200 tracking-widest mb-1">Latest News</h4>
+                                 <p className="text-sm text-white font-serif leading-snug">{announcement}</p>
+                             </div>
+                         </div>
+                     )}
+
                      <div className="text-center my-6">
                          <Heart size={48} className="text-pink-500 mx-auto mb-4 animate-heartbeat fill-pink-500/50" />
                          <h2 className="text-4xl font-romantic text-pink-100 mb-2">Welcome, Lovebirds</h2>
@@ -382,7 +469,7 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
         </main>
 
         {/* Navigation */}
-        <nav className="flex-shrink-0 p-2 bg-passion-900 border-t border-pink-500/20 flex justify-around z-20 pb-safe shadow-[0_-5px_20px_rgba(0,0,0,0.4)]">
+        <nav className="flex-shrink-0 p-2 bg-passion-900/90 border-t border-pink-500/20 flex justify-around z-20 pb-safe shadow-[0_-5px_20px_rgba(0,0,0,0.4)] backdrop-blur-lg">
              {[
                  { id: 'home', icon: Home, label: 'Home' },
                  { id: 'chat', icon: MessageSquare, label: 'Chat' },
@@ -393,7 +480,7 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
                     key={item.id}
                     onClick={() => setActiveTab(item.id as any)}
                     className={`flex flex-col items-center gap-1 px-4 py-2 rounded-2xl transition-all ${activeTab === item.id ? 'bg-pink-600 text-white -translate-y-1 shadow-lg' : 'text-pink-400/60'}`}
-                 >
+                  >
                      <item.icon size={22} className={activeTab === item.id ? 'animate-pulse' : ''} />
                      <span className="text-[9px] uppercase tracking-widest font-bold">{item.label}</span>
                  </button>
