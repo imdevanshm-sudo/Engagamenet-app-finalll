@@ -4,6 +4,7 @@ import {
   Settings, MessageSquare, Home, Users, 
   Trash2, Check, X, Save, Upload, Image as ImageIcon, Ban, Send, Megaphone, Palette, Sparkles, CloudFog, Flower, Camera, LogOut, Search
 } from 'lucide-react';
+import { socket } from '../socket';
 
 // --- Image Resizer for LocalStorage ---
 const resizeImage = (file: File): Promise<string> => {
@@ -65,59 +66,124 @@ interface ThemeConfig {
     effect: 'dust' | 'petals' | 'lights' | 'none';
 }
 
-const THEME_GRADIENTS = {
-    royal: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#881337] via-[#4c0519] to-black',
-    midnight: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1e1b4b] via-[#020617] to-black',
-    sunset: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#9f1239] via-[#450a0a] to-black',
+const THEME_BASES = {
+    royal: 'bg-[#4a0404]',
+    midnight: 'bg-[#020617]', 
+    sunset: 'bg-[#2a0a18]',
 };
 
-const Atmosphere = ({ effect }: { effect: string }) => {
+const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
     return (
-        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-            {effect === 'dust' && (
-                // Starry Dust - Multi-layered parallax stars
-                <div className="absolute inset-0">
-                    <div className="absolute w-full h-full animate-[pulse_4s_ease-in-out_infinite]" 
-                         style={{
-                             backgroundImage: 'radial-gradient(white 1px, transparent 1px)',
-                             backgroundSize: '50px 50px',
-                             opacity: 0.3
-                         }}>
-                    </div>
-                     <div className="absolute w-full h-full animate-[pulse_7s_ease-in-out_infinite]" 
-                         style={{
-                             backgroundImage: 'radial-gradient(white 1.5px, transparent 1.5px)',
-                             backgroundSize: '120px 120px',
-                             opacity: 0.2,
-                             backgroundPosition: '20px 20px'
-                         }}>
-                    </div>
-                </div>
-            )}
-            {effect === 'petals' && (
-                // Floating Petals - Organic movement
-                <div className="absolute inset-0">
-                   {[...Array(8)].map((_, i) => (
-                       <div key={i} 
-                            className="absolute bg-pink-400/20 rounded-full animate-float blur-[1px]"
-                            style={{
-                                left: `${Math.random() * 100}%`,
-                                top: `${Math.random() * 100}%`,
-                                width: `${Math.random() * 8 + 4}px`,
-                                height: `${Math.random() * 8 + 4}px`,
-                                animationDuration: `${Math.random() * 10 + 15}s`,
-                                animationDelay: `${Math.random() * 5}s`
-                            }}
-                       ></div>
-                   ))}
-                </div>
-            )}
-            {effect === 'lights' && (
-                // Aurora Glow - Smoother gradients
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 transition-all duration-1000">
+            
+            {/* --- THEME: MIDNIGHT (Van Gogh Starry Night) --- */}
+            {theme.gradient === 'midnight' && (
                 <>
-                   <div className="absolute top-[-20%] left-[-10%] w-[80%] h-[80%] bg-pink-500/10 blur-[120px] rounded-full animate-pulse-slow mix-blend-screen"></div>
-                   <div className="absolute bottom-[-20%] right-[-10%] w-[80%] h-[80%] bg-purple-500/10 blur-[120px] rounded-full animate-pulse-slow mix-blend-screen" style={{animationDelay: '2s'}}></div>
+                    <div className="absolute inset-0 bg-gradient-to-b from-[#1e1b4b] via-[#0f172a] to-[#000000]"></div>
+                    <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] opacity-20 animate-[spin_60s_linear_infinite]" 
+                         style={{
+                             background: 'repeating-conic-gradient(from 0deg, transparent 0deg, transparent 20deg, rgba(100, 149, 237, 0.2) 40deg, transparent 60deg)',
+                             filter: 'blur(30px)',
+                         }}>
+                    </div>
+                    <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] opacity-10 animate-[spin_45s_linear_infinite_reverse]" 
+                         style={{
+                             background: 'repeating-conic-gradient(from 180deg, transparent 0deg, transparent 15deg, rgba(255, 215, 0, 0.15) 30deg, transparent 50deg)',
+                             filter: 'blur(40px)',
+                         }}>
+                    </div>
+                    <div className="absolute inset-0 opacity-5 mix-blend-overlay pointer-events-none" 
+                         style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")` }}>
+                    </div>
+                    {[...Array(12)].map((_, i) => (
+                        <div key={`star-${i}`} 
+                             className="absolute rounded-full bg-[#fcd34d] animate-pulse-slow"
+                             style={{
+                                 top: `${Math.random() * 80}%`,
+                                 left: `${Math.random() * 100}%`,
+                                 width: `${Math.random() * 6 + 3}px`,
+                                 height: `${Math.random() * 6 + 3}px`,
+                                 boxShadow: '0 0 20px 4px rgba(253, 224, 71, 0.5)',
+                                 animationDelay: `${Math.random() * 4}s`,
+                                 opacity: 0.8
+                             }}
+                        />
+                    ))}
                 </>
+            )}
+
+            {/* --- THEME: ROYAL (Velvet & Gold) --- */}
+            {theme.gradient === 'royal' && (
+                <>
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#500724] via-[#831843] to-[#500724]"></div>
+                    <div className="absolute inset-0 opacity-30 mix-blend-screen animate-sway"
+                         style={{
+                             background: 'linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.1) 45%, rgba(255,255,255,0.05) 50%, transparent 60%)',
+                             backgroundSize: '200% 200%',
+                             filter: 'blur(8px)'
+                         }}>
+                    </div>
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,rgba(0,0,0,0.6)_100%)]"></div>
+                    {[...Array(15)].map((_, i) => (
+                        <div key={`gold-${i}`}
+                             className="absolute rounded-full bg-[#fbbf24] animate-float"
+                             style={{
+                                 left: `${Math.random() * 100}%`,
+                                 top: `${Math.random() * 100}%`,
+                                 width: `${Math.random() * 2 + 2}px`,
+                                 height: `${Math.random() * 2 + 2}px`,
+                                 opacity: Math.random() * 0.5 + 0.3,
+                                 animationDuration: `${Math.random() * 8 + 12}s`,
+                                 boxShadow: '0 0 8px 1px rgba(251, 191, 36, 0.6)'
+                             }}>
+                        </div>
+                    ))}
+                </>
+            )}
+
+            {/* --- THEME: SUNSET (Living Art) --- */}
+            {theme.gradient === 'sunset' && (
+                <>
+                    <div className="absolute inset-0 bg-gradient-to-b from-[#3b0764] via-[#be185d] to-[#fb923c]"></div>
+                    <div className="absolute bottom-[-20%] left-1/2 -translate-x-1/2 w-[80%] h-[50%] bg-[#fbbf24] blur-[120px] opacity-50 rounded-full animate-pulse-slow"></div>
+                    {[...Array(6)].map((_, i) => (
+                        <div key={`cloud-${i}`}
+                             className="absolute rounded-full blur-3xl opacity-20 animate-float"
+                             style={{
+                                 background: i % 2 === 0 ? '#db2777' : '#fcd34d',
+                                 left: `${Math.random() * 100}%`,
+                                 top: `${Math.random() * 60}%`,
+                                 width: `${Math.random() * 200 + 100}px`,
+                                 height: `${Math.random() * 80 + 40}px`,
+                                 animationDuration: `${Math.random() * 25 + 30}s`,
+                                 animationDelay: `${Math.random() * -15}s`,
+                                 transform: `translateX(-50%)`
+                             }}>
+                        </div>
+                    ))}
+                </>
+            )}
+
+            {theme.effect !== 'none' && (
+                <div className="absolute inset-0 z-0">
+                     {theme.effect === 'petals' && [...Array(8)].map((_, i) => (
+                         <div key={`petal-${i}`} className="absolute bg-pink-200/40 rounded-full animate-float blur-[1px]"
+                              style={{
+                                  left: `${Math.random() * 100}%`,
+                                  top: `${Math.random() * 120}%`,
+                                  width: `${Math.random() * 10 + 5}px`,
+                                  height: `${Math.random() * 10 + 5}px`,
+                                  animationDuration: `${Math.random() * 10 + 15}s`,
+                                  animationDelay: `${Math.random() * -5}s`
+                              }}></div>
+                     ))}
+                     {theme.effect === 'dust' && (
+                         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 animate-pulse"></div>
+                     )}
+                     {theme.effect === 'lights' && (
+                         <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-60 animate-shimmer" style={{ backgroundSize: '200% 200%' }}></div>
+                     )}
+                </div>
             )}
         </div>
     );
@@ -138,148 +204,85 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [announceMsg, setAnnounceMsg] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Broadcast Helper
-  const broadcastSync = (type: string, payload: any) => {
-      const channel = new BroadcastChannel('wedding_portal_chat');
-      channel.postMessage({ type, payload });
-      channel.close();
-  };
-  
   const handleBroadcast = () => {
       if (!announceMsg.trim()) return;
-      const msg = announceMsg;
-
-      // Save persistent announcement
-      try {
-          localStorage.setItem('wedding_last_announcement', msg);
-      } catch (e) {
-          console.error("Storage full", e);
-      }
-
-      const channel = new BroadcastChannel('wedding_portal_chat');
-      channel.postMessage({ type: 'announcement', message: msg });
-      channel.close();
+      socket.emit('announcement', announceMsg);
       setAnnounceMsg("");
       alert("Love Note Sent to All Guests!");
   };
 
   const handleBlockUser = (name: string) => {
       if(confirm(`Block ${name} from the app?`)) {
-          const channel = new BroadcastChannel('wedding_portal_chat');
-          channel.postMessage({ type: 'block_user', name: name });
-          channel.close();
-          
-          const newMessages = messages.filter(m => m.sender !== name);
-          setMessages(newMessages);
-          setMsgCount(newMessages.length);
-          localStorage.setItem('wedding_chat_messages', JSON.stringify(newMessages));
-          broadcastSync('message_sync', newMessages);
-          
-          const newGuests = guestList.filter(g => g.name !== name);
-          setGuestList(newGuests);
-          localStorage.setItem('wedding_guest_registry', JSON.stringify(newGuests));
+          socket.emit('block_user', name);
       }
   };
 
   useEffect(() => {
-      const loadData = () => {
-        const savedConfig = localStorage.getItem('wedding_global_config');
-        const savedImage = localStorage.getItem('wedding_couple_image');
-        const savedTheme = localStorage.getItem('wedding_theme_config');
-        
-        if (savedConfig) {
-            const parsed = JSON.parse(savedConfig);
-            setConfig({ 
-                coupleName: parsed.coupleName || "",
-                date: parsed.date || "",
-                welcomeMsg: parsed.welcomeMsg || "",
-                coupleImage: savedImage || parsed.coupleImage || ""
-            });
-        } else {
-            setConfig({ coupleName: "Sneha & Aman", date: "2025-11-26", welcomeMsg: "Join us as we begin our forever.", coupleImage: savedImage || "" });
-        }
+      // Initial load from local storage
+      const savedConfig = localStorage.getItem('wedding_global_config');
+      const savedImage = localStorage.getItem('wedding_couple_image');
+      const savedTheme = localStorage.getItem('wedding_theme_config');
+      
+      if (savedConfig) {
+          const parsed = JSON.parse(savedConfig);
+          setConfig({ 
+              coupleName: parsed.coupleName || "",
+              date: parsed.date || "",
+              welcomeMsg: parsed.welcomeMsg || "",
+              coupleImage: savedImage || parsed.coupleImage || ""
+          });
+      } else {
+          setConfig({ coupleName: "Sneha & Aman", date: "2025-11-26", welcomeMsg: "Join us as we begin our forever.", coupleImage: savedImage || "" });
+      }
+      if (savedTheme) setTheme(JSON.parse(savedTheme));
 
-        if (savedTheme) {
-            setTheme(JSON.parse(savedTheme));
-        }
+      // Socket Sync
+      socket.emit('request_sync');
 
-        const savedGuests = localStorage.getItem('wedding_guest_registry');
-        if (savedGuests) setGuestList(JSON.parse(savedGuests));
-
-        const msgs = localStorage.getItem('wedding_chat_messages');
-        if (msgs) {
-            const parsed = JSON.parse(msgs);
-            setMessages(parsed);
-            setMsgCount(parsed.length);
-        }
-
-        const hearts = localStorage.getItem('wedding_heart_count');
-        if(hearts) setHeartCount(parseInt(hearts));
-        
-        const savedPhotos = localStorage.getItem('wedding_gallery_media');
-        if(savedPhotos) setPhotos(JSON.parse(savedPhotos));
-      };
-      loadData();
-
-      const channel = new BroadcastChannel('wedding_portal_chat');
-      channel.onmessage = (event) => {
-          const data = event.data;
-          switch(data.type) {
-              case 'message': 
-                  setMessages(prev => {
-                      if (prev.some(m => m.id === data.payload.id)) return prev;
-                      const newState = [...prev, data.payload];
-                      setMsgCount(newState.length);
-                      return newState;
-                  });
-                  break;
-              case 'message_sync':
-                  setMessages(data.payload);
-                  setMsgCount(data.payload.length);
-                  break;
-              case 'heart_update':
-                  setHeartCount(data.count);
-                  break;
-              case 'gallery_sync':
-                  setPhotos(data.payload);
-                  break;
-              case 'user_presence':
-                  setGuestList(prev => {
-                      if (prev.some(g => g.name === data.payload.name)) return prev;
-                      const newList = [...prev, data.payload];
-                      localStorage.setItem('wedding_guest_registry', JSON.stringify(newList));
-                      return newList;
-                  });
-                  break;
-          }
+      const handleFullSync = (state: any) => {
+          setMessages(state.messages || []);
+          setMsgCount(state.messages?.length || 0);
+          setPhotos(state.gallery || []);
+          setHeartCount(state.heartCount || 0);
+          setGuestList(state.guestList || []);
+          if(state.config) setConfig(state.config);
+          if(state.theme) setTheme(state.theme);
       };
 
-      return () => channel.close();
+      socket.on('full_sync', handleFullSync);
+      socket.on('message', (data) => {
+          setMessages(prev => [...prev, data.payload]);
+          setMsgCount(prev => prev + 1);
+      });
+      socket.on('heart_update', (data) => setHeartCount(data.count));
+      socket.on('gallery_sync', (data) => setPhotos(data.payload));
+      socket.on('user_presence', (data) => setGuestList(prev => [...prev.filter(g => g.name !== data.payload.name), data.payload]));
+      
+      return () => {
+          socket.off('full_sync', handleFullSync);
+          socket.off('message');
+          socket.off('heart_update');
+          socket.off('gallery_sync');
+          socket.off('user_presence');
+      };
   }, []);
 
   const handleSaveConfig = () => {
-      try {
-          localStorage.setItem('wedding_global_config', JSON.stringify(config));
-          localStorage.setItem('wedding_welcome_msg', config.welcomeMsg);
-          if (config.coupleImage) {
-              localStorage.setItem('wedding_couple_image', config.coupleImage);
-          }
-          broadcastSync('config_sync', config);
-          alert("Settings Updated!");
-      } catch (e) {
-          alert("Storage full! Try using a smaller image or clearing old data.");
-      }
+      socket.emit('config_update', config);
+      localStorage.setItem('wedding_global_config', JSON.stringify(config));
+      if(config.coupleImage) localStorage.setItem('wedding_couple_image', config.coupleImage);
+      alert("Settings Updated!");
   };
 
   const handleThemeUpdate = (newTheme: Partial<ThemeConfig>) => {
       const updated = { ...theme, ...newTheme };
       setTheme(updated);
+      socket.emit('theme_update', updated);
       localStorage.setItem('wedding_theme_config', JSON.stringify(updated));
-      broadcastSync('theme_sync', updated);
   };
 
   const handleClearData = () => {
-      if (confirm("This will wipe all messages, photos, and guest list. Continue?")) {
+      if (confirm("This will wipe all local data. Server data may persist until restart. Continue?")) {
           localStorage.clear();
           window.location.reload();
       }
@@ -301,16 +304,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       const updated = messages.filter(m => m.id !== id);
       setMessages(updated);
       setMsgCount(updated.length);
-      localStorage.setItem('wedding_chat_messages', JSON.stringify(updated));
-      broadcastSync('message_sync', updated);
+      socket.emit('message_sync', updated);
   };
 
   const handleDeletePhoto = (id: string) => {
       if(confirm("Delete this photo?")) {
           const updated = photos.filter(p => p.id !== id);
           setPhotos(updated);
-          localStorage.setItem('wedding_gallery_media', JSON.stringify(updated));
-          broadcastSync('gallery_sync', updated);
+          socket.emit('gallery_sync', updated);
       }
   };
 
@@ -322,17 +323,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const handleSavePhotoCaption = (id: string) => {
       const updated = photos.map(p => p.id === id ? { ...p, caption: editCaption } : p);
       setPhotos(updated);
-      localStorage.setItem('wedding_gallery_media', JSON.stringify(updated));
-      broadcastSync('gallery_sync', updated);
+      socket.emit('gallery_sync', updated);
       setEditingPhotoId(null);
   };
 
   const filteredGuests = guestList.filter(g => g.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
-    <div className={`w-full h-full flex flex-col font-serif text-pink-100 transition-all duration-1000 ${THEME_GRADIENTS[theme.gradient] || THEME_GRADIENTS.royal}`}>
+    <div className={`w-full h-full flex flex-col font-serif text-pink-100 transition-all duration-1000 ${THEME_BASES[theme.gradient] || THEME_BASES.royal}`}>
       
-      <Atmosphere effect={theme.effect} />
+      <Atmosphere theme={theme} />
 
       {/* Header */}
       <header className="p-4 bg-black/50 backdrop-blur-md border-b border-pink-500/20 flex justify-between items-center shadow-lg z-20 relative">
@@ -375,7 +375,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
           <main className="flex-grow overflow-y-auto p-6">
               {activeTab === 'overview' && (
                   <div className="space-y-6 animate-fade-in">
-                      <h2 className="text-2xl font-romantic text-white mb-4">Dashboard Overview</h2>
+                      <h2 className="text-2xl font-romantic text-white mb-4 drop-shadow-md">Dashboard Overview</h2>
                       <div className="grid grid-cols-3 gap-4">
                           <div className="bg-white/5 p-5 rounded-xl border border-pink-500/20 shadow-lg">
                               <div className="flex items-center justify-between mb-2">
@@ -401,7 +401,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                       </div>
                       
                       {/* Announcement Widget */}
-                      <div className="bg-gradient-to-r from-passion-700 to-passion-800 p-6 rounded-xl border border-pink-500/30">
+                      <div className="bg-gradient-to-r from-passion-700 to-passion-800 p-6 rounded-xl border border-pink-500/30 shadow-lg">
                           <div className="flex items-center gap-2 mb-4">
                                <Megaphone className="text-pink-400" size={20} />
                                <h3 className="font-bold text-white">Send a Love Note (Announcement)</h3>
@@ -432,7 +432,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
               {activeTab === 'guests' && (
                   <div className="space-y-6 animate-fade-in">
                        <div className="flex justify-between items-center">
-                          <h2 className="text-2xl font-romantic text-white">Guest Management</h2>
+                          <h2 className="text-2xl font-romantic text-white drop-shadow-md">Guest Management</h2>
                           <div className="relative w-64">
                               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-pink-400" size={16}/>
                               <input 
@@ -445,7 +445,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                           </div>
                        </div>
 
-                       <div className="bg-white/5 rounded-xl border border-pink-500/20 overflow-hidden">
+                       <div className="bg-white/5 rounded-xl border border-pink-500/20 overflow-hidden shadow-lg">
                            <table className="w-full text-left border-collapse">
                                <thead>
                                    <tr className="bg-black/20 border-b border-pink-500/10 text-pink-400 text-xs uppercase tracking-wider">
@@ -457,7 +457,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                                </thead>
                                <tbody className="divide-y divide-pink-500/10">
                                    {filteredGuests.map((guest, i) => (
-                                       <tr key={i} className="hover:bg-white/5">
+                                       <tr key={i} className="hover:bg-white/5 transition-colors">
                                            <td className="p-4 font-bold text-pink-100">{guest.name}</td>
                                            <td className="p-4">
                                                <span className={`text-[10px] px-2 py-1 rounded-full border ${
@@ -485,10 +485,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
               {activeTab === 'messages' && (
                   <div className="space-y-6 animate-fade-in">
-                      <h2 className="text-2xl font-romantic text-white">Chat Moderation</h2>
+                      <h2 className="text-2xl font-romantic text-white drop-shadow-md">Chat Moderation</h2>
                       <div className="space-y-3">
                           {messages.map((msg, i) => (
-                              <div key={msg.id || i} className="bg-white/5 p-4 rounded-xl border border-pink-500/10 flex justify-between items-start group hover:border-pink-500/30 transition-colors">
+                              <div key={msg.id || i} className="bg-white/5 p-4 rounded-xl border border-pink-500/10 flex justify-between items-start group hover:border-pink-500/30 transition-colors shadow-sm">
                                    <div className="max-w-[80%]">
                                        <div className="flex items-center gap-2 mb-1">
                                            <span className="font-bold text-pink-200">{msg.sender}</span>
@@ -512,17 +512,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
               {activeTab === 'theme' && (
                   <div className="space-y-8 animate-fade-in max-w-2xl">
-                      <h2 className="text-2xl font-romantic text-white flex items-center gap-3">
+                      <h2 className="text-2xl font-romantic text-white flex items-center gap-3 drop-shadow-md">
                           <Palette className="text-pink-500"/> Mood & Vibe
                       </h2>
                       
                       <div className="bg-white/5 p-6 rounded-xl border border-pink-500/20 shadow-xl">
-                           <h3 className="text-pink-400 font-bold text-sm uppercase tracking-widest mb-4">Color Palette</h3>
+                           <h3 className="text-pink-400 font-bold text-sm uppercase tracking-widest mb-4">Artistic Theme</h3>
                            <div className="grid grid-cols-3 gap-4">
                                {[
-                                   { id: 'royal', label: 'Deep Passion', class: 'bg-gradient-to-b from-passion-900 to-black' },
-                                   { id: 'midnight', label: 'Midnight Kiss', class: 'bg-gradient-to-b from-[#0f172a] to-[#1e1b4b]' },
-                                   { id: 'sunset', label: 'Burning Love', class: 'bg-gradient-to-b from-[#7c2d12] to-[#4a0404]' },
+                                   { id: 'royal', label: 'Velvet Royal', class: 'bg-gradient-to-b from-[#881337] to-[#4c0519]' },
+                                   { id: 'midnight', label: 'Starry Night', class: 'bg-gradient-to-b from-[#1e1b4b] to-[#0f172a]' },
+                                   { id: 'sunset', label: 'Living Sunset', class: 'bg-gradient-to-b from-[#be123c] to-[#f59e0b]' },
                                ].map(opt => (
                                    <button 
                                         key={opt.id}
@@ -530,6 +530,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                                         className={`relative h-24 rounded-lg border-2 transition-all overflow-hidden group ${theme.gradient === opt.id ? 'border-pink-500 scale-105 shadow-glow' : 'border-white/10 hover:border-white/30'}`}
                                    >
                                        <div className={`absolute inset-0 ${opt.class}`}></div>
+                                       {/* Preview Swirl for Midnight */}
+                                       {opt.id === 'midnight' && <div className="absolute inset-0 opacity-30 bg-[conic-gradient(from_0deg,transparent,white,transparent)] animate-spin-slow blur-md"></div>}
+                                       
                                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-transparent transition-colors">
                                             <span className="font-bold text-white text-sm shadow-black/50 drop-shadow-md">{opt.label}</span>
                                        </div>
@@ -542,12 +545,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                       </div>
 
                       <div className="bg-white/5 p-6 rounded-xl border border-pink-500/20 shadow-xl">
-                           <h3 className="text-pink-400 font-bold text-sm uppercase tracking-widest mb-4">Atmosphere</h3>
+                           <h3 className="text-pink-400 font-bold text-sm uppercase tracking-widest mb-4">Overlay Effects</h3>
                            <div className="grid grid-cols-4 gap-4">
                                {[
-                                   { id: 'dust', label: 'Starry', icon: Sparkles },
+                                   { id: 'dust', label: 'Sparkle', icon: Sparkles },
                                    { id: 'petals', label: 'Petals', icon: Flower },
-                                   { id: 'lights', label: 'Glow', icon: CloudFog },
+                                   { id: 'lights', label: 'Shimmer', icon: CloudFog },
                                    { id: 'none', label: 'Clean', icon: Ban },
                                ].map(opt => (
                                    <button 
@@ -566,10 +569,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
               
               {activeTab === 'gallery' && (
                    <div className="space-y-6 animate-fade-in">
-                       <h2 className="text-2xl font-romantic text-white">Media Gallery</h2>
+                       <h2 className="text-2xl font-romantic text-white drop-shadow-md">Media Gallery</h2>
                        <div className="grid grid-cols-3 gap-4">
                            {photos.map(photo => (
-                               <div key={photo.id} className="relative group aspect-square rounded-lg overflow-hidden border border-white/10 bg-black/40">
+                               <div key={photo.id} className="relative group aspect-square rounded-lg overflow-hidden border border-white/10 bg-black/40 shadow-md">
                                    <img src={photo.url} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" alt="Gallery" />
                                    
                                    {/* Overlay Controls */}
@@ -604,7 +607,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
               )}
               {activeTab === 'settings' && (
                   <div className="space-y-6 animate-fade-in max-w-md">
-                      <h2 className="text-2xl font-romantic text-white">Event Settings</h2>
+                      <h2 className="text-2xl font-romantic text-white drop-shadow-md">Event Settings</h2>
                       
                       <div className="space-y-4">
                           <div>

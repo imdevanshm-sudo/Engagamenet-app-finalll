@@ -6,6 +6,7 @@ import GuestDashboard from './components/GuestDashboard';
 import CoupleDashboard from './components/CoupleDashboard';
 import AdminDashboard from './components/AdminDashboard';
 import { X, Cookie, RefreshCw, Heart, AlertTriangle, Loader } from 'lucide-react';
+import { socket } from './socket';
 
 // Update this version string whenever you deploy a significant update to force a cache clear
 const APP_VERSION = '2.0.0';
@@ -69,30 +70,28 @@ const App: React.FC = () => {
       setCurrentView('admin-dashboard');
     }
 
-    // --- Global Listeners for Admin Actions ---
-    const channel = new BroadcastChannel('wedding_portal_chat');
-    channel.onmessage = (event) => {
-        const data = event.data;
-        
-        // 1. Global Announcement
-        if (data.type === 'announcement') {
-            setAnnouncement({ title: "A Note of Love", msg: data.message });
-            // Auto dismiss after 8 seconds
-            setTimeout(() => setAnnouncement(null), 8000);
-        }
+    // --- Socket Global Listeners ---
+    
+    const handleAnnouncement = (data: any) => {
+        setAnnouncement({ title: "A Note of Love", msg: data.message });
+        setTimeout(() => setAnnouncement(null), 8000);
+    };
 
-        // 2. User Blocking Security Check
-        if (data.type === 'block_user') {
-            const blockedName = data.name;
-            // Check if I am the blocked user
-            if (userName === blockedName && currentView !== 'admin-dashboard') {
-                handleLogout();
-                alert("Access Revoked: Please contact the event administrator.");
-            }
+    const handleBlock = (data: any) => {
+        const blockedName = data.name;
+        if (userName === blockedName && currentView !== 'admin-dashboard') {
+            handleLogout();
+            alert("Access Revoked: Please contact the event administrator.");
         }
     };
 
-    return () => channel.close();
+    socket.on('announcement', handleAnnouncement);
+    socket.on('block_user', handleBlock);
+
+    return () => {
+        socket.off('announcement', handleAnnouncement);
+        socket.off('block_user', handleBlock);
+    };
 
   }, [userName, currentView]);
 
@@ -140,6 +139,10 @@ const App: React.FC = () => {
        changeView('couple-dashboard'); 
      } else if (type === 'admin') {
        changeView('admin-dashboard');
+     }
+     // Notify server of presence
+     if (type !== 'admin') {
+        socket.emit('user_join', { name, role: type, joinedAt: Date.now() });
      }
   };
 

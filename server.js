@@ -1,4 +1,6 @@
 import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -6,21 +8,114 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
 const PORT = process.env.PORT || 8080;
+
+// --- In-Memory State (Single Source of Truth) ---
+let currentState = {
+  heartCount: 0,
+  messages: [],
+  gallery: [],
+  guestList: [],
+  theme: { gradient: 'royal', effect: 'dust' },
+  config: { coupleName: "Sneha & Aman", date: "2025-11-26", welcomeMsg: "Join us as we begin our forever.", coupleImage: "" },
+  currentSong: null,
+  isPlaying: false,
+  announcement: null
+};
+
+// --- Socket Logic ---
+io.on('connection', (socket) => {
+  console.log('Client connected');
+
+  // 1. Send Full State on Connection
+  socket.emit('full_sync', currentState);
+
+  // 2. Handle Updates
+  socket.on('request_sync', () => {
+      socket.emit('full_sync', currentState);
+  });
+
+  socket.on('heart_update', (count) => {
+    // Ensure count only goes up
+    if (count > currentState.heartCount) {
+        currentState.heartCount = count;
+        io.emit('heart_update', { count });
+    }
+  });
+
+  socket.on('message', (msg) => {
+    currentState.messages.push(msg);
+    // Keep only last 100 messages to save memory
+    if (currentState.messages.length > 100) currentState.messages.shift();
+    io.emit('message', { payload: msg });
+  });
+  
+  // Admin clearing messages
+  socket.on('message_sync', (msgs) => {
+      currentState.messages = msgs;
+      io.emit('message_sync', { payload: msgs });
+  });
+
+  socket.on('gallery_upload', (mediaItem) => {
+      currentState.gallery.unshift(mediaItem);
+      if (currentState.gallery.length > 50) currentState.gallery.pop();
+      io.emit('gallery_sync', { payload: currentState.gallery });
+  });
+  
+  socket.on('gallery_sync', (gallery) => {
+      currentState.gallery = gallery;
+      io.emit('gallery_sync', { payload: gallery });
+  });
+
+  socket.on('theme_update', (theme) => {
+    currentState.theme = theme;
+    io.emit('theme_sync', { payload: theme });
+  });
+
+  socket.on('config_update', (config) => {
+      currentState.config = { ...currentState.config, ...config };
+      io.emit('config_sync', { payload: currentState.config });
+  });
+  
+  socket.on('announcement', (msg) => {
+      currentState.announcement = msg;
+      io.emit('announcement', { message: msg });
+  });
+  
+  socket.on('user_join', (user) => {
+      if (!currentState.guestList.find(g => g.name === user.name)) {
+          currentState.guestList.push(user);
+      }
+      io.emit('user_presence', { payload: user });
+  });
+
+  socket.on('playlist_update', (data) => {
+      currentState.currentSong = data.currentSong;
+      currentState.isPlaying = data.isPlaying;
+      io.emit('playlist_update', data);
+  });
+  
+  socket.on('block_user', (name) => {
+      currentState.guestList = currentState.guestList.filter(g => g.name !== name);
+      io.emit('block_user', { name });
+  });
+});
 
 // Serve static files from the React build
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// API endpoints placeholder for future expansion
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date() });
-});
-
-// Handle React routing, return all requests to React app
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+httpServer.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });

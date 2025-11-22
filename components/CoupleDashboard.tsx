@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Home, MessageSquare, Heart, Music, LogOut, Send, Play, Pause, SkipForward, SkipBack, Image as ImageIcon, RefreshCw, Users, Crown, Radio, Megaphone } from 'lucide-react';
+import { socket } from '../socket';
 
 // --- Types ---
 interface Message {
@@ -42,59 +43,124 @@ interface ThemeConfig {
     effect: 'dust' | 'petals' | 'lights' | 'none';
 }
 
-const THEME_GRADIENTS = {
-    royal: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#881337] via-[#4c0519] to-black',
-    midnight: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1e1b4b] via-[#020617] to-black',
-    sunset: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#9f1239] via-[#450a0a] to-black',
+const THEME_BASES = {
+    royal: 'bg-[#4a0404]',
+    midnight: 'bg-[#020617]', 
+    sunset: 'bg-[#2a0a18]',
 };
 
-const Atmosphere = ({ effect }: { effect: string }) => {
+const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
     return (
-        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-            {effect === 'dust' && (
-                // Starry Dust - Multi-layered parallax stars
-                <div className="absolute inset-0">
-                    <div className="absolute w-full h-full animate-[pulse_4s_ease-in-out_infinite]" 
-                         style={{
-                             backgroundImage: 'radial-gradient(white 1px, transparent 1px)',
-                             backgroundSize: '50px 50px',
-                             opacity: 0.3
-                         }}>
-                    </div>
-                     <div className="absolute w-full h-full animate-[pulse_7s_ease-in-out_infinite]" 
-                         style={{
-                             backgroundImage: 'radial-gradient(white 1.5px, transparent 1.5px)',
-                             backgroundSize: '120px 120px',
-                             opacity: 0.2,
-                             backgroundPosition: '20px 20px'
-                         }}>
-                    </div>
-                </div>
-            )}
-            {effect === 'petals' && (
-                // Floating Petals - Organic movement
-                <div className="absolute inset-0">
-                   {[...Array(8)].map((_, i) => (
-                       <div key={i} 
-                            className="absolute bg-pink-400/20 rounded-full animate-float blur-[1px]"
-                            style={{
-                                left: `${Math.random() * 100}%`,
-                                top: `${Math.random() * 100}%`,
-                                width: `${Math.random() * 8 + 4}px`,
-                                height: `${Math.random() * 8 + 4}px`,
-                                animationDuration: `${Math.random() * 10 + 15}s`,
-                                animationDelay: `${Math.random() * 5}s`
-                            }}
-                       ></div>
-                   ))}
-                </div>
-            )}
-            {effect === 'lights' && (
-                // Aurora Glow - Smoother gradients
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 transition-all duration-1000">
+            
+            {/* --- THEME: MIDNIGHT (Van Gogh Starry Night) --- */}
+            {theme.gradient === 'midnight' && (
                 <>
-                   <div className="absolute top-[-20%] left-[-10%] w-[80%] h-[80%] bg-pink-500/10 blur-[120px] rounded-full animate-pulse-slow mix-blend-screen"></div>
-                   <div className="absolute bottom-[-20%] right-[-10%] w-[80%] h-[80%] bg-purple-500/10 blur-[120px] rounded-full animate-pulse-slow mix-blend-screen" style={{animationDelay: '2s'}}></div>
+                    <div className="absolute inset-0 bg-gradient-to-b from-[#1e1b4b] via-[#0f172a] to-[#000000]"></div>
+                    <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] opacity-20 animate-[spin_60s_linear_infinite]" 
+                         style={{
+                             background: 'repeating-conic-gradient(from 0deg, transparent 0deg, transparent 20deg, rgba(100, 149, 237, 0.2) 40deg, transparent 60deg)',
+                             filter: 'blur(30px)',
+                         }}>
+                    </div>
+                    <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] opacity-10 animate-[spin_45s_linear_infinite_reverse]" 
+                         style={{
+                             background: 'repeating-conic-gradient(from 180deg, transparent 0deg, transparent 15deg, rgba(255, 215, 0, 0.15) 30deg, transparent 50deg)',
+                             filter: 'blur(40px)',
+                         }}>
+                    </div>
+                    <div className="absolute inset-0 opacity-5 mix-blend-overlay pointer-events-none" 
+                         style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")` }}>
+                    </div>
+                    {[...Array(12)].map((_, i) => (
+                        <div key={`star-${i}`} 
+                             className="absolute rounded-full bg-[#fcd34d] animate-pulse-slow"
+                             style={{
+                                 top: `${Math.random() * 80}%`,
+                                 left: `${Math.random() * 100}%`,
+                                 width: `${Math.random() * 6 + 3}px`,
+                                 height: `${Math.random() * 6 + 3}px`,
+                                 boxShadow: '0 0 20px 4px rgba(253, 224, 71, 0.5)',
+                                 animationDelay: `${Math.random() * 4}s`,
+                                 opacity: 0.8
+                             }}
+                        />
+                    ))}
                 </>
+            )}
+
+            {/* --- THEME: ROYAL (Velvet & Gold) --- */}
+            {theme.gradient === 'royal' && (
+                <>
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#500724] via-[#831843] to-[#500724]"></div>
+                    <div className="absolute inset-0 opacity-30 mix-blend-screen animate-sway"
+                         style={{
+                             background: 'linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.1) 45%, rgba(255,255,255,0.05) 50%, transparent 60%)',
+                             backgroundSize: '200% 200%',
+                             filter: 'blur(8px)'
+                         }}>
+                    </div>
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,rgba(0,0,0,0.6)_100%)]"></div>
+                    {[...Array(15)].map((_, i) => (
+                        <div key={`gold-${i}`}
+                             className="absolute rounded-full bg-[#fbbf24] animate-float"
+                             style={{
+                                 left: `${Math.random() * 100}%`,
+                                 top: `${Math.random() * 100}%`,
+                                 width: `${Math.random() * 2 + 2}px`,
+                                 height: `${Math.random() * 2 + 2}px`,
+                                 opacity: Math.random() * 0.5 + 0.3,
+                                 animationDuration: `${Math.random() * 8 + 12}s`,
+                                 boxShadow: '0 0 8px 1px rgba(251, 191, 36, 0.6)'
+                             }}>
+                        </div>
+                    ))}
+                </>
+            )}
+
+            {/* --- THEME: SUNSET (Living Art) --- */}
+            {theme.gradient === 'sunset' && (
+                <>
+                    <div className="absolute inset-0 bg-gradient-to-b from-[#3b0764] via-[#be185d] to-[#fb923c]"></div>
+                    <div className="absolute bottom-[-20%] left-1/2 -translate-x-1/2 w-[80%] h-[50%] bg-[#fbbf24] blur-[120px] opacity-50 rounded-full animate-pulse-slow"></div>
+                    {[...Array(6)].map((_, i) => (
+                        <div key={`cloud-${i}`}
+                             className="absolute rounded-full blur-3xl opacity-20 animate-float"
+                             style={{
+                                 background: i % 2 === 0 ? '#db2777' : '#fcd34d',
+                                 left: `${Math.random() * 100}%`,
+                                 top: `${Math.random() * 60}%`,
+                                 width: `${Math.random() * 200 + 100}px`,
+                                 height: `${Math.random() * 80 + 40}px`,
+                                 animationDuration: `${Math.random() * 25 + 30}s`,
+                                 animationDelay: `${Math.random() * -15}s`,
+                                 transform: `translateX(-50%)`
+                             }}>
+                        </div>
+                    ))}
+                </>
+            )}
+
+            {theme.effect !== 'none' && (
+                <div className="absolute inset-0 z-0">
+                     {theme.effect === 'petals' && [...Array(8)].map((_, i) => (
+                         <div key={`petal-${i}`} className="absolute bg-pink-200/40 rounded-full animate-float blur-[1px]"
+                              style={{
+                                  left: `${Math.random() * 100}%`,
+                                  top: `${Math.random() * 120}%`,
+                                  width: `${Math.random() * 10 + 5}px`,
+                                  height: `${Math.random() * 10 + 5}px`,
+                                  animationDuration: `${Math.random() * 10 + 15}s`,
+                                  animationDelay: `${Math.random() * -5}s`
+                              }}></div>
+                     ))}
+                     {theme.effect === 'dust' && (
+                         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 animate-pulse"></div>
+                     )}
+                     {theme.effect === 'lights' && (
+                         <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-60 animate-shimmer" style={{ backgroundSize: '200% 200%' }}></div>
+                     )}
+                </div>
             )}
         </div>
     );
@@ -123,75 +189,58 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
 
   // --- Initial Data Load ---
   useEffect(() => {
-      const loadData = () => {
-          const msgs = localStorage.getItem('wedding_chat_messages');
-          if (msgs) setMessages(JSON.parse(msgs));
-          
-          const hearts = localStorage.getItem('wedding_heart_count');
-          if (hearts) setHeartCount(parseInt(hearts));
+      // Local Storage Init
+      const msgs = localStorage.getItem('wedding_chat_messages');
+      if (msgs) setMessages(JSON.parse(msgs));
+      
+      const hearts = localStorage.getItem('wedding_heart_count');
+      if (hearts) setHeartCount(parseInt(hearts));
 
-          const pics = localStorage.getItem('wedding_gallery_media');
-          if (pics) setGallery(JSON.parse(pics));
+      const savedTheme = localStorage.getItem('wedding_theme_config');
+      if (savedTheme) setTheme(JSON.parse(savedTheme));
 
-          const savedGuests = localStorage.getItem('wedding_guest_registry');
-          if (savedGuests) setGuestList(JSON.parse(savedGuests));
+      // Romantic Playlist
+      const pl = [
+          { id: '1', title: 'Perfect', artist: 'Ed Sheeran', album: 'Divide', durationStr: '4:23', url: '', cover: 'https://upload.wikimedia.org/wikipedia/en/4/45/Divide_cover.png' },
+          { id: '2', title: 'All of Me', artist: 'John Legend', album: 'Love in the Future', durationStr: '4:29', url: '', cover: 'https://upload.wikimedia.org/wikipedia/en/6/65/John_Legend_-_All_of_Me_%28single%29.jpg' },
+          { id: '3', title: 'A Thousand Years', artist: 'Christina Perri', album: 'Twilight', durationStr: '4:45', url: '', cover: 'https://upload.wikimedia.org/wikipedia/en/4/42/A_Thousand_Years_%28Christina_Perri_song%29_cover.jpg' },
+      ];
+      setPlaylist(pl);
+      setCurrentSong(pl[0]);
 
-          const savedAnnounce = localStorage.getItem('wedding_last_announcement');
-          if (savedAnnounce) setAnnouncement(savedAnnounce);
+      // Socket Setup
+      socket.emit('request_sync');
 
-          const savedTheme = localStorage.getItem('wedding_theme_config');
-          if (savedTheme) setTheme(JSON.parse(savedTheme));
-
-          // Romantic Playlist
-          const pl = [
-              { id: '1', title: 'Perfect', artist: 'Ed Sheeran', album: 'Divide', durationStr: '4:23', url: '', cover: 'https://upload.wikimedia.org/wikipedia/en/4/45/Divide_cover.png' },
-              { id: '2', title: 'All of Me', artist: 'John Legend', album: 'Love in the Future', durationStr: '4:29', url: '', cover: 'https://upload.wikimedia.org/wikipedia/en/6/65/John_Legend_-_All_of_Me_%28single%29.jpg' },
-              { id: '3', title: 'A Thousand Years', artist: 'Christina Perri', album: 'Twilight', durationStr: '4:45', url: '', cover: 'https://upload.wikimedia.org/wikipedia/en/4/42/A_Thousand_Years_%28Christina_Perri_song%29_cover.jpg' },
-          ];
-          setPlaylist(pl);
-          setCurrentSong(pl[0]);
-      };
-      loadData();
-
-      const channel = new BroadcastChannel('wedding_portal_chat');
-      channel.onmessage = (event) => {
-          const data = event.data;
-          switch(data.type) {
-              case 'message': 
-                  setMessages(prev => {
-                      if (prev.some(m => m.id === data.payload.id)) return prev;
-                      return [...prev, data.payload];
-                  });
-                  break;
-              case 'message_sync':
-                  setMessages(data.payload);
-                  break;
-              case 'heart_update':
-                  setHeartCount(data.count);
-                  break;
-              case 'gallery_sync':
-                  setGallery(data.payload);
-                  break;
-              case 'user_presence':
-                  setGuestList(prev => {
-                      if (prev.some(g => g.name === data.payload.name)) return prev;
-                      const newList = [...prev, data.payload];
-                      localStorage.setItem('wedding_guest_registry', JSON.stringify(newList));
-                      return newList;
-                  });
-                  break;
-              case 'announcement':
-                  setAnnouncement(data.message);
-                  break;
-              case 'theme_sync':
-                  setTheme(data.payload);
-                  break;
+      const handleFullSync = (state: any) => {
+          setMessages(state.messages || []);
+          setGallery(state.gallery || []);
+          setHeartCount(state.heartCount || 0);
+          setGuestList(state.guestList || []);
+          if(state.theme) setTheme(state.theme);
+          if(state.announcement) setAnnouncement(state.announcement);
+          if(state.currentSong) {
+              setCurrentSong(state.currentSong);
+              setIsPlaying(state.isPlaying);
           }
       };
-      
-      channel.postMessage({ type: 'user_presence', payload: { name: userName, role: 'couple', joinedAt: Date.now() } });
 
-      return () => channel.close();
+      socket.on('full_sync', handleFullSync);
+      socket.on('message', (data) => setMessages(prev => [...prev, data.payload]));
+      socket.on('heart_update', (data) => setHeartCount(data.count));
+      socket.on('gallery_sync', (data) => setGallery(data.payload));
+      socket.on('user_presence', (data) => setGuestList(prev => [...prev.filter(g => g.name !== data.payload.name), data.payload]));
+      socket.on('announcement', (data) => setAnnouncement(data.message));
+      socket.on('theme_sync', (data) => setTheme(data.payload));
+      
+      return () => {
+          socket.off('full_sync');
+          socket.off('message');
+          socket.off('heart_update');
+          socket.off('gallery_sync');
+          socket.off('user_presence');
+          socket.off('announcement');
+          socket.off('theme_sync');
+      };
   }, []);
 
   useEffect(() => {
@@ -204,29 +253,13 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
   const togglePlay = () => {
       const newState = !isPlaying;
       setIsPlaying(newState);
-      
-      // Sync state to guests
-      const channel = new BroadcastChannel('wedding_portal_chat');
-      channel.postMessage({ 
-          type: 'playlist_update', 
-          currentSong, 
-          isPlaying: newState
-      });
-      channel.close();
+      socket.emit('playlist_update', { currentSong, isPlaying: newState });
   };
 
   const playSong = (song: Song) => {
       setCurrentSong(song);
       setIsPlaying(true);
-      
-      // Sync state to guests
-      const channel = new BroadcastChannel('wedding_portal_chat');
-      channel.postMessage({ 
-          type: 'playlist_update', 
-          currentSong: song, 
-          isPlaying: true
-      });
-      channel.close();
+      socket.emit('playlist_update', { currentSong: song, isPlaying: true });
   };
 
   const handleSendMessage = (text: string) => {
@@ -239,12 +272,8 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           type: 'text'
       };
-      setMessages(prev => [...prev, newMessage]);
-      localStorage.setItem('wedding_chat_messages', JSON.stringify([...messages, newMessage]));
       
-      const channel = new BroadcastChannel('wedding_portal_chat');
-      channel.postMessage({ type: 'message', payload: newMessage });
-      channel.close();
+      socket.emit('message', newMessage);
       setChatInput("");
   };
 
@@ -256,10 +285,10 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
   };
 
   return (
-    <div className={`w-full h-full text-pink-100 font-serif flex flex-col relative overflow-hidden transition-all duration-1000 ${THEME_GRADIENTS[theme.gradient] || THEME_GRADIENTS.royal}`}>
+    <div className={`w-full h-full text-pink-100 font-serif flex flex-col relative overflow-hidden transition-all duration-1000 ${THEME_BASES[theme.gradient] || THEME_BASES.royal}`}>
         
         {/* Background Effects */}
-        <Atmosphere effect={theme.effect} />
+        <Atmosphere theme={theme} />
 
         {/* Header */}
         <header className="flex-shrink-0 p-4 flex justify-between items-center z-20 border-b border-pink-500/20 bg-passion-900/10 backdrop-blur-md shadow-lg">
@@ -270,7 +299,7 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
                     </div>
                 </div>
                 <div>
-                    <h1 className="font-romantic text-2xl text-white">The Happy Couple</h1>
+                    <h1 className="font-romantic text-2xl text-white drop-shadow-md">The Happy Couple</h1>
                     <p className="text-[10px] text-pink-300 uppercase tracking-widest">Control Room</p>
                 </div>
             </div>
@@ -304,7 +333,7 @@ const CoupleDashboard: React.FC<CoupleDashboardProps> = ({ userName, onLogout })
 
                      <div className="text-center my-6">
                          <Heart size={48} className="text-pink-500 mx-auto mb-4 animate-heartbeat fill-pink-500/50" />
-                         <h2 className="text-4xl font-romantic text-pink-100 mb-2">Welcome, Lovebirds</h2>
+                         <h2 className="text-4xl font-romantic text-pink-100 mb-2 drop-shadow-md">Welcome, Lovebirds</h2>
                          <p className="text-pink-300 text-sm italic">Your love story is unfolding perfectly.</p>
                      </div>
                      

@@ -1,6 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { User, Sparkles, Lock, X, Heart, Volume2, VolumeX, ChevronRight, Loader } from 'lucide-react';
+import { socket } from '../socket';
 
 // --- Audio Utilities ---
 const isAudioMuted = () => localStorage.getItem('wedding_audio_muted') === 'true';
@@ -81,59 +82,125 @@ interface ThemeConfig {
     effect: 'dust' | 'petals' | 'lights' | 'none';
 }
 
-const THEME_GRADIENTS = {
-    royal: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#881337] via-[#4c0519] to-black',
-    midnight: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1e1b4b] via-[#020617] to-black',
-    sunset: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#9f1239] via-[#450a0a] to-black',
+// Base background colors that sit behind the artistic layers
+const THEME_BASES = {
+    royal: 'bg-[#4a0404]', // Deep Red base
+    midnight: 'bg-[#020617]', // Deepest Blue/Black base
+    sunset: 'bg-[#2a0a18]', // Dark Purple/Red base
 };
 
-const Atmosphere = ({ effect }: { effect: string }) => {
+const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
     return (
-        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-            {effect === 'dust' && (
-                // Starry Dust - Multi-layered parallax stars
-                <div className="absolute inset-0">
-                    <div className="absolute w-full h-full animate-[pulse_4s_ease-in-out_infinite]" 
-                         style={{
-                             backgroundImage: 'radial-gradient(white 1px, transparent 1px)',
-                             backgroundSize: '50px 50px',
-                             opacity: 0.3
-                         }}>
-                    </div>
-                     <div className="absolute w-full h-full animate-[pulse_7s_ease-in-out_infinite]" 
-                         style={{
-                             backgroundImage: 'radial-gradient(white 1.5px, transparent 1.5px)',
-                             backgroundSize: '120px 120px',
-                             opacity: 0.2,
-                             backgroundPosition: '20px 20px'
-                         }}>
-                    </div>
-                </div>
-            )}
-            {effect === 'petals' && (
-                // Floating Petals - Organic movement
-                <div className="absolute inset-0">
-                   {[...Array(8)].map((_, i) => (
-                       <div key={i} 
-                            className="absolute bg-pink-400/20 rounded-full animate-float blur-[1px]"
-                            style={{
-                                left: `${Math.random() * 100}%`,
-                                top: `${Math.random() * 100}%`,
-                                width: `${Math.random() * 8 + 4}px`,
-                                height: `${Math.random() * 8 + 4}px`,
-                                animationDuration: `${Math.random() * 10 + 15}s`,
-                                animationDelay: `${Math.random() * 5}s`
-                            }}
-                       ></div>
-                   ))}
-                </div>
-            )}
-            {effect === 'lights' && (
-                // Aurora Glow - Smoother gradients
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 transition-all duration-1000">
+            
+            {/* --- THEME: MIDNIGHT (Van Gogh Starry Night) --- */}
+            {theme.gradient === 'midnight' && (
                 <>
-                   <div className="absolute top-[-20%] left-[-10%] w-[80%] h-[80%] bg-pink-500/10 blur-[120px] rounded-full animate-pulse-slow mix-blend-screen"></div>
-                   <div className="absolute bottom-[-20%] right-[-10%] w-[80%] h-[80%] bg-purple-500/10 blur-[120px] rounded-full animate-pulse-slow mix-blend-screen" style={{animationDelay: '2s'}}></div>
+                    <div className="absolute inset-0 bg-gradient-to-b from-[#1e1b4b] via-[#0f172a] to-[#000000]"></div>
+                    <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] opacity-20 animate-[spin_60s_linear_infinite]" 
+                         style={{
+                             background: 'repeating-conic-gradient(from 0deg, transparent 0deg, transparent 20deg, rgba(100, 149, 237, 0.2) 40deg, transparent 60deg)',
+                             filter: 'blur(30px)',
+                         }}>
+                    </div>
+                    <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] opacity-10 animate-[spin_45s_linear_infinite_reverse]" 
+                         style={{
+                             background: 'repeating-conic-gradient(from 180deg, transparent 0deg, transparent 15deg, rgba(255, 215, 0, 0.15) 30deg, transparent 50deg)',
+                             filter: 'blur(40px)',
+                         }}>
+                    </div>
+                    <div className="absolute inset-0 opacity-5 mix-blend-overlay pointer-events-none" 
+                         style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")` }}>
+                    </div>
+                    {[...Array(12)].map((_, i) => (
+                        <div key={`star-${i}`} 
+                             className="absolute rounded-full bg-[#fcd34d] animate-pulse-slow"
+                             style={{
+                                 top: `${Math.random() * 80}%`,
+                                 left: `${Math.random() * 100}%`,
+                                 width: `${Math.random() * 6 + 3}px`,
+                                 height: `${Math.random() * 6 + 3}px`,
+                                 boxShadow: '0 0 20px 4px rgba(253, 224, 71, 0.5)',
+                                 animationDelay: `${Math.random() * 4}s`,
+                                 opacity: 0.8
+                             }}
+                        />
+                    ))}
                 </>
+            )}
+
+            {/* --- THEME: ROYAL (Velvet & Gold) --- */}
+            {theme.gradient === 'royal' && (
+                <>
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#500724] via-[#831843] to-[#500724]"></div>
+                    <div className="absolute inset-0 opacity-30 mix-blend-screen animate-sway"
+                         style={{
+                             background: 'linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.1) 45%, rgba(255,255,255,0.05) 50%, transparent 60%)',
+                             backgroundSize: '200% 200%',
+                             filter: 'blur(8px)'
+                         }}>
+                    </div>
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,rgba(0,0,0,0.6)_100%)]"></div>
+                    {[...Array(15)].map((_, i) => (
+                        <div key={`gold-${i}`}
+                             className="absolute rounded-full bg-[#fbbf24] animate-float"
+                             style={{
+                                 left: `${Math.random() * 100}%`,
+                                 top: `${Math.random() * 100}%`,
+                                 width: `${Math.random() * 2 + 2}px`,
+                                 height: `${Math.random() * 2 + 2}px`,
+                                 opacity: Math.random() * 0.5 + 0.3,
+                                 animationDuration: `${Math.random() * 8 + 12}s`,
+                                 boxShadow: '0 0 8px 1px rgba(251, 191, 36, 0.6)'
+                             }}>
+                        </div>
+                    ))}
+                </>
+            )}
+
+            {/* --- THEME: SUNSET (Living Art) --- */}
+            {theme.gradient === 'sunset' && (
+                <>
+                    <div className="absolute inset-0 bg-gradient-to-b from-[#3b0764] via-[#be185d] to-[#fb923c]"></div>
+                    <div className="absolute bottom-[-20%] left-1/2 -translate-x-1/2 w-[80%] h-[50%] bg-[#fbbf24] blur-[120px] opacity-50 rounded-full animate-pulse-slow"></div>
+                    {[...Array(6)].map((_, i) => (
+                        <div key={`cloud-${i}`}
+                             className="absolute rounded-full blur-3xl opacity-20 animate-float"
+                             style={{
+                                 background: i % 2 === 0 ? '#db2777' : '#fcd34d',
+                                 left: `${Math.random() * 100}%`,
+                                 top: `${Math.random() * 60}%`,
+                                 width: `${Math.random() * 200 + 100}px`,
+                                 height: `${Math.random() * 80 + 40}px`,
+                                 animationDuration: `${Math.random() * 25 + 30}s`,
+                                 animationDelay: `${Math.random() * -15}s`,
+                                 transform: `translateX(-50%)`
+                             }}>
+                        </div>
+                    ))}
+                </>
+            )}
+
+            {theme.effect !== 'none' && (
+                <div className="absolute inset-0 z-0">
+                     {theme.effect === 'petals' && [...Array(8)].map((_, i) => (
+                         <div key={`petal-${i}`} className="absolute bg-pink-200/40 rounded-full animate-float blur-[1px]"
+                              style={{
+                                  left: `${Math.random() * 100}%`,
+                                  top: `${Math.random() * 120}%`,
+                                  width: `${Math.random() * 10 + 5}px`,
+                                  height: `${Math.random() * 10 + 5}px`,
+                                  animationDuration: `${Math.random() * 10 + 15}s`,
+                                  animationDelay: `${Math.random() * -5}s`
+                              }}></div>
+                     ))}
+                     {theme.effect === 'dust' && (
+                         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 animate-pulse"></div>
+                     )}
+                     {theme.effect === 'lights' && (
+                         <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-60 animate-shimmer" style={{ backgroundSize: '200% 200%' }}></div>
+                     )}
+                </div>
             )}
         </div>
     );
@@ -143,7 +210,7 @@ const FloatingHearts = () => {
     const [hearts, setHearts] = useState<Array<{id: number, left: number, top: number, scale: number, speed: number}>>([]);
 
     useEffect(() => {
-        const count = 20;
+        const count = 15;
         const newHearts = [];
         for(let i=0; i<count; i++) {
             newHearts.push({
@@ -162,7 +229,7 @@ const FloatingHearts = () => {
             {hearts.map(h => (
                 <div 
                     key={h.id}
-                    className="absolute text-pink-500/20 animate-float"
+                    className="absolute text-pink-500/20 animate-float mix-blend-screen"
                     style={{
                         left: `${h.left}%`,
                         top: `${h.top}%`,
@@ -178,7 +245,7 @@ const FloatingHearts = () => {
 }
 
 // --- Constants ---
-const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?q=80&w=1000&auto=format&fit=crop"; // Romantic couple placeholder
+const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?q=80&w=1000&auto=format&fit=crop"; 
 const DEFAULT_WELCOME = "Join us as we begin our forever.";
 
 // --- Main Component ---
@@ -197,13 +264,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
   const [welcomeMsg, setWelcomeMsg] = useState(DEFAULT_WELCOME);
   const [muted, setMuted] = useState(isAudioMuted());
   const [theme, setTheme] = useState<ThemeConfig>({ gradient: 'royal', effect: 'dust' });
-  
-  const [coupleImage, setCoupleImage] = useState<string>(() => {
-      if (typeof window !== 'undefined') {
-          return localStorage.getItem('wedding_couple_image') || DEFAULT_IMAGE;
-      }
-      return DEFAULT_IMAGE;
-  });
+  const [coupleImage, setCoupleImage] = useState(DEFAULT_IMAGE);
 
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminPin, setAdminPin] = useState("");
@@ -215,42 +276,54 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-      // Listen for config updates
-      const checkUpdates = () => {
-          const savedConfig = localStorage.getItem('wedding_global_config');
-          if (savedConfig) {
-              setConfig(JSON.parse(savedConfig));
-          }
-          const msg = localStorage.getItem('wedding_welcome_msg');
-          if (msg) setWelcomeMsg(msg);
+      // Initialize data from local storage first for speed
+      const savedConfig = localStorage.getItem('wedding_global_config');
+      if (savedConfig) {
+          setConfig(JSON.parse(savedConfig));
+      }
+      const msg = localStorage.getItem('wedding_welcome_msg');
+      if (msg) setWelcomeMsg(msg);
+      
+      const savedTheme = localStorage.getItem('wedding_theme_config');
+      if (savedTheme) setTheme(JSON.parse(savedTheme));
 
-          const img = localStorage.getItem('wedding_couple_image');
-          if (img && img !== coupleImage) setCoupleImage(img);
+      const img = localStorage.getItem('wedding_couple_image');
+      if (img) setCoupleImage(img);
 
-          const savedTheme = localStorage.getItem('wedding_theme_config');
-          if (savedTheme) setTheme(JSON.parse(savedTheme));
+      // Listen for real-time socket updates
+      socket.emit('request_sync');
+
+      const handleConfigSync = (data: any) => {
+          const newConfig = data.payload;
+          setConfig(newConfig);
+          if (newConfig.coupleImage) setCoupleImage(newConfig.coupleImage);
+          if (newConfig.welcomeMsg) setWelcomeMsg(newConfig.welcomeMsg);
+          localStorage.setItem('wedding_global_config', JSON.stringify(newConfig));
       };
-      checkUpdates();
-      const interval = setInterval(checkUpdates, 2000);
 
-      const channel = new BroadcastChannel('wedding_portal_chat');
-      channel.onmessage = (event) => {
-          if (event.data.type === 'config_sync') {
-              const newConfig = event.data.payload;
-              setConfig(newConfig);
-              if (newConfig.coupleImage) setCoupleImage(newConfig.coupleImage);
-              if (newConfig.welcomeMsg) setWelcomeMsg(newConfig.welcomeMsg);
-          }
-          if (event.data.type === 'theme_sync') {
-              setTheme(event.data.payload);
-          }
+      const handleThemeSync = (data: any) => {
+          setTheme(data.payload);
+          localStorage.setItem('wedding_theme_config', JSON.stringify(data.payload));
       };
+
+      const handleFullSync = (state: any) => {
+          if(state.config) {
+              setConfig(state.config);
+              if (state.config.coupleImage) setCoupleImage(state.config.coupleImage);
+          }
+          if(state.theme) setTheme(state.theme);
+      };
+
+      socket.on('config_sync', handleConfigSync);
+      socket.on('theme_sync', handleThemeSync);
+      socket.on('full_sync', handleFullSync);
 
       return () => {
-          clearInterval(interval);
-          channel.close();
+          socket.off('config_sync', handleConfigSync);
+          socket.off('theme_sync', handleThemeSync);
+          socket.off('full_sync', handleFullSync);
       };
-  }, [coupleImage]);
+  }, []);
 
   useEffect(() => {
     const targetDate = new Date(config.date + 'T00:00:00');
@@ -341,19 +414,14 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="w-full h-full flex flex-col relative overflow-hidden bg-[#4c0519]">
+    <div className={`w-full h-full flex flex-col relative overflow-hidden ${THEME_BASES[theme.gradient] || THEME_BASES.royal}`}>
       
-      {/* Romantic Background */}
-      <div className={`absolute inset-0 z-0 pointer-events-none overflow-hidden transition-all duration-1000 ${THEME_GRADIENTS[theme.gradient] || THEME_GRADIENTS.royal}`}>
-         <FloatingHearts />
-         <Atmosphere effect={theme.effect} />
-         
-         {/* Soft Spotlight */}
-         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1/2 bg-gradient-to-b from-white/5 to-transparent blur-3xl mix-blend-overlay"></div>
-         
-         {/* Vignette */}
-         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_40%,rgba(0,0,0,0.4)_100%)]"></div>
-      </div>
+      {/* Artistic Atmosphere Layer */}
+      <Atmosphere theme={theme} />
+      <FloatingHearts />
+
+      {/* Soft Vignette Overlay */}
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.3)_100%)] z-0"></div>
 
       <button 
           onClick={toggleMute} 
@@ -385,10 +453,10 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
                     </linearGradient>
                 </svg>
            </div>
-           <h1 className="font-romantic text-6xl sm:text-7xl leading-none text-transparent bg-clip-text bg-gradient-to-br from-pink-200 via-pink-100 to-rose-300 drop-shadow-[0_5px_15px_rgba(225,29,72,0.5)] pb-2">
+           <h1 className="font-romantic text-6xl sm:text-7xl leading-none text-transparent bg-clip-text bg-gradient-to-br from-pink-200 via-pink-100 to-rose-300 drop-shadow-[0_2px_10px_rgba(225,29,72,0.5)] pb-2">
              {config.coupleName}
            </h1>
-           <p className="text-pink-300/80 font-serif italic text-sm tracking-widest mt-4 animate-slide-up delay-300">
+           <p className="text-pink-200/90 font-serif italic text-sm tracking-widest mt-4 animate-slide-up delay-300 text-shadow-sm">
              Our Love Story
            </p>
         </header>
@@ -401,34 +469,31 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
             className="relative w-72 h-72 sm:w-80 sm:h-80 my-8 flex-shrink-0"
             style={{ transform: cardTransform, transition: 'transform 0.1s ease-out', transformStyle: 'preserve-3d' }}
           >
-             {/* Back Glow */}
-             <div className="absolute inset-0 bg-passion-600/40 blur-[60px] rounded-full transform translate-z-[-50px] animate-pulse-slow"></div>
+             <div className={`absolute inset-0 blur-[60px] rounded-full transform translate-z-[-50px] animate-pulse-slow ${theme.gradient === 'midnight' ? 'bg-blue-600/40' : theme.gradient === 'sunset' ? 'bg-orange-500/40' : 'bg-passion-600/40'}`}></div>
              
-             {/* Decorative Rings */}
              <div className="absolute -inset-6 border border-pink-500/20 rounded-full animate-spin-slow pointer-events-none"></div>
 
-             {/* Main Image Container */}
-             <div className="relative w-full h-full rounded-full p-1 bg-gradient-to-br from-pink-400 via-passion-600 to-pink-400 shadow-[0_20px_60px_rgba(0,0,0,0.5)] z-10">
-                <div className="w-full h-full rounded-full overflow-hidden border-4 border-[#4c0519] relative group">
+             <div className="relative w-full h-full rounded-full p-1 bg-gradient-to-br from-white/20 via-transparent to-white/20 shadow-[0_20px_60px_rgba(0,0,0,0.5)] z-10 backdrop-blur-sm">
+                <div className="w-full h-full rounded-full overflow-hidden border-4 border-black/20 relative group">
                     <img src={coupleImage} alt="Couple" className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110 will-change-transform" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-passion-900/60 via-transparent to-transparent"></div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
                 </div>
              </div>
           </div>
 
           {/* Glass Panel Content */}
-          <div className="glass-romance max-w-md mx-auto space-y-8 p-8 rounded-3xl relative z-10 animate-fade-in-up delay-500 w-full">
+          <div className="glass-romance max-w-md mx-auto space-y-8 p-8 rounded-3xl relative z-10 animate-fade-in-up delay-500 w-full bg-black/20 backdrop-blur-xl border border-white/10">
               
               <p className="font-romantic text-pink-100 text-2xl leading-relaxed text-center drop-shadow-md">
                   {welcomeMsg}
               </p>
               
               {/* Countdown */}
-              <div className="flex justify-center gap-4 py-4 border-t border-pink-500/20 border-b border-pink-500/20">
+              <div className="flex justify-center gap-4 py-4 border-t border-white/10 border-b">
                  {Object.entries(timeLeft).map(([unit, val], i) => (
                      <div key={unit} className="flex flex-col items-center min-w-[60px]">
-                         <span className="text-2xl font-serif text-white font-bold">{val}</span>
-                         <span className="text-[9px] uppercase tracking-widest text-pink-300">{unit}</span>
+                         <span className="text-2xl font-serif text-white font-bold drop-shadow-lg">{val}</span>
+                         <span className="text-[9px] uppercase tracking-widest text-pink-200">{unit}</span>
                      </div>
                  ))}
               </div>
@@ -437,7 +502,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
               <div className="flex flex-col gap-4 items-center w-full">
                   <button 
                     onClick={() => handleUserLoginOpen('guest')}
-                    className="w-full bg-gradient-to-r from-passion-600 to-passion-800 text-white py-4 rounded-full font-heading font-bold tracking-widest shadow-glow hover:shadow-glow-lg hover:scale-105 transition-all active:scale-95 flex items-center justify-center gap-3 group relative overflow-hidden"
+                    className="w-full bg-gradient-to-r from-pink-600/80 to-passion-800/80 text-white py-4 rounded-full font-heading font-bold tracking-widest shadow-lg hover:shadow-glow hover:scale-105 transition-all active:scale-95 flex items-center justify-center gap-3 group relative overflow-hidden border border-white/20"
                   >
                       <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:animate-[shimmer_1.5s_infinite] skew-x-12"></div>
                       <Sparkles size={18} /> Enter Celebration
@@ -445,7 +510,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
                   
                   <button 
                     onClick={() => handleUserLoginOpen('couple')}
-                    className="text-pink-400/60 text-xs uppercase tracking-widest hover:text-pink-200 transition-colors py-2 flex items-center gap-2 hover:gap-3 duration-300"
+                    className="text-pink-300/80 text-xs uppercase tracking-widest hover:text-white transition-colors py-2 flex items-center gap-2 hover:gap-3 duration-300"
                   >
                       <Heart size={12} fill="currentColor" /> Couple Login
                   </button>
@@ -455,18 +520,16 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
       </div>
       
       {/* --- Modals --- */}
-        
-      {/* Admin Login Modal */}
       {showAdminLogin && (
           <div className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-              <div className="glass-romance p-8 rounded-2xl w-full max-w-xs text-center animate-zoom-in">
+              <div className="glass-romance p-8 rounded-2xl w-full max-w-xs text-center animate-zoom-in bg-black/40">
                   <h3 className="text-pink-200 font-heading text-xl mb-6">Secret Access</h3>
                   <form onSubmit={handleLoginSubmit} className="space-y-4">
                       <input 
                           type="password" 
                           value={adminPin} 
                           onChange={e => setAdminPin(e.target.value)}
-                          className={`w-full bg-black/40 border rounded-lg px-4 py-3 text-center text-pink-100 tracking-[0.5em] focus:outline-none focus:border-pink-400 transition-colors ${errorMsg ? 'border-red-500' : 'border-pink-500/30'}`}
+                          className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-center text-pink-100 tracking-[0.5em] focus:outline-none focus:border-pink-400 transition-colors"
                           placeholder="PIN"
                           autoFocus
                       />
@@ -482,14 +545,13 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
           </div>
       )}
 
-      {/* User Login Modal */}
       {showUserLogin && (
-          <div className="fixed inset-0 z-[60] bg-passion-900/95 backdrop-blur-xl flex items-center justify-center p-4 animate-fade-in">
-              <div className="bg-gradient-to-b from-passion-800 to-black p-8 rounded-3xl w-full max-w-sm relative animate-slide-up border border-pink-500/30 shadow-2xl">
+          <div className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 animate-fade-in">
+              <div className={`bg-gradient-to-b p-8 rounded-3xl w-full max-w-sm relative animate-slide-up border border-white/20 shadow-2xl ${theme.gradient === 'midnight' ? 'from-blue-950 to-black' : 'from-passion-900 to-black'}`}>
                   <button onClick={() => setShowUserLogin(false)} className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors"><X size={24} /></button>
                   
                   <div className="text-center mb-8">
-                      <div className="w-20 h-20 bg-gradient-to-br from-pink-500 to-passion-600 rounded-full flex items-center justify-center mx-auto mb-4 text-white shadow-glow animate-pulse-slow">
+                      <div className="w-20 h-20 bg-gradient-to-br from-white/10 to-white/5 rounded-full flex items-center justify-center mx-auto mb-4 text-white shadow-glow animate-pulse-slow border border-white/20">
                             {loginType === 'couple' ? <Heart size={32} fill="currentColor" /> : <User size={32} />}
                       </div>
                       <h3 className="font-romantic text-4xl text-pink-100 mb-2">{loginType === 'couple' ? 'The Couple' : 'Welcome Guest'}</h3>
@@ -503,7 +565,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
                               type="text" 
                               value={userName} 
                               onChange={e => setUserName(e.target.value)}
-                              className="w-full bg-black/30 border border-pink-500/20 rounded-xl px-5 py-4 text-pink-100 focus:outline-none focus:border-pink-500 focus:bg-black/50 transition-all"
+                              className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-4 text-pink-100 focus:outline-none focus:border-pink-500 focus:bg-black/50 transition-all"
                               placeholder="e.g. Romeo"
                           />
                       </div>
@@ -513,14 +575,14 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
                               type="tel" 
                               value={userPhone} 
                               onChange={e => setUserPhone(e.target.value)}
-                              className="w-full bg-black/30 border border-pink-500/20 rounded-xl px-5 py-4 text-pink-100 focus:outline-none focus:border-pink-500 focus:bg-black/50 transition-all"
+                              className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-4 text-pink-100 focus:outline-none focus:border-pink-500 focus:bg-black/50 transition-all"
                               placeholder="10-digit number"
                           />
                       </div>
                       
                       {errorMsg && <p className="text-red-400 text-xs text-center animate-shake">{errorMsg}</p>}
 
-                      <button type="submit" disabled={isLoading} className="w-full bg-gradient-to-r from-pink-600 to-passion-600 text-white py-4 rounded-xl font-bold shadow-lg hover:shadow-glow transition-all active:scale-95 flex items-center justify-center gap-2 mt-4 group border border-pink-500/30">
+                      <button type="submit" disabled={isLoading} className="w-full bg-gradient-to-r from-pink-600 to-passion-600 text-white py-4 rounded-xl font-bold shadow-lg hover:shadow-glow transition-all active:scale-95 flex items-center justify-center gap-2 mt-4 group border border-white/20">
                           {isLoading ? (
                               <Loader size={20} className="animate-spin" />
                           ) : (
