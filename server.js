@@ -28,6 +28,7 @@ let currentState = {
   messages: [],
   gallery: [],
   guestList: [],
+  lanterns: [], // Stores the sky lanterns
   theme: { gradient: 'royal', effect: 'dust' },
   config: { coupleName: "Sneha & Aman", date: "2025-11-26", welcomeMsg: "Join us as we begin our forever.", coupleImage: "" },
   currentSong: null,
@@ -78,6 +79,14 @@ io.on('connection', (socket) => {
       io.emit('message_sync', { payload: msgs });
   });
 
+  // Lanterns Logic
+  socket.on('send_lantern', (lantern) => {
+      currentState.lanterns.push(lantern);
+      // Limit stored lanterns
+      if (currentState.lanterns.length > 200) currentState.lanterns.shift();
+      io.emit('lantern_added', { payload: lantern });
+  });
+
   socket.on('gallery_upload', (mediaItem) => {
       currentState.gallery.unshift(mediaItem);
       if (currentState.gallery.length > 50) currentState.gallery.pop();
@@ -104,11 +113,25 @@ io.on('connection', (socket) => {
       io.emit('announcement', { message: msg });
   });
   
+  // Handle User Join
   socket.on('user_join', (user) => {
-      // Remove existing entry if re-joining to update timestamp
+      // Check if user already exists to preserve data like RSVP
+      const existing = currentState.guestList.find(g => g.name === user.name);
+      const newUser = { ...user, rsvp: existing ? existing.rsvp : false };
+
       currentState.guestList = currentState.guestList.filter(g => g.name !== user.name);
-      currentState.guestList.push(user);
-      io.emit('user_presence', { payload: user });
+      currentState.guestList.push(newUser);
+      io.emit('user_presence', { payload: newUser });
+  });
+
+  // Handle RSVP
+  socket.on('send_rsvp', (data) => {
+      const guestIndex = currentState.guestList.findIndex(g => g.name === data.name);
+      if (guestIndex !== -1) {
+          const updatedGuest = { ...currentState.guestList[guestIndex], rsvp: true };
+          currentState.guestList[guestIndex] = updatedGuest;
+          io.emit('user_presence', { payload: updatedGuest });
+      }
   });
 
   socket.on('playlist_update', (data) => {

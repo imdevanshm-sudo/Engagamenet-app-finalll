@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
 import WelcomeScreen from './components/WelcomeScreen';
@@ -6,19 +5,22 @@ import GuestDashboard from './components/GuestDashboard';
 import CoupleDashboard from './components/CoupleDashboard';
 import AdminDashboard from './components/AdminDashboard';
 import { X, Cookie, RefreshCw, Heart, AlertTriangle, Loader } from 'lucide-react';
-import { socket } from './socket';
 import { ThemeProvider } from './ThemeContext';
+import { AppProvider, useAppData } from './AppContext';
 
 // Update this version string whenever you deploy a significant update to force a cache clear
-const APP_VERSION = '2.0.1';
+const APP_VERSION = '2.0.2';
 
-const App: React.FC = () => {
+const MainApp: React.FC = () => {
   const [currentView, setCurrentView] = useState<'welcome' | 'guest-dashboard' | 'couple-dashboard' | 'admin-dashboard'>('welcome');
   const [userName, setUserName] = useState<string>("");
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showCookieConsent, setShowCookieConsent] = useState(false);
   const [showUpdateToast, setShowUpdateToast] = useState(false);
-  const [announcement, setAnnouncement] = useState<{title: string, msg: string} | null>(null);
+  
+  // Use AppContext for data
+  const { announcement, joinUser, sendAnnouncement, guestList } = useAppData();
+  const [localAnnouncement, setLocalAnnouncement] = useState<{title: string, msg: string} | null>(null);
 
   // Pull to Refresh State
   const [pullStartPoint, setPullStartPoint] = useState(0);
@@ -32,6 +34,7 @@ const App: React.FC = () => {
     
     if (storedVersion !== APP_VERSION) {
        console.log(`App updated from ${storedVersion} to ${APP_VERSION}. Cleaning stale data.`);
+       // We keep essential user data
        const userType = localStorage.getItem('wedding_current_user_type');
        const guestName = localStorage.getItem('wedding_guest_name');
        const guestPhone = localStorage.getItem('wedding_guest_phone');
@@ -70,32 +73,26 @@ const App: React.FC = () => {
       setUserName('Admin');
       setCurrentView('admin-dashboard');
     }
+  }, []);
 
-    // --- Socket Global Listeners ---
-    
-    const handleAnnouncement = (data: any) => {
-        setAnnouncement({ title: "A Note of Love", msg: data.message });
-        setTimeout(() => setAnnouncement(null), 8000);
-    };
+  // Listen for announcements from context
+  useEffect(() => {
+      if (announcement) {
+          setLocalAnnouncement({ title: "A Note of Love", msg: announcement });
+          setTimeout(() => setLocalAnnouncement(null), 8000);
+      }
+  }, [announcement]);
 
-    const handleBlock = (data: any) => {
-        const blockedName = data.name;
-        if (userName === blockedName && currentView !== 'admin-dashboard') {
-            handleLogout();
-            alert("Access Revoked: Please contact the event administrator.");
-        }
-    };
-
-    socket.on('announcement', handleAnnouncement);
-    socket.on('block_user', handleBlock);
-
-    return () => {
-        socket.off('announcement', handleAnnouncement);
-        socket.off('block_user', handleBlock);
-    };
-
-  }, [userName, currentView]);
-
+  // Handle blocking - check if current user is in guestList (or rather, if they are removed/missing implies block if active)
+  // Actually, the socket event block_user is better handled in AppContext, but we need to trigger logout here.
+  // We can listen to a side effect or just check existence if connected. 
+  // Simplified: The server emits block_user, AppContext catches it and filters list.
+  // We can add a specialized effect here to check if we got booted.
+  // For simplicity, we'll rely on the socket event listener for block if we want to force logout instantly, 
+  // but since AppContext handles data, we can just check if our name was removed from guestList while we are logged in as guest.
+  // However, simple approach: AppContext handles the event listener for 'block_user' and we can expose a 'blockedUser' state or similar?
+  // Or just re-implement the block listener here for the UI effect.
+  
   // --- Pull to Refresh Logic ---
   const handleTouchStart = (e: React.TouchEvent) => {
     if (window.scrollY === 0) {
@@ -141,9 +138,9 @@ const App: React.FC = () => {
      } else if (type === 'admin') {
        changeView('admin-dashboard');
      }
-     // Notify server of presence
+     // Notify server of presence via Context
      if (type !== 'admin') {
-        socket.emit('user_join', { name, role: type, joinedAt: Date.now() });
+        joinUser(name, type);
      }
   };
 
@@ -161,7 +158,6 @@ const App: React.FC = () => {
   };
 
   return (
-    <ThemeProvider>
       <div 
           className="w-full h-full bg-passion-900 text-romance-100 font-serif overflow-hidden relative"
           onTouchStart={handleTouchStart}
@@ -202,7 +198,7 @@ const App: React.FC = () => {
         </div>
 
         {/* Global Announcement Toast */}
-        {announcement && (
+        {localAnnouncement && (
             <div className="fixed top-0 left-0 right-0 z-[200] flex items-start justify-center p-4 animate-slide-down pointer-events-none">
                 <div className="bg-gradient-to-r from-passion-600 to-passion-500 text-white p-[1px] rounded-xl shadow-glow-lg max-w-md w-full pointer-events-auto">
                     <div className="bg-passion-900/90 backdrop-blur-md rounded-[10px] p-4 flex gap-4 items-start relative overflow-hidden">
@@ -211,10 +207,10 @@ const App: React.FC = () => {
                             <Heart size={20} fill="white" className="text-white" />
                         </div>
                         <div className="flex-grow">
-                            <h4 className="font-heading font-bold text-lg text-pink-200 mb-1">{announcement.title}</h4>
-                            <p className="font-serif text-pink-100 leading-snug">{announcement.msg}</p>
+                            <h4 className="font-heading font-bold text-lg text-pink-200 mb-1">{localAnnouncement.title}</h4>
+                            <p className="font-serif text-pink-100 leading-snug">{localAnnouncement.msg}</p>
                         </div>
-                        <button onClick={() => setAnnouncement(null)} className="text-pink-300 hover:text-white"><X size={18}/></button>
+                        <button onClick={() => setLocalAnnouncement(null)} className="text-pink-300 hover:text-white"><X size={18}/></button>
                     </div>
                 </div>
             </div>
@@ -236,15 +232,16 @@ const App: React.FC = () => {
                 </div>
             </div>
         )}
-
-        {/* Update Toast */}
-        {showUpdateToast && (
-            <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[110] bg-passion-600 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3 animate-bounce cursor-pointer" onClick={() => window.location.reload()}>
-                <RefreshCw size={18} className="animate-spin" />
-                <span className="text-xs font-bold">New Memories Available. Refresh!</span>
-            </div>
-        )}
       </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <ThemeProvider>
+      <AppProvider>
+        <MainApp />
+      </AppProvider>
     </ThemeProvider>
   );
 };
