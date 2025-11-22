@@ -19,7 +19,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const [theme, setThemeState] = useState<ThemeConfig>(defaultTheme);
 
     useEffect(() => {
-        // Load from local storage
+        // 1. Load from local storage on mount (Instant load)
         const savedTheme = localStorage.getItem('wedding_theme_config');
         if (savedTheme) {
             try {
@@ -29,12 +29,15 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             }
         }
 
-        // Socket listeners
-        const handleThemeSync = (data: any) => {
-            setThemeState(data.payload);
-            localStorage.setItem('wedding_theme_config', JSON.stringify(data.payload));
+        // 2. Listen for REAL-TIME updates from Server
+        // The server emits 'theme_update' with the theme object directly
+        const handleThemeUpdate = (newTheme: ThemeConfig) => {
+            console.log("Theme Update Received:", newTheme);
+            setThemeState(newTheme);
+            localStorage.setItem('wedding_theme_config', JSON.stringify(newTheme));
         };
 
+        // 3. Listen for Full Sync (Initial Load)
         const handleFullSync = (state: any) => {
             if (state.theme) {
                 setThemeState(state.theme);
@@ -42,19 +45,21 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             }
         };
 
-        socket.on('theme_sync', handleThemeSync);
+        socket.on('theme_update', handleThemeUpdate);
         socket.on('full_sync', handleFullSync);
 
         return () => {
-            socket.off('theme_sync', handleThemeSync);
+            socket.off('theme_update', handleThemeUpdate);
             socket.off('full_sync', handleFullSync);
         };
     }, []);
 
     const setTheme = (newTheme: ThemeConfig) => {
         setThemeState(newTheme);
-        // Optimistically update local storage as well
         localStorage.setItem('wedding_theme_config', JSON.stringify(newTheme));
+        // Note: We do NOT emit socket here. 
+        // The AdminDashboard emits the change, and this Context LISTENS for it.
+        // This prevents infinite loops.
     };
 
     return (

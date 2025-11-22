@@ -45,7 +45,7 @@ const resizeImage = (file: File): Promise<string> => {
 };
 
 // --- Theme Mappings ---
-const THEME_BASES = {
+const THEME_BASES: Record<string, string> = {
     royal: 'bg-[#4a0404]',
     midnight: 'bg-[#020617]', 
     sunset: 'bg-[#2a0a18]',
@@ -53,7 +53,7 @@ const THEME_BASES = {
     forest: 'bg-[#052e16]',
 };
 
-const THEME_STYLES = {
+const THEME_STYLES: Record<string, any> = {
     royal: {
         text: 'text-pink-100',
         mutedText: 'text-pink-300',
@@ -136,12 +136,95 @@ const THEME_STYLES = {
     }
 };
 
-// --- Assets & Effects ---
+// --- Visual Effects Components ---
 
-const Atmosphere = ({ theme }: { theme: ThemeConfig }) => {
-     // Reusing same atmosphere component as provided before (omitted for brevity, assume implementation exists)
-     return <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 transition-all duration-1000"></div>;
-};
+const Fireflies = () => {
+    // Generate static random positions once
+    const [flies] = useState(() => Array.from({ length: 20 }).map((_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      top: Math.random() * 100,
+      size: Math.random() * 3 + 2, // 2-5px
+      duration: Math.random() * 10 + 10, // 10-20s
+      delay: Math.random() * 5
+    })));
+  
+    return (
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {flies.map((f) => (
+          <div
+            key={f.id}
+            className="absolute rounded-full bg-yellow-200 shadow-[0_0_8px_rgba(253,224,71,0.8)] animate-pulse"
+            style={{
+              left: `${f.left}%`,
+              top: `${f.top}%`,
+              width: `${f.size}px`,
+              height: `${f.size}px`,
+              opacity: 0.7,
+              // Assumes you have a global float animation, otherwise standard pulse works nicely
+              animation: `pulse ${f.duration/5}s infinite ease-in-out alternate`, 
+              transform: `translate(${Math.sin(f.id) * 20}px, ${Math.cos(f.id) * 20}px)` // Minor offset
+            }}
+          />
+        ))}
+      </div>
+    );
+  };
+  
+  const Petals = () => {
+    const [petals] = useState(() => Array.from({ length: 12 }).map((_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 5,
+      duration: Math.random() * 5 + 5
+    })));
+  
+    return (
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {petals.map((p) => (
+          <div
+            key={p.id}
+            className="absolute bg-pink-300/40 rounded-tl-xl rounded-br-xl w-3 h-3 animate-bounce"
+            style={{
+              left: `${p.left}%`,
+              top: '-10px',
+              animation: `fall ${p.duration}s linear infinite`, // Ensure you have 'fall' keyframes or use standard bounce
+              animationDelay: `${p.delay}s`
+            }}
+          />
+        ))}
+      </div>
+    );
+  };
+  
+  const Lights = () => (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden bg-gradient-to-b from-transparent via-transparent to-black/20">
+       <div className="absolute top-0 left-1/4 w-px h-32 bg-gradient-to-b from-white/0 via-white/40 to-white/0 opacity-50"></div>
+       <div className="absolute top-0 right-1/3 w-px h-48 bg-gradient-to-b from-white/0 via-white/30 to-white/0 opacity-30"></div>
+       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1),transparent_50%)] animate-pulse"></div>
+    </div>
+  );
+  
+  // --- 🔥 UPDATED ATMOSPHERE COMPONENT ---
+  const Atmosphere = ({ theme }: { theme: ThemeConfig }) => (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 transition-all duration-1000">
+      
+      {/* Base Gradient Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/40 z-0" />
+  
+      {/* Effect Layers */}
+      {theme.effect === 'dust' && (
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 animate-pulse" />
+      )}
+      
+      {theme.effect === 'fireflies' && <Fireflies />}
+      
+      {theme.effect === 'petals' && <Petals />}
+      
+      {theme.effect === 'lights' && <Lights />}
+  
+    </div>
+  );
 
 // Stickers
 const StickerHeart = () => (<svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md"><path d="M50,85 L20,55 Q5,40 20,25 Q35,10 50,35 Q65,10 80,25 Q95,40 65,55 Z" fill="#e11d48" stroke="#be123c" strokeWidth="2" /><path d="M30,30 Q25,25 30,20" stroke="white" strokeWidth="3" strokeLinecap="round" opacity="0.5"/></svg>);
@@ -221,6 +304,7 @@ interface GuestDashboardProps {
 }
 
 const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) => {
+    // 🔥 SYNC: Using global state instead of local state
     const { 
         messages, gallery, guestList, heartCount, config, currentSong, isPlaying, announcement, typingUsers,
         sendMessage, sendHeart, uploadMedia, sendLantern, sendRSVP, setTyping, refreshData 
@@ -247,6 +331,7 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
     const themeStyles = THEME_STYLES[theme.gradient] || THEME_STYLES.royal;
 
     useEffect(() => {
+        refreshData();
         if (localStorage.getItem('wedding_rsvp_confirmed') === 'true') {
             setHasRSVPd(true);
         }
@@ -269,6 +354,7 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
         const val = e.target.value;
         setInputText(val);
         
+        // 🔥 SYNC: Broadcast typing status
         if (!typingTimeoutRef.current && val.length > 0) {
              setTyping(userName, true);
         }
@@ -287,6 +373,8 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
 
     const handleSendMessage = (text: string = "", stickerKey?: string) => {
         if (!text.trim() && !stickerKey) return;
+        
+        // 🔥 SYNC: Send message via context
         sendMessage(text, stickerKey, userName, false);
         
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
@@ -302,6 +390,8 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
             setIsUploading(true);
             try {
                 const base64 = await resizeImage(e.target.files[0]);
+                
+                // 🔥 SYNC: Upload media via context
                 uploadMedia({
                     id: Date.now().toString(),
                     url: base64,
@@ -330,6 +420,7 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
         };
         
         setReleasedLantern(true);
+        // 🔥 SYNC: Send lantern via context
         sendLantern(lantern);
         
         setTimeout(() => {
@@ -342,6 +433,7 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
         if (!hasRSVPd && confirm("Confirm your presence for the big day?")) {
             setHasRSVPd(true);
             localStorage.setItem('wedding_rsvp_confirmed', 'true');
+            // 🔥 SYNC: Send RSVP
             sendRSVP(userName);
         }
     };
@@ -419,9 +511,6 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                                          </div>
                                          <div className="text-sm font-bold text-white truncate w-32">{currentSong.title}</div>
                                      </div>
-                                     <div className="ml-auto">
-                                         {/* Placeholder for visualizer */}
-                                     </div>
                                  </div>
                              )}
 
@@ -494,7 +583,7 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
                                               
                                               <div className={`flex items-center gap-1.5 mt-1.5 text-[10px] opacity-60 ${isMe ? 'justify-end' : 'justify-start'} ${themeStyles.mutedText}`}>
                                                   {!isMe && <span className="font-bold">{msg.sender}</span>}
-                                                  <span>• {msg.timestamp}</span>
+                                                  <span>• {msg.timestamp ? (new Date(msg.timestamp)).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Just now'}</span>
                                               </div>
                                           </div>
                                      </div>

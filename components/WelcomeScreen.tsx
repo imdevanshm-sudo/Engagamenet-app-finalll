@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { User, Sparkles, Lock, X, Heart, Volume2, VolumeX, ChevronRight, Loader } from 'lucide-react';
 import { useTheme, ThemeConfig } from '../ThemeContext';
 import { useAppData } from '../AppContext';
+import { socket } from '../socket'; // 🔥 Added socket import
 
 // --- Audio Utilities ---
 const isAudioMuted = () => localStorage.getItem('wedding_audio_muted') === 'true';
@@ -77,7 +78,7 @@ const useTilt = (ref: React.RefObject<HTMLDivElement>) => {
 
 // --- Visual Components ---
 
-const THEME_BASES = {
+const THEME_BASES: Record<string, string> = {
     royal: 'bg-[#4a0404]', 
     midnight: 'bg-[#020617]', 
     sunset: 'bg-[#2a0a18]',
@@ -85,8 +86,95 @@ const THEME_BASES = {
     forest: 'bg-[#052e16]',
 };
 
-// Simple Atmosphere Component (reduced for brevity as full implementation is in context/shared usually)
-const Atmosphere = ({ theme }: { theme: ThemeConfig }) => <div className="absolute inset-0 pointer-events-none overflow-hidden z-0"></div>;
+/// --- Visual Effects Components ---
+
+const Fireflies = () => {
+  // Generate static random positions once
+  const [flies] = useState(() => Array.from({ length: 20 }).map((_, i) => ({
+    id: i,
+    left: Math.random() * 100,
+    top: Math.random() * 100,
+    size: Math.random() * 3 + 2, // 2-5px
+    duration: Math.random() * 10 + 10, // 10-20s
+    delay: Math.random() * 5
+  })));
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      {flies.map((f) => (
+        <div
+          key={f.id}
+          className="absolute rounded-full bg-yellow-200 shadow-[0_0_8px_rgba(253,224,71,0.8)] animate-pulse"
+          style={{
+            left: `${f.left}%`,
+            top: `${f.top}%`,
+            width: `${f.size}px`,
+            height: `${f.size}px`,
+            opacity: 0.7,
+            // Assumes you have a global float animation, otherwise standard pulse works nicely
+            animation: `pulse ${f.duration/5}s infinite ease-in-out alternate`, 
+            transform: `translate(${Math.sin(f.id) * 20}px, ${Math.cos(f.id) * 20}px)` // Minor offset
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
+const Petals = () => {
+  const [petals] = useState(() => Array.from({ length: 12 }).map((_, i) => ({
+    id: i,
+    left: Math.random() * 100,
+    delay: Math.random() * 5,
+    duration: Math.random() * 5 + 5
+  })));
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      {petals.map((p) => (
+        <div
+          key={p.id}
+          className="absolute bg-pink-300/40 rounded-tl-xl rounded-br-xl w-3 h-3 animate-bounce"
+          style={{
+            left: `${p.left}%`,
+            top: '-10px',
+            animation: `fall ${p.duration}s linear infinite`, // Ensure you have 'fall' keyframes or use standard bounce
+            animationDelay: `${p.delay}s`
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
+const Lights = () => (
+  <div className="absolute inset-0 pointer-events-none overflow-hidden bg-gradient-to-b from-transparent via-transparent to-black/20">
+     <div className="absolute top-0 left-1/4 w-px h-32 bg-gradient-to-b from-white/0 via-white/40 to-white/0 opacity-50"></div>
+     <div className="absolute top-0 right-1/3 w-px h-48 bg-gradient-to-b from-white/0 via-white/30 to-white/0 opacity-30"></div>
+     <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1),transparent_50%)] animate-pulse"></div>
+  </div>
+);
+
+// --- 🔥 UPDATED ATMOSPHERE COMPONENT ---
+const Atmosphere = ({ theme }: { theme: ThemeConfig }) => (
+  <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 transition-all duration-1000">
+    
+    {/* Base Gradient Overlay */}
+    <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/40 z-0" />
+
+    {/* Effect Layers */}
+    {theme.effect === 'dust' && (
+      <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 animate-pulse" />
+    )}
+    
+    {theme.effect === 'fireflies' && <Fireflies />}
+    
+    {theme.effect === 'petals' && <Petals />}
+    
+    {theme.effect === 'lights' && <Lights />}
+
+  </div>
+);
 
 const FloatingHearts = () => {
     const [hearts, setHearts] = useState<Array<{id: number, left: number, top: number, scale: number, speed: number}>>([]);
@@ -203,7 +291,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
       playChimeSound();
 
       setTimeout(() => {
-          if (btoa(adminPin) === "MjAyNQ==") { // 2025
+          if (btoa(adminPin) === "MjAyNQ==" || adminPin === "2025") { // Allow plain "2025" too
               setShowAdminLogin(false);
               localStorage.setItem('wedding_current_user_type', 'admin');
               onLoginSuccess('admin', 'Admin');
@@ -212,7 +300,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
               setAdminPin("");
           }
           setIsLoading(false);
-      }, 800);
+      }, 500); // Reduced delay for faster UX
   };
 
   const handleUserLoginOpen = (type: 'guest' | 'couple') => {
@@ -238,14 +326,23 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
 
     setIsLoading(true);
 
+    // 🔥 SYNC ADDITION: Notify server immediately
+    socket.emit("user_join", {
+        name: userName,
+        role: loginType,
+        joinedAt: Date.now(),
+        phone: userPhone
+    });
+
     setTimeout(() => {
         localStorage.setItem(`wedding_${loginType}_name`, userName);
         localStorage.setItem(`wedding_${loginType}_phone`, userPhone);
         localStorage.setItem('wedding_current_user_type', loginType);
+        
         setShowUserLogin(false);
         onLoginSuccess(loginType, userName);
         setIsLoading(false);
-    }, 800);
+    }, 500); // Reduced delay
   };
 
   return (
@@ -265,10 +362,10 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLoginSuccess }) => {
           {muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
       </button>
 
-      {/* Admin Trigger */}
+      {/* Admin Trigger - FIXED Z-INDEX & HIT AREA */}
       <button 
           onClick={handleAdminClick} 
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 text-white/20 hover:text-white/60 transition-all p-2 flex items-center gap-2"
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[60] text-white/20 hover:text-white/60 transition-all p-4 flex items-center gap-2 cursor-pointer"
       >
           <Lock size={12} />
       </button>

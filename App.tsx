@@ -1,25 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
-import ReactDOM from 'react-dom/client';
 import WelcomeScreen from './components/WelcomeScreen';
 import GuestDashboard from './components/GuestDashboard';
 import CoupleDashboard from './components/CoupleDashboard';
 import AdminDashboard from './components/AdminDashboard';
-import { X, Cookie, RefreshCw, Heart, AlertTriangle, Loader } from 'lucide-react';
+import { X, Cookie, Heart, Loader, Lock } from 'lucide-react';
 import { ThemeProvider } from './ThemeContext';
 import { AppProvider, useAppData } from './AppContext';
+import { socket } from './socket'; // Import socket for block listener
 
 // Update this version string whenever you deploy a significant update to force a cache clear
-const APP_VERSION = '2.0.2';
+const APP_VERSION = '2.0.3';
 
 const MainApp: React.FC = () => {
   const [currentView, setCurrentView] = useState<'welcome' | 'guest-dashboard' | 'couple-dashboard' | 'admin-dashboard'>('welcome');
   const [userName, setUserName] = useState<string>("");
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showCookieConsent, setShowCookieConsent] = useState(false);
-  const [showUpdateToast, setShowUpdateToast] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false); // Blocked state
   
   // Use AppContext for data
-  const { announcement, joinUser, sendAnnouncement, guestList } = useAppData();
+  const { announcement, joinUser } = useAppData();
   const [localAnnouncement, setLocalAnnouncement] = useState<{title: string, msg: string} | null>(null);
 
   // Pull to Refresh State
@@ -33,24 +33,18 @@ const MainApp: React.FC = () => {
     const storedVersion = localStorage.getItem('wedding_app_version');
     
     if (storedVersion !== APP_VERSION) {
-       console.log(`App updated from ${storedVersion} to ${APP_VERSION}. Cleaning stale data.`);
        // We keep essential user data
-       const userType = localStorage.getItem('wedding_current_user_type');
-       const guestName = localStorage.getItem('wedding_guest_name');
-       const guestPhone = localStorage.getItem('wedding_guest_phone');
-       const coupleName = localStorage.getItem('wedding_couple_name');
-       const couplePhone = localStorage.getItem('wedding_couple_phone');
-       const cookieConsent = localStorage.getItem('wedding_cookie_consent');
+       const keysToKeep = [
+           'wedding_current_user_type', 'wedding_guest_name', 'wedding_guest_phone',
+           'wedding_couple_name', 'wedding_couple_phone', 'wedding_cookie_consent'
+       ];
+       
+       const backup: Record<string, string | null> = {};
+       keysToKeep.forEach(k => backup[k] = localStorage.getItem(k));
        
        localStorage.clear();
        
-       if (userType) localStorage.setItem('wedding_current_user_type', userType);
-       if (guestName) localStorage.setItem('wedding_guest_name', guestName);
-       if (guestPhone) localStorage.setItem('wedding_guest_phone', guestPhone);
-       if (coupleName) localStorage.setItem('wedding_couple_name', coupleName);
-       if (couplePhone) localStorage.setItem('wedding_couple_phone', couplePhone);
-       if (cookieConsent) localStorage.setItem('wedding_cookie_consent', cookieConsent);
-       
+       Object.entries(backup).forEach(([k, v]) => v && localStorage.setItem(k, v));
        localStorage.setItem('wedding_app_version', APP_VERSION);
     }
 
@@ -66,9 +60,11 @@ const MainApp: React.FC = () => {
     if (storedUserType === 'guest' && storedName) {
       setUserName(storedName);
       setCurrentView('guest-dashboard');
+      joinUser(storedName, 'guest'); // 🔥 Re-sync on refresh
     } else if (storedUserType === 'couple' && storedName) {
       setUserName(storedName);
       setCurrentView('couple-dashboard');
+      joinUser(storedName, 'couple'); // 🔥 Re-sync on refresh
     } else if (storedUserType === 'admin') {
       setUserName('Admin');
       setCurrentView('admin-dashboard');
@@ -83,15 +79,20 @@ const MainApp: React.FC = () => {
       }
   }, [announcement]);
 
-  // Handle blocking - check if current user is in guestList (or rather, if they are removed/missing implies block if active)
-  // Actually, the socket event block_user is better handled in AppContext, but we need to trigger logout here.
-  // We can listen to a side effect or just check existence if connected. 
-  // Simplified: The server emits block_user, AppContext catches it and filters list.
-  // We can add a specialized effect here to check if we got booted.
-  // For simplicity, we'll rely on the socket event listener for block if we want to force logout instantly, 
-  // but since AppContext handles data, we can just check if our name was removed from guestList while we are logged in as guest.
-  // However, simple approach: AppContext handles the event listener for 'block_user' and we can expose a 'blockedUser' state or similar?
-  // Or just re-implement the block listener here for the UI effect.
+  // 🔥 LISTEN FOR BLOCK EVENT
+  useEffect(() => {
+      const handleBlock = (data: { name: string }) => {
+          if (userName && data.name && userName.toLowerCase() === data.name.toLowerCase()) {
+              if (currentView !== 'admin-dashboard') {
+                  handleLogout();
+                  setIsBlocked(true);
+              }
+          }
+      };
+
+      socket.on('block_user', handleBlock);
+      return () => { socket.off('block_user', handleBlock); };
+  }, [userName, currentView]);
   
   // --- Pull to Refresh Logic ---
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -130,6 +131,7 @@ const MainApp: React.FC = () => {
   };
 
   const handleLoginSuccess = (type: 'guest' | 'couple' | 'admin', name: string) => {
+     setIsBlocked(false);
      setUserName(name);
      if (type === 'guest') {
        changeView('guest-dashboard');
@@ -159,7 +161,7 @@ const MainApp: React.FC = () => {
 
   return (
       <div 
-          className="w-full h-full bg-passion-900 text-romance-100 font-serif overflow-hidden relative"
+          className="w-full h-full bg-black text-white font-serif overflow-hidden relative"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -173,10 +175,22 @@ const MainApp: React.FC = () => {
               transition: isRefreshing ? 'height 0.2s ease-in' : 'none'
           }}
         >
-            <div className="bg-passion-600 text-white rounded-full p-2 shadow-lg transform translate-y-4">
+            <div className="bg-pink-600 text-white rounded-full p-2 shadow-lg transform translate-y-4">
                 {isRefreshing ? <Loader className="animate-spin" size={24} /> : <Heart size={24} className="text-white fill-white" style={{ transform: `scale(${1 + pullChange/200})` }} />}
             </div>
         </div>
+
+        {/* Blocked Overlay */}
+        {isBlocked && (
+           <div className="absolute inset-0 z-[250] bg-black flex flex-col items-center justify-center p-8 text-center animate-fade-in">
+             <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mb-4">
+                <Lock size={40} className="text-red-500" />
+             </div>
+             <h1 className="text-3xl font-bold text-white mb-2">Access Restricted</h1>
+             <p className="text-stone-400">The host has restricted your access to this event.</p>
+             <button onClick={() => setIsBlocked(false)} className="mt-8 text-sm text-stone-500 underline">Back to Home</button>
+           </div>
+        )}
 
         <div 
           ref={contentRef}
@@ -200,10 +214,10 @@ const MainApp: React.FC = () => {
         {/* Global Announcement Toast */}
         {localAnnouncement && (
             <div className="fixed top-0 left-0 right-0 z-[200] flex items-start justify-center p-4 animate-slide-down pointer-events-none">
-                <div className="bg-gradient-to-r from-passion-600 to-passion-500 text-white p-[1px] rounded-xl shadow-glow-lg max-w-md w-full pointer-events-auto">
-                    <div className="bg-passion-900/90 backdrop-blur-md rounded-[10px] p-4 flex gap-4 items-start relative overflow-hidden">
+                <div className="bg-gradient-to-r from-pink-600 to-rose-500 text-white p-[1px] rounded-xl shadow-glow-lg max-w-md w-full pointer-events-auto">
+                    <div className="bg-black/90 backdrop-blur-md rounded-[10px] p-4 flex gap-4 items-start relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-pink-400 to-transparent animate-shimmer"></div>
-                        <div className="p-3 bg-passion-700 rounded-full shrink-0 animate-pulse">
+                        <div className="p-3 bg-pink-700 rounded-full shrink-0 animate-pulse">
                             <Heart size={20} fill="white" className="text-white" />
                         </div>
                         <div className="flex-grow">
@@ -218,9 +232,9 @@ const MainApp: React.FC = () => {
 
         {/* Cookie Consent Banner */}
         {showCookieConsent && (
-            <div className="fixed bottom-4 left-4 right-4 z-[100] bg-black/80 backdrop-blur-lg p-4 rounded-xl border border-passion-500/30 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-in slide-in-from-bottom-10 fade-in duration-500">
+            <div className="fixed bottom-4 left-4 right-4 z-[100] bg-black/80 backdrop-blur-lg p-4 rounded-xl border border-pink-500/30 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-in slide-in-from-bottom-10 fade-in duration-500">
                 <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-passion-600 flex items-center justify-center text-white"><Cookie size={20} /></div>
+                    <div className="w-10 h-10 rounded-full bg-pink-600 flex items-center justify-center text-white"><Cookie size={20} /></div>
                     <div>
                         <h4 className="font-bold text-pink-100 text-sm">Shared with Love & Cookies</h4>
                         <p className="text-[10px] text-pink-300">We use local storage to save your memories and session.</p>
