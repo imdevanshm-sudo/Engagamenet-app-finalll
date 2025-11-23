@@ -408,26 +408,34 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ userName, onLogout }) =
         }
     };
 
-    const handleReleaseLantern = () => {
-        if (!lanternMsg.trim()) return;
-        
-        const lantern: Lantern = {
-            id: Date.now().toString(),
-            sender: userName,
-            message: lanternMsg,
-            color: theme.gradient,
-            timestamp: Date.now()
-        };
-        
-        setReleasedLantern(true);
-        // 🔥 SYNC: Send lantern via context
-        sendLantern(lantern);
-        
-        setTimeout(() => {
-            setReleasedLantern(false);
-            setLanternMsg("");
-        }, 4000);
+    // inside GuestDashboard.tsx (replace existing handleReleaseLantern)
+const handleReleaseLantern = () => {
+    if (!lanternMsg.trim()) return;
+
+    // Create a structured Lantern payload (compatible with AppContext.normalizeLantern)
+    const depthOptions: Array<"near"|"mid"|"far"> = ["near","mid","far"];
+    const depth = depthOptions[Math.floor(Math.random()*depthOptions.length)];
+    const payload: Lantern = {
+        id: Date.now().toString(),
+        sender: userName,
+        message: lanternMsg.trim(),           // key name 'message' used by context
+        color: theme.gradient,
+        depth,
+        xValues: Math.floor(Math.random() * 80) + 10,
+        speed: Math.floor(Math.random() * 25) + 18,
+        delay: 0,
+        timestamp: Date.now()
     };
+
+    setReleasedLantern(true);
+    // send via context - AppContext will optimistically add and emit via socket
+    sendLantern(payload);
+
+    setTimeout(() => {
+        setReleasedLantern(false);
+        setLanternMsg("");
+    }, 3200);
+};
 
     const handleRSVP = () => {
         if (!hasRSVPd && confirm("Confirm your presence for the big day?")) {

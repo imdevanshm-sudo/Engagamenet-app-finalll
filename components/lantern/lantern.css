@@ -1,0 +1,110 @@
+/* Background gradient animation */
+@keyframes bgShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  
+  .bg-animated {
+    background: linear-gradient(120deg, #0d0d12, #1a1a2e, #16213e, #0f3460);
+    background-size: 400% 400%;
+    animation: bgShift 20s ease infinite;
+  }
+  
+  /* Fade animations */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  .fade-in {
+    animation: fadeIn 0.9s ease forwards;
+  }
+  
+  /* Make lanterns float upward */
+.floating-lantern {
+  top: 110%;
+  animation-name: float-up;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes float-up {
+  0%   { transform: translateY(0); opacity: 0; }
+  10%  { opacity: 1; }
+  100% { transform: translateY(-140vh); opacity: 0; }
+}
+
+  /* Floating lantern animation */
+  @keyframes float-up {
+    0% { transform: translateY(100vh) scale(0.9); opacity: 0; }
+    10% { opacity: 1; }
+    100% { transform: translateY(-150vh) scale(1.1); opacity: 0; }
+  }
+  
+  /* Hover glow */
+  .lantern-glow {
+    filter: drop-shadow(0 0 8px rgba(255, 180, 80, 0.8))
+            drop-shadow(0 0 14px rgba(255, 120, 40, 0.6));
+  }
+  
+  /* Card translucency */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  /* Modal fade */
+  @keyframes modalFade {
+    from { opacity: 0; transform: scale(0.92); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  
+  .modal-animate {
+    animation: modalFade 0.4s ease forwards;
+  }
+  
+  /* Wish card glow */
+  .wish-card {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(6px);
+    border-radius: 14px;
+  }
+  
+  /* Button shimmer */
+  @keyframes shimmer {
+    0% { background-position: -200px 0; }
+    100% { background-position: 200px 0; }
+  }
+  
+  .btn-shimmer {
+    background: linear-gradient(
+      to right,
+      #ffddaa 0%,
+      #ffe6c2 20%,
+      #ffffff 50%,
+      #ffe6c2 80%,
+      #ffddaa 100%
+    );
+    background-size: 400% 100%;
+    animation: shimmer 3s linear infinite;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  /* Firefly small particles */
+  @keyframes fireflyBlink {
+    0%, 100% { opacity: 0.1; }
+    50% { opacity: 1; }
+  }
+  .firefly {
+    animation: fireflyBlink 2.5s infinite ease-in-out;
+  }
+  
+  /* Scroll fade overlay */
+  .scroll-fade {
+    mask-image: linear-gradient(to bottom, transparent, black 20%, black 80%, transparent);
+  }
+  

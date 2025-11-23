@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { User, Sparkles, Lock, X, Heart, Volume2, VolumeX, ChevronRight, Loader } from 'lucide-react';
 import { useTheme, ThemeConfig } from '../ThemeContext';
 import { useAppData } from '../AppContext';
-import { socket } from '../src/socket'; // 🔥 Added socket import
+import { socket } from '../socket'; // 🔥 Added socket import
 
 // --- Audio Utilities ---
 const isAudioMuted = () => localStorage.getItem('wedding_audio_muted') === 'true';

@@ -6,7 +6,7 @@ import AdminDashboard from './components/AdminDashboard';
 import { X, Cookie, Heart, Loader, Lock } from 'lucide-react';
 import { ThemeProvider } from './ThemeContext';
 import { AppProvider, useAppData } from './AppContext';
-import { socket } from './src/socket'; // Import socket for block listener
+import { socket } from './socket'; // Import socket for block listener
 
 // Update this version string whenever you deploy a significant update to force a cache clear
 const APP_VERSION = '2.0.3';

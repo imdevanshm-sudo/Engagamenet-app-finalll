@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Lantern Wishes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Cinzel:wght@400;600;800&family=Lato:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Lato', sans-serif;
+        background-color: #0f0518; /* Deep dark void */
+        overscroll-behavior: none;
+        margin: 0;
+        overflow: hidden;
+      }
+      .font-script {
+        font-family: 'Great Vibes', cursive;
+      }
+      .font-header {
+        font-family: 'Cinzel', serif;
+      }
+      
+      /* --- Cinematic Lantern Animations --- */
+
+      /* 1. The Rising Motion (Base) */
+      @keyframes floatRise {
+        0% { transform: translateY(110vh) scale(0.9); opacity: 0; }
+        15% { opacity: 1; }
+        85% { opacity: 1; }
+        100% { transform: translateY(-30vh) scale(1); opacity: 0; }
+      }
+
+      /* 2. The Gust (Wind interaction) - Adds complex sway */
+      @keyframes windDrift {
+        0% { transform: translateX(0) rotate(0deg); }
+        25% { transform: translateX(15px) rotate(3deg); }
+        50% { transform: translateX(-10px) rotate(-2deg); }
+        75% { transform: translateX(8px) rotate(1.5deg); }
+        100% { transform: translateX(0) rotate(0deg); }
+      }
+      
+      /* 3. Realistic Candle Flicker (High frequency, erratic) */
+      @keyframes candleFlicker {
+        0%, 100% { opacity: 1; transform: scale(1); filter: brightness(1); }
+        5% { opacity: 0.85; transform: scale(0.98); }
+        10% { opacity: 0.95; transform: scale(1.02); filter: brightness(1.1); }
+        15% { opacity: 0.9; transform: scale(0.99); }
+        20% { opacity: 1; transform: scale(1); }
+        45% { opacity: 0.8; transform: scale(0.96) skewX(1deg); }
+        50% { opacity: 0.95; transform: scale(1.01); }
+        70% { opacity: 0.9; transform: scale(0.98); }
+        80% { opacity: 1; transform: scale(1.02); filter: brightness(1.2); }
+      }
+
+      /* 4. Soft Outer Glow Pulse */
+      @keyframes pulseGlow {
+        0%, 100% { filter: drop-shadow(0 0 20px rgba(255, 140, 0, 0.4)); }
+        50% { filter: drop-shadow(0 0 35px rgba(255, 180, 50, 0.6)); }
+      }
+
+      /* Door Creak Light Animation */
+      @keyframes doorLightPulse {
+        0%, 100% { opacity: 0.4; }
+        50% { opacity: 0.7; }
+      }
+
+      .animate-rise {
+        animation: floatRise linear infinite;
+      }
+      
+      .animate-wind {
+        animation: windDrift 8s ease-in-out infinite;
+      }
+      
+      .animate-candle {
+        animation: candleFlicker 4s linear infinite; /* Longer duration but complex keyframes */
+      }
+
+      .lantern-glow {
+        animation: pulseGlow 5s ease-in-out infinite;
+      }
+      
+      .door-glow-anim {
+        animation: doorLightPulse 3s ease-in-out infinite;
+      }
+
+      /* Star/Dust Animations */
+      @keyframes twinkle {
+        0% { opacity: 0; transform: scale(0.5); }
+        50% { opacity: 1; transform: scale(1.2); }
+        100% { opacity: 0; transform: scale(0.5); }
+      }
+      
+      .animate-twinkle {
+        animation: twinkle 4s ease-in-out infinite;
+      }
+
+      /* Fog Flow */
+      @keyframes fogFlow {
+        0% { transform: translateX(-5%) translateY(0); opacity: 0.2; }
+        50% { transform: translateX(5%) translateY(-2%); opacity: 0.4; }
+        100% { transform: translateX(-5%) translateY(0); opacity: 0.2; }
+      }
+
+      .animate-fog {
+        animation: fogFlow 20s ease-in-out infinite;
+      }
+
+      /* Fade In Intro */
+      @keyframes fadeInCinematic {
+        from { opacity: 0; filter: blur(10px); }
+        to { opacity: 1; filter: blur(0); }
+      }
+      
+      .animate-fade-in {
+        animation: fadeInCinematic 2s ease-out forwards;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
