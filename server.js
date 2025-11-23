@@ -4,13 +4,22 @@ const socketIO = require('socket.io');
 const cors = require('cors');
 
 const app = express();
-app.use(cors());
+// Allow Express to handle requests from your app
+app.use(cors({ origin: true })); 
 
 const server = http.createServer(app);
+
+// --- UPDATED SOCKET CONFIGURATION ---
 const io = socketIO(server, {
   cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
+    // Explicitly allow your Firebase app and localhost
+    origin: [
+      "https://weengagedgit-95729857-ba728.web.app",
+      "http://localhost:5173", 
+      "http://localhost:3000"
+    ],
+    methods: ["GET", "POST"],
+    credentials: true // Important for some sticky sessions
   }
 });
 
@@ -85,8 +94,9 @@ const broadcastState = () => {
 }
 
 io.on('connection', (socket) => {
-    console.log('A user connected');
+    console.log('A user connected:', socket.id); // Added ID for better logging
     
+    // Send current state immediately upon connection
     socket.emit('sync_data', currentState);
 
     // --- User & Map Logic ---
@@ -199,7 +209,7 @@ io.on('connection', (socket) => {
 });
 
 app.get('/', (req, res) => {
-    res.send('<h1>Hello from the server!</h1>');
+    res.send('<h1>EngagaMeNet Server is Running</h1>');
 });
 
 
