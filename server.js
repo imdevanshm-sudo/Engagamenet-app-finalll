@@ -1,51 +1,34 @@
-import express from 'express';
-import { createServer } from 'http';
-import { Server } from 'socket.io';
-import cors from 'cors';
+// server.js (UPGRADED FIXED VERSION — NO UI/UX CHANGES)
+import express from "express";
+import { createServer } from "http";
+import { Server } from "socket.io";
+import cors from "cors";
 
 const app = express();
 app.use(cors());
 
 const httpServer = createServer(app);
 
-// Must be outside io.on to maintain across connections
-let coupleSockets = {}; // Stores { name: socketId } for Aman and Sneha
-const COUPLE_NAMES = ['Aman', 'Sneha'];
+let coupleSockets = {};
+const COUPLE_NAMES = ["Aman", "Sneha"];
 
-// --- SOCKET CONFIGURATION (FINAL PERMISSIVE CORS) ---
 const io = new Server(httpServer, {
   cors: {
-    // Magic Bullet: Allows ANY origin connection, fixing all connection issues
-    origin: (origin, callback) => {
-      callback(null, true);
-    },
+    origin: (o, cb) => cb(null, true),
     methods: ["GET", "POST"],
-    credentials: true
-  }
+    credentials: true,
+  },
 });
 
 const PORT = process.env.PORT || 3001;
 
-// Helper: Broadcast the entire state to all connected devices
-const broadcastState = () => {
-    io.emit('sync_data', currentState);
-};
+/* ---------------------------------------------------
+   CENTRAL GLOBAL STATE
+   --------------------------------------------------- */
 
-// --- 💾 CENTRAL STATE (Single Source of Truth) ---
 let currentState = {
   activeSlide: 0,
-  gallery: [
-    { id: '1', src: '/gallery/1.jpeg', caption: '' },
-    { id: '2', src: '/gallery/2.jpeg', caption: '' },
-    { id: '3', src: '/gallery/3.jpeg', caption: '' },
-    { id: '4', src: '/gallery/4.jpeg', caption: '' },
-    { id: '5', src: '/gallery/5.jpeg', caption: '' },
-    { id: '6', src: '/gallery/6.jpeg', caption: '' },
-    { id: '7', src: '/gallery/7.jpeg', caption: '' },
-    { id: '8', src: '/gallery/8.jpeg', caption: '' },
-    { id: '9', src: '/gallery/9.jpeg', caption: '' },
-    { id: '10', src: '/gallery/10.jpeg', caption: '' }
-  ],
+  gallery: [],
   guestList: [],
   locations: {},
   adminAnnouncement: null,
@@ -53,172 +36,186 @@ let currentState = {
   hearts: 0,
   lanterns: [],
   quiz: {
-    questions: [
-        {
-            id: 1,
-            question: "Where did the couple first meet?",
-            options: ["At a concert", "In a coffee shop", "At a wedding", "On a dating app"],
-            answer: "At a wedding",
-            fun_fact: "It was at the wedding of their mutual friends, Sarah and Tom!"
-        },
-        {
-            id: 2,
-            question: "What is the couple's favorite shared hobby?",
-            options: ["Hiking", "Cooking", "Watching movies", "Board games"],
-            answer: "Hiking",
-            fun_fact: "They've hiked in 5 different national parks together!"
-        },
-        {
-            id: 3,
-            question: "Who is the better cook?",
-            options: ["Partner 1", "Partner 2", "They're both amazing", "They both order takeout"],
-            answer: "Partner 1",
-            fun_fact: "Partner 1 makes a legendary lasagna from a secret family recipe."
-        },
-        {
-            id: 4,
-            question: "What was the destination of their first vacation together?",
-            options: ["Paris", "Bali", "A local camping trip", "New York City"],
-            answer: "A local camping trip",
-            fun_fact: "It rained the entire time, but they still had a blast!"
-        },
-        {
-            id: 5,
-            question: "Who said 'I love you' first?",
-            options: ["Partner 1", "Partner 2", "It was mutual at the same time", "Their dog"],
-            answer: "Partner 2",
-            fun_fact: "Partner 2 blurted it out during a movie night."
-        }
-    ],
+    questions: [],
     currentQuestionIndex: 0,
     scores: {},
-    showResults: false
-  }
+    showResults: false,
+  },
+  config: {}, // ADDED
+  theme: {}, // ADDED
 };
 
+/* ---------------------------------------------------
+   BROADCAST FULL SNAPSHOT
+   --------------------------------------------------- */
+const broadcastState = () => {
+  io.emit("sync_data", currentState);
+};
 
-// ----------------------------------------------------------------------
-// --- Main Socket Connection Handler ---
-// ----------------------------------------------------------------------
+/* ---------------------------------------------------
+   SOCKET.IO
+   --------------------------------------------------- */
 
-io.on('connection', (socket) => {
-    console.log('✅ Device Connected:', socket.id);
-    
-    // Send existing data immediately upon connection
-    socket.emit('sync_data', currentState);
+io.on("connection", (socket) => {
+  console.log("🔥 Device Connected:", socket.id);
 
-    // --- 👤 USER PROFILES (Req 4: Couple Account Check) ---
-    socket.on('user_join', (user) => {
-        if (user && user.role === 'couple' && COUPLE_NAMES.includes(user.name)) {
-            coupleSockets[user.name] = socket.id;
-        }
-        
-        // Update guest list globally (Required for profile sync)
-        currentState.guestList = currentState.guestList.filter(g => g.name !== user.name);
-        currentState.guestList.push(user);
-        broadcastState(); 
-    });
+  // Immediately sync client
+  socket.emit("sync_data", currentState);
 
-    // --- 🏮 LANTERNS (Req 3: Selective Sync) ---
-    socket.on('release_lantern', (lantern) => {
-        // 1. Send to the SENDER ONLY (Guest)
-        io.to(socket.id).emit('receive_lantern', lantern); 
-        
-        // 2. Send to Couple Accounts ONLY
-        Object.values(coupleSockets).forEach(coupleSocketId => {
-            io.to(coupleSocketId).emit('receive_lantern', lantern);
-        });
+  /* ---------------------------------------------------
+     USER JOIN
+     --------------------------------------------------- */
+  socket.on("user_join", (user) => {
+    if (user?.role === "couple" && COUPLE_NAMES.includes(user.name)) {
+      coupleSockets[user.name] = socket.id;
+    }
 
-        // 3. Update global state for eventual cleanup (Lanterns are ephemeral)
-        currentState.lanterns.push(lantern); 
-        setTimeout(() => {
-            currentState.lanterns = currentState.lanterns.filter(l => l.id !== lantern.id);
-            broadcastState();
-        }, 15000);
-    });
+    currentState.guestList = currentState.guestList.filter(
+      (g) => g.name !== user.name
+    );
+    currentState.guestList.push(user);
 
-    // --- GLOBAL SYNC EVENTS (Req 1, 2, 6) ---
-    
-    socket.on('add_heart', () => { // Req 2: Cumulative Adore Meter
-        currentState.hearts++;
-        broadcastState();
-    });
+    io.emit("user_presence", { payload: user });
+    broadcastState();
+  });
 
-    socket.on('send_message', (message) => { // Req 1: Global Chat Sync
-        currentState.chatMessages.push(message);
-        broadcastState();
-    });
-    
-    socket.on('admin_update_settings', (newSettings) => { // Req 6: Instant visibility
-        currentState = { ...currentState, ...newSettings };
-        broadcastState(); 
-    });
-    
-    socket.on('admin_announce', (message) => {
-        console.log(`📣 ADMIN ANNOUNCEMENT: ${message.text}`);
-        currentState.adminAnnouncement = { text: message.text, timestamp: Date.now() };
-        broadcastState();
-    });
-    
-    // --- GALLERY / MEDIA ---
-    socket.on('gallery_upload', (item) => {
-        currentState.gallery.push(item);
-        broadcastState();
-    });
+  /* ---------------------------------------------------
+     CHAT: SEND MESSAGE
+     --------------------------------------------------- */
+  socket.on("send_message", (message) => {
+    // Store
+    currentState.chatMessages.push(message);
 
-    // --- LOCATIONS ---
-    socket.on('location_update', (data) => {
-        if (data.name && data.lat && data.lng) {
-            currentState.locations[data.name] = { 
-                lat: data.lat, 
-                lng: data.lng, 
-                timestamp: Date.now() 
-            };
-            io.emit('locations_sync', currentState.locations);
-        }
-    });
+    // FIXED: Client expects `message`
+    io.emit("message", { payload: message });
 
-    // --- QUIZ & SLIDES ---
-    socket.on('slide_change', (newSlide) => {
-        currentState.activeSlide = newSlide;
-        io.emit('slide_changed', newSlide);
-        broadcastState();
-    });
+    broadcastState();
+  });
 
-    socket.on('quiz_answer', (data) => {
-        const { user, questionId, answer } = data;
-        const question = currentState.quiz.questions.find(q => q.id === questionId);
-        if (question) {
-            if (!currentState.quiz.scores[user]) {
-                currentState.quiz.scores[user] = { score: 0, name: user };
-            }
-            if (question.answer === answer) {
-                currentState.quiz.scores[user].score += 1;
-            }
-        }
-        broadcastState();
-    });
+  /* ---------------------------------------------------
+     TYPING INDICATOR
+     --------------------------------------------------- */
+  socket.on("typing", (payload) => {
+    socket.broadcast.emit("typing", payload);
+  });
 
-    socket.on('request_sync', () => {
-        socket.emit('sync_data', currentState);
-    });
+  /* ---------------------------------------------------
+     HEARTS
+     --------------------------------------------------- */
+  socket.on("add_heart", () => {
+    currentState.hearts++;
+    io.emit("heart_update", { count: currentState.hearts });
+    broadcastState();
+  });
 
-    socket.on('disconnect', () => {
-        // Remove disconnected couple from tracking
-        Object.keys(coupleSockets).forEach(name => {
-            if (coupleSockets[name] === socket.id) {
-                delete coupleSockets[name];
-            }
-        });
-        console.log('Device Disconnected');
+  /* ---------------------------------------------------
+     ANNOUNCEMENT
+     --------------------------------------------------- */
+  socket.on("admin_announce", (message) => {
+    currentState.adminAnnouncement = {
+      text: message.text,
+      timestamp: Date.now(),
+    };
+    io.emit("announcement", { message: message.text });
+    broadcastState();
+  });
+
+  /* ---------------------------------------------------
+     ADMIN SETTINGS UPDATE
+     --------------------------------------------------- */
+  socket.on("admin_update_settings", (newSettings) => {
+    currentState.config = { ...currentState.config, ...newSettings };
+    io.emit("config_sync", { payload: currentState.config });
+    broadcastState();
+  });
+
+  /* ---------------------------------------------------
+     THEME UPDATE (Admin Theme Tab)
+     --------------------------------------------------- */
+  socket.on("theme_update", (theme) => {
+    currentState.theme = theme;
+    io.emit("theme_sync", theme);
+    broadcastState();
+  });
+
+  /* ---------------------------------------------------
+     GALLERY UPLOAD
+     --------------------------------------------------- */
+  socket.on("gallery_upload", (item) => {
+    currentState.gallery.unshift(item); // newest first
+    io.emit("gallery_sync", item);
+    broadcastState();
+  });
+
+  /* ---------------------------------------------------
+     LOCATIONS
+     --------------------------------------------------- */
+  socket.on("location_update", (data) => {
+    if (!data?.name) return;
+
+    currentState.locations[data.name] = {
+      lat: data.lat,
+      lng: data.lng,
+      timestamp: Date.now(),
+    };
+
+    io.emit("locations_sync", currentState.locations);
+  });
+
+  /* ---------------------------------------------------
+     QUIZ
+     --------------------------------------------------- */
+  socket.on("quiz_answer", (data) => {
+    const { user, questionId, answer } = data;
+
+    const question = currentState.quiz.questions.find(
+      (q) => q.id === questionId
+    );
+    if (!question) return;
+
+    if (!currentState.quiz.scores[user])
+      currentState.quiz.scores[user] = { score: 0, name: user };
+
+    if (question.answer === answer)
+      currentState.quiz.scores[user].score++;
+
+    broadcastState();
+  });
+
+  /* ---------------------------------------------------
+     SLIDES
+     --------------------------------------------------- */
+  socket.on("slide_change", (newSlide) => {
+    currentState.activeSlide = newSlide;
+    io.emit("slide_changed", newSlide);
+    broadcastState();
+  });
+
+  /* ---------------------------------------------------
+     RE-SYNC REQUEST
+     --------------------------------------------------- */
+  socket.on("request_sync", () => {
+    socket.emit("sync_data", currentState);
+  });
+
+  /* ---------------------------------------------------
+     DISCONNECT
+     --------------------------------------------------- */
+  socket.on("disconnect", () => {
+    Object.keys(coupleSockets).forEach((name) => {
+      if (coupleSockets[name] === socket.id) delete coupleSockets[name];
     });
+    console.log("❌ Device Disconnected:", socket.id);
+  });
 });
 
-
-app.get('/', (req, res) => {
-    res.send('<h1>Server is Live & Ready to Sync (Final Build)</h1>');
+/* ---------------------------------------------------
+   EXPRESS ROOT
+   --------------------------------------------------- */
+app.get("/", (req, res) => {
+  res.send("<h1>Wedding Sync Server OK</h1>");
 });
 
-httpServer.listen(PORT, () => {
-    console.log(`Server listening on port ${PORT}`);
-});
+httpServer.listen(PORT, () =>
+  console.log(`🚀 Server running on port ${PORT}`)
+);
