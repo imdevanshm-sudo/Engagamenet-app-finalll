@@ -8,15 +8,14 @@ app.use(cors());
 
 const httpServer = createServer(app);
 
-// --- SOCKET CONFIGURATION ---
+// --- SOCKET CONFIGURATION (MAGIC BULLET VERSION) ---
 const io = new Server(httpServer, {
   cors: {
-    // We allow your Firebase app AND localhost (for testing)
-    origin: [
-      "https://weengagedgit-95729857-ba728.web.app",
-      "http://localhost:5173", 
-      "http://localhost:4173"
-    ],
+    // This function allows ANY origin. 
+    // It fixes issues where headers or slashes don't match exactly.
+    origin: (origin, callback) => {
+      callback(null, true);
+    },
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -97,7 +96,6 @@ io.on('connection', (socket) => {
     
     socket.emit('sync_data', currentState);
 
-    // --- User & Map Logic ---
     socket.on('user_join', (user) => {
         console.log(`👤 User joined: ${user.name} (${user.role})`);
         currentState.guestList = currentState.guestList.filter(g => g.name !== user.name);
@@ -133,7 +131,6 @@ io.on('connection', (socket) => {
         io.emit('slide_changed', newSlide);
     });
     
-    // --- Quiz Logic ---
     socket.on('quiz_start', () => {
         currentState.quiz.currentQuestionIndex = 0;
         currentState.quiz.showResults = false;
@@ -202,10 +199,9 @@ io.on('connection', (socket) => {
 });
 
 app.get('/', (req, res) => {
-    res.send('<h1>EngagaMeNet Server is Running (ESM)</h1>');
+    res.send('<h1>EngagaMeNet Server is Running (Permissive CORS)</h1>');
 });
 
-// Note: We use httpServer.listen, NOT server.listen
 httpServer.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
 });
