@@ -1,25 +1,24 @@
-const express = require('express');
-const http = require('http');
-const socketIO = require('socket.io');
-const cors = require('cors');
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import cors from 'cors';
 
 const app = express();
-// Allow Express to handle requests from your app
-app.use(cors({ origin: true })); 
+app.use(cors());
 
-const server = http.createServer(app);
+const httpServer = createServer(app);
 
-// --- UPDATED SOCKET CONFIGURATION ---
-const io = socketIO(server, {
+// --- SOCKET CONFIGURATION ---
+const io = new Server(httpServer, {
   cors: {
-    // Explicitly allow your Firebase app and localhost
+    // We allow your Firebase app AND localhost (for testing)
     origin: [
       "https://weengagedgit-95729857-ba728.web.app",
       "http://localhost:5173", 
-      "http://localhost:3000"
+      "http://localhost:4173"
     ],
     methods: ["GET", "POST"],
-    credentials: true // Important for some sticky sessions
+    credentials: true
   }
 });
 
@@ -94,15 +93,13 @@ const broadcastState = () => {
 }
 
 io.on('connection', (socket) => {
-    console.log('A user connected:', socket.id); // Added ID for better logging
+    console.log('✅ User connected:', socket.id);
     
-    // Send current state immediately upon connection
     socket.emit('sync_data', currentState);
 
     // --- User & Map Logic ---
     socket.on('user_join', (user) => {
         console.log(`👤 User joined: ${user.name} (${user.role})`);
-        // Remove duplicates based on name
         currentState.guestList = currentState.guestList.filter(g => g.name !== user.name);
         currentState.guestList.push(user);
         broadcastState();
@@ -131,7 +128,6 @@ io.on('connection', (socket) => {
         socket.emit('sync_data', currentState);
     });
 
-    // --- Slideshow Logic ---
     socket.on('slide_change', (newSlide) => {
         currentState.activeSlide = newSlide;
         io.emit('slide_changed', newSlide);
@@ -181,19 +177,16 @@ io.on('connection', (socket) => {
         broadcastState();
     });
 
-    // --- Chat Logic ---
     socket.on('send_message', (message) => {
         currentState.chatMessages.push(message);
         broadcastState();
     });
 
-    // --- Heart Meter Logic ---
     socket.on('add_heart', () => {
         currentState.hearts++;
         broadcastState();
     });
 
-    // --- Lanterns Logic ---
     socket.on('release_lantern', (lantern) => {
         currentState.lanterns.push(lantern);
         broadcastState();
@@ -209,10 +202,10 @@ io.on('connection', (socket) => {
 });
 
 app.get('/', (req, res) => {
-    res.send('<h1>EngagaMeNet Server is Running</h1>');
+    res.send('<h1>EngagaMeNet Server is Running (ESM)</h1>');
 });
 
-
-server.listen(PORT, () => {
+// Note: We use httpServer.listen, NOT server.listen
+httpServer.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
 });
