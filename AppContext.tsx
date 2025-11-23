@@ -47,6 +47,13 @@ export interface Lantern {
     timestamp: number;
 }
 
+export interface Location {
+    id: string;
+    lat: number;
+    lng: number;
+    timestamp: number;
+}
+
 export interface GlobalConfig {
     coupleName: string;
     date: string;
@@ -63,6 +70,7 @@ interface AppContextType {
     guestList: GuestEntry[];
     heartCount: number;
     lanterns: Lantern[];
+    locations: Location[];
     config: GlobalConfig;
     currentSong: Song | null;
     isPlaying: boolean;
@@ -85,6 +93,7 @@ interface AppContextType {
     updateMediaCaption: (id: string, caption: string) => void;
     blockUser: (name: string) => void;
     setTyping: (user: string, isTyping: boolean) => void;
+    broadcastLocation: (lat: number, lng: number) => void;
     refreshData: () => void;
 }
 
@@ -93,15 +102,16 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 // --- Provider ---
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    // Initial State
+    // Initial State - Arrays initialized to [] to prevent crash
     const [messages, setMessages] = useState<Message[]>([]);
     const [gallery, setGallery] = useState<MediaItem[]>([]);
     const [guestList, setGuestList] = useState<GuestEntry[]>([]);
     const [heartCount, setHeartCount] = useState<number>(0);
     const [lanterns, setLanterns] = useState<Lantern[]>([]);
+    const [locations, setLocations] = useState<Location[]>([]);
     const [config, setConfig] = useState<GlobalConfig>({
-        coupleName: "Sneha & Aman",
-        date: "2025-11-26",
+        coupleName: "The Couple",
+        date: "2025-12-26",
         welcomeMsg: "Join us as we begin our forever.",
         coupleImage: ""
     });
@@ -124,33 +134,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (storedHearts) setHeartCount(parseInt(storedHearts));
 
             const storedConfig = localStorage.getItem('wedding_global_config');
-            const storedCoupleImage = localStorage.getItem('wedding_couple_image');
             if (storedConfig) {
                 const parsed = JSON.parse(storedConfig);
-                setConfig({ ...parsed, coupleImage: storedCoupleImage || parsed.coupleImage || "" });
+                setConfig(prev => ({ ...prev, ...parsed }));
             }
         } catch (e) {
             console.error("Failed to load local storage data", e);
         }
     }, []);
 
-    // --- Persist to Local Storage on Change ---
-    useEffect(() => {
-        localStorage.setItem('wedding_chat_messages', JSON.stringify(messages));
-    }, [messages]);
-
-    useEffect(() => {
-        localStorage.setItem('wedding_gallery_media', JSON.stringify(gallery));
-    }, [gallery]);
-
-    useEffect(() => {
-        localStorage.setItem('wedding_heart_count', heartCount.toString());
-    }, [heartCount]);
-    
-    useEffect(() => {
-        localStorage.setItem('wedding_global_config', JSON.stringify(config));
-        if (config.coupleImage) localStorage.setItem('wedding_couple_image', config.coupleImage);
-    }, [config]);
+    // --- Persist to Local Storage ---
+    useEffect(() => { localStorage.setItem('wedding_chat_messages', JSON.stringify(messages)); }, [messages]);
+    useEffect(() => { localStorage.setItem('wedding_gallery_media', JSON.stringify(gallery)); }, [gallery]);
+    useEffect(() => { localStorage.setItem('wedding_heart_count', heartCount.toString()); }, [heartCount]);
+    useEffect(() => { localStorage.setItem('wedding_global_config', JSON.stringify(config)); }, [config]);
 
     // --- Socket Event Listeners ---
     useEffect(() => {
@@ -158,11 +155,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const onDisconnect = () => setIsConnected(false);
 
         const handleFullSync = (state: any) => {
+            if (!state) return;
             if (state.messages) setMessages(state.messages);
             if (state.gallery) setGallery(state.gallery);
             if (state.heartCount !== undefined) setHeartCount(state.heartCount);
             if (state.guestList) setGuestList(state.guestList);
             if (state.lanterns) setLanterns(state.lanterns);
+            if (state.locations) setLocations(state.locations);
             if (state.config) setConfig(state.config);
             if (state.currentSong) setCurrentSong(state.currentSong);
             if (state.isPlaying !== undefined) setIsPlaying(state.isPlaying);
@@ -171,52 +170,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         const handleMessage = (data: any) => {
             setMessages(prev => {
-                if (prev.some(m => m.id === data.payload.id)) return prev;
-                return [...prev, data.payload];
+                // Avoid duplicates if logic runs twice
+                if (prev.some(m => m.id === data.payload?.id || m.id === data.id)) return prev;
+                return [...prev, data.payload || data];
             });
         };
 
-        const handleMessageSync = (data: any) => {
-            setMessages(data.payload);
-        };
-
-        const handleHeartUpdate = (data: any) => {
-            setHeartCount(data.count);
-        };
-
-        const handleGallerySync = (data: any) => {
-            setGallery(data.payload);
-        };
-
-        const handleLanternAdded = (data: any) => {
-            setLanterns(prev => [...prev, data.payload]);
+        const handleHeartUpdate = (data: any) => setHeartCount(data.count);
+        const handleGallerySync = (data: any) => setGallery(data.payload || data);
+        const handleLanternAdded = (data: any) => setLanterns(prev => [...prev, data.payload || data]);
+        
+        const handleLocationsUpdate = (data: any) => {
+            if (Array.isArray(data)) setLocations(data);
         };
 
         const handleUserPresence = (data: any) => {
+            const user = data.payload || data;
             setGuestList(prev => {
-                const filtered = prev.filter(g => g.name !== data.payload.name);
-                return [...filtered, data.payload];
+                const filtered = prev.filter(g => g.name !== user.name);
+                return [...filtered, user];
             });
         };
 
-        const handleBlock = (data: any) => {
-            setGuestList(prev => prev.filter(g => g.name !== data.name));
-            // Force logout handled in App.tsx typically, but state updates here
-        };
-
-        const handleConfigSync = (data: any) => {
-            setConfig(data.payload);
-        };
-
-        const handlePlaylistUpdate = (data: any) => {
-            setCurrentSong(data.currentSong);
-            setIsPlaying(data.isPlaying);
-        };
-
-        const handleAnnouncement = (data: any) => {
-            setAnnouncement(data.message);
-        };
-
+        const handleBlock = (data: any) => setGuestList(prev => prev.filter(g => g.name !== data.name));
+        const handleConfigSync = (data: any) => setConfig(data.payload || data);
+        const handlePlaylistUpdate = (data: any) => { setCurrentSong(data.currentSong); setIsPlaying(data.isPlaying); };
+        const handleAnnouncement = (data: any) => setAnnouncement(data.message);
         const handleTyping = (data: { user: string, isTyping: boolean }) => {
             setTypingUsersState(prev => {
                 const newSet = new Set(prev);
@@ -228,12 +207,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         socket.on('connect', onConnect);
         socket.on('disconnect', onDisconnect);
+        socket.on('sync_data', handleFullSync); // Also listen to 'sync_data' as used in server.js
         socket.on('full_sync', handleFullSync);
         socket.on('message', handleMessage);
-        socket.on('message_sync', handleMessageSync);
+        socket.on('send_message', handleMessage); // Catch direct emits if named differently
         socket.on('heart_update', handleHeartUpdate);
         socket.on('gallery_sync', handleGallerySync);
         socket.on('lantern_added', handleLanternAdded);
+        socket.on('locations_update', handleLocationsUpdate);
         socket.on('user_presence', handleUserPresence);
         socket.on('block_user', handleBlock);
         socket.on('config_sync', handleConfigSync);
@@ -241,18 +222,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         socket.on('announcement', handleAnnouncement);
         socket.on('typing', handleTyping);
 
-        // Initial Request
         socket.emit('request_sync');
 
         return () => {
             socket.off('connect', onConnect);
             socket.off('disconnect', onDisconnect);
+            socket.off('sync_data', handleFullSync);
             socket.off('full_sync', handleFullSync);
             socket.off('message', handleMessage);
-            socket.off('message_sync', handleMessageSync);
+            socket.off('send_message', handleMessage);
             socket.off('heart_update', handleHeartUpdate);
             socket.off('gallery_sync', handleGallerySync);
             socket.off('lantern_added', handleLanternAdded);
+            socket.off('locations_update', handleLocationsUpdate);
             socket.off('user_presence', handleUserPresence);
             socket.off('block_user', handleBlock);
             socket.off('config_sync', handleConfigSync);
@@ -274,26 +256,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             type: stickerKey ? 'sticker' : 'text'
         };
-        // Optimistic update handled by socket listener usually, but for instant feedback we can add it local
-        // However, standard pattern here is emit -> server -> broadcast -> listener updates state
-        // For lowest latency, we can optimistically update
         setMessages(prev => [...prev, newMessage]);
-        socket.emit('message', newMessage);
+        socket.emit('send_message', newMessage); // Updated to match server event
     }, []);
 
     const sendHeart = useCallback(() => {
         setHeartCount(prev => prev + 1);
-        socket.emit('send_heart');
+        socket.emit('add_heart'); // Updated to match server event
     }, []);
 
     const uploadMedia = useCallback((item: MediaItem) => {
         setGallery(prev => [item, ...prev]);
-        socket.emit('gallery_upload', item);
+        socket.emit('upload_media', item); // Updated to match server event
     }, []);
 
     const sendLantern = useCallback((lantern: Lantern) => {
-        socket.emit('send_lantern', lantern);
-        // Optimistic update not strictly necessary for lanterns as the animation is local first then synced
+        socket.emit('release_lantern', lantern); // Updated to match server event
     }, []);
 
     const sendRSVP = useCallback((name: string) => {
@@ -302,7 +280,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const joinUser = useCallback((name: string, role: 'guest' | 'couple' | 'admin') => {
         if (role !== 'admin') {
-            socket.emit('user_join', { name, role, joinedAt: Date.now() });
+            socket.emit('join_user', { name, role, joinedAt: Date.now() }); // Updated to match server event
         }
     }, []);
 
@@ -318,7 +296,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }, []);
 
     const sendAnnouncement = useCallback((msg: string) => {
-        socket.emit('announcement', msg);
+        socket.emit('send_announcement', msg); // Updated to match server
     }, []);
 
     const deleteMessage = useCallback((id: string) => {
@@ -340,11 +318,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }, [gallery]);
 
     const blockUser = useCallback((name: string) => {
-        socket.emit('block_user', name);
+        socket.emit('block_user', { name });
     }, []);
 
     const setTyping = useCallback((user: string, isTyping: boolean) => {
         socket.emit('typing', { user, isTyping });
+    }, []);
+
+    const broadcastLocation = useCallback((lat: number, lng: number) => {
+        socket.emit('update_location', { lat, lng, timestamp: Date.now() });
     }, []);
 
     const refreshData = useCallback(() => {
@@ -353,32 +335,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     return (
         <AppContext.Provider value={{
-            messages,
-            gallery,
-            guestList,
-            heartCount,
-            lanterns,
-            config,
-            currentSong,
-            isPlaying,
-            announcement,
-            typingUsers,
-            isConnected,
-            sendMessage,
-            sendHeart,
-            uploadMedia,
-            sendLantern,
-            sendRSVP,
-            joinUser,
-            updateConfig,
-            updatePlaylistState,
-            sendAnnouncement,
-            deleteMessage,
-            deleteMedia,
-            updateMediaCaption,
-            blockUser,
-            setTyping,
-            refreshData
+            messages, gallery, guestList, heartCount, lanterns, locations,
+            config, currentSong, isPlaying, announcement, typingUsers, isConnected,
+            sendMessage, sendHeart, uploadMedia, sendLantern, sendRSVP, joinUser,
+            updateConfig, updatePlaylistState, sendAnnouncement, deleteMessage, deleteMedia,
+            updateMediaCaption, blockUser, setTyping, broadcastLocation, refreshData
         }}>
             {children}
         </AppContext.Provider>

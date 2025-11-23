@@ -1,5 +1,5 @@
 import { useAppContext } from './AppContext';
-import Livemap from '../components/Livemap';
+import Map from './components/Wedding/Guest/Map';
 
 function App() {
   const { chatMessages, hearts, lanterns, socket } = useAppContext();
@@ -19,7 +19,7 @@ function App() {
   return (
     <div>
       {/* Livemap */}
-      <Livemap />
+      <Map />
 
       {/* Chat */}
       <div>
