@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { socket } from './socket';
+import { socket } from './src/socket';
 
 export interface ThemeConfig {
     gradient: 'royal' | 'midnight' | 'sunset' | 'lavender' | 'forest';

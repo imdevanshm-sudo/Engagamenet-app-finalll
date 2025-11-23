@@ -1,41 +1,41 @@
-import { useAppContext } from './AppContext';
-import Map from './components/Wedding/Guest/Map';
+import { useAppData } from "./AppContext";
+import Map from "./components/Wedding/Guest/Map";
 
 function App() {
-  const { chatMessages, hearts, lanterns, socket } = useAppContext();
-
-  const sendMessage = (text: string) => {
-    socket.emit('send_message', { text });
-  };
-
-  const addHeart = () => {
-    socket.emit('add_heart');
-  };
-
-  const releaseLantern = () => {
-    socket.emit('release_lantern', { id: Date.now() });
-  };
+  const {
+    chatMessages,   // ✅ FIXED
+    hearts,         // ✅ FIXED
+    lanterns,
+    sendMessage,
+    sendHeart,      // ✅ available now
+    sendLantern,
+  } = useAppData();
 
   return (
     <div>
-      {/* Livemap */}
+      {/* Live Map */}
       <Map />
 
       {/* Chat */}
       <div>
         <h2>Chat</h2>
+
         <div>
-          {chatMessages.map((msg: any, index: number) => (
+          {chatMessages.map((msg, index) => (
             <div key={index}>{msg.text}</div>
           ))}
         </div>
-        <input 
-          type="text" 
-          placeholder="Type a message..." 
+
+        <input
+          type="text"
+          placeholder="Type a message..."
           onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              sendMessage(e.currentTarget.value);
-              e.currentTarget.value = '';
+            if (e.key === "Enter") {
+              const text = e.currentTarget.value.trim();
+              if (text.length > 0) {
+                sendMessage(text, undefined, "Guest", false);
+              }
+              e.currentTarget.value = "";
             }
           }}
         />
@@ -43,16 +43,30 @@ function App() {
 
       {/* Hearts */}
       <div>
-        <h2>Hearts: {hearts}</h2>
-        <button onClick={addHeart}>Add Heart</button>
+        <h2>Hearts: {hearts}</h2> {/* ✅ FIXED */}
+        <button onClick={sendHeart}>Add Heart</button>
       </div>
 
       {/* Lanterns */}
       <div>
         <h2>Lanterns</h2>
-        <button onClick={releaseLantern}>Release Lantern</button>
+
+        <button
+          onClick={() =>
+            sendLantern({
+              id: Date.now().toString(),
+              message: "",
+              sender: "Guest",
+              color: "royal",
+              timestamp: Date.now(),
+            })
+          }
+        >
+          Release Lantern
+        </button>
+
         <div>
-          {lanterns.map((lantern: any) => (
+          {lanterns.map((lantern) => (
             <div key={lantern.id}>🏮</div>
           ))}
         </div>
