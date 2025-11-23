@@ -1,4 +1,5 @@
 import { useAppContext } from './AppContext';
+import Livemap from '../components/Livemap';
 
 function App() {
   const { chatMessages, hearts, lanterns, socket } = useAppContext();
@@ -17,6 +18,9 @@ function App() {
 
   return (
     <div>
+      {/* Livemap */}
+      <Livemap />
+
       {/* Chat */}
       <div>
         <h2>Chat</h2>
