@@ -8,6 +8,10 @@ app.use(cors());
 
 const httpServer = createServer(app);
 
+// Must be outside io.on to maintain across connections
+let coupleSockets = {}; // Stores { name: socketId } for Aman and Sneha
+const COUPLE_NAMES = ['Aman', 'Sneha'];
+
 // --- SOCKET CONFIGURATION (FINAL PERMISSIVE CORS) ---
 const io = new Server(httpServer, {
   cors: {
@@ -21,6 +25,11 @@ const io = new Server(httpServer, {
 });
 
 const PORT = process.env.PORT || 3001;
+
+// Helper: Broadcast the entire state to all connected devices
+const broadcastState = () => {
+    io.emit('sync_data', currentState);
+};
 
 // --- 💾 CENTRAL STATE (Single Source of Truth) ---
 let currentState = {
@@ -39,7 +48,7 @@ let currentState = {
   ],
   guestList: [],
   locations: {},
-  adminAnnouncement: null, // New Admin State
+  adminAnnouncement: null,
   chatMessages: [],
   hearts: 0,
   lanterns: [],
@@ -87,27 +96,27 @@ let currentState = {
   }
 };
 
-// Helper: Broadcast the entire state to all connected devices
-const broadcastState = () => {
-    io.emit('sync_data', currentState);
-};
+
+// ----------------------------------------------------------------------
+// --- Main Socket Connection Handler ---
+// ----------------------------------------------------------------------
 
 io.on('connection', (socket) => {
     console.log('✅ Device Connected:', socket.id);
     
+    // Send existing data immediately upon connection
     socket.emit('sync_data', currentState);
 
     // --- 👤 USER PROFILES (Req 4: Couple Account Check) ---
     socket.on('user_join', (user) => {
         if (user && user.role === 'couple' && COUPLE_NAMES.includes(user.name)) {
-            // Store the couple's socket ID for targeted broadcasting (Req 3, 5)
             coupleSockets[user.name] = socket.id;
         }
         
-        // Update guest list globally
+        // Update guest list globally (Required for profile sync)
         currentState.guestList = currentState.guestList.filter(g => g.name !== user.name);
         currentState.guestList.push(user);
-        broadcastState(); // Syncs profiles (Req 1, 2, 6)
+        broadcastState(); 
     });
 
     // --- 🏮 LANTERNS (Req 3: Selective Sync) ---
@@ -120,16 +129,16 @@ io.on('connection', (socket) => {
             io.to(coupleSocketId).emit('receive_lantern', lantern);
         });
 
-        // 3. Update global state for general cleanup (only the cleanup broadcast uses sync_data)
+        // 3. Update global state for eventual cleanup (Lanterns are ephemeral)
         currentState.lanterns.push(lantern); 
         setTimeout(() => {
             currentState.lanterns = currentState.lanterns.filter(l => l.id !== lantern.id);
-            broadcastState(); // Broadcast the state *without* the lantern after timeout
+            broadcastState();
         }, 15000);
     });
 
     // --- GLOBAL SYNC EVENTS (Req 1, 2, 6) ---
-    // All other events (chat, hearts, admin settings) still call broadcastState()
+    
     socket.on('add_heart', () => { // Req 2: Cumulative Adore Meter
         currentState.hearts++;
         broadcastState();
@@ -145,83 +154,19 @@ io.on('connection', (socket) => {
         broadcastState(); 
     });
     
-    // ... (Keep all other existing handlers like quiz, gallery_upload, etc.) ...
-
-    socket.on('disconnect', () => {
-        // Remove disconnected couple from tracking
-        Object.keys(coupleSockets).forEach(name => {
-            if (coupleSockets[name] === socket.id) {
-                delete coupleSockets[name];
-            }
-        });
-        console.log('Device Disconnected');
-    });
-});
-
-    // Must be outside io.on to maintain across connections
-let coupleSockets = {}; // Stores { name: socketId } for Aman and Sneha
-const COUPLE_NAMES = ['Aman', 'Sneha'];
-    
-    // Send existing data immediately upon connection
-    socket.emit('sync_data', currentState);
-
-    // --- ❤️ HEARTS / ADORE ---
-    socket.on('add_heart', () => {
-        currentState.hearts++;
-        broadcastState();
-    });
-
-    // --- 🏮 LANTERNS (With Cleanup) ---
-    socket.on('release_lantern', (lantern) => {
-        currentState.lanterns.push(lantern);
-        broadcastState();
-        // Auto-remove lantern after 15s to keep state clean
-        setTimeout(() => {
-            currentState.lanterns = currentState.lanterns.filter(l => l.id !== lantern.id);
-            broadcastState();
-        }, 15000);
-    });
-
-    // --- 💬 CHAT ---
-    socket.on('send_message', (message) => {
-        currentState.chatMessages.push(message);
-        broadcastState();
-    });
-
-    // --- 👤 USER PROFILES (Supports multiple logins/devices) ---
-    socket.on('user_join', (user) => {
-        // Remove previous entry for this user name
-        currentState.guestList = currentState.guestList.filter(g => g.name !== user.name);
-        currentState.guestList.push(user);
-        broadcastState();
-    });
-    
-    // --- 📣 ADMIN ANNOUNCEMENTS ---
     socket.on('admin_announce', (message) => {
         console.log(`📣 ADMIN ANNOUNCEMENT: ${message.text}`);
         currentState.adminAnnouncement = { text: message.text, timestamp: Date.now() };
         broadcastState();
     });
-
-    // --- ⚙️ ADMIN SETTINGS/STATE UPDATE ---
-    socket.on('admin_update_settings', (newSettings) => {
-        console.log("⚙️ ADMIN SETTINGS UPDATE received:", newSettings);
-        
-        // Safely merge new settings into currentState (updates hearts, slides, quiz, etc.)
-        currentState = {
-            ...currentState,
-            ...newSettings,
-        };
-        broadcastState();
-    });
-
-    // --- 📸 GALLERY / MEDIA ---
+    
+    // --- GALLERY / MEDIA ---
     socket.on('gallery_upload', (item) => {
         currentState.gallery.push(item);
         broadcastState();
     });
 
-    // --- 🗺️ LOCATIONS ---
+    // --- LOCATIONS ---
     socket.on('location_update', (data) => {
         if (data.name && data.lat && data.lng) {
             currentState.locations[data.name] = { 
@@ -233,13 +178,13 @@ const COUPLE_NAMES = ['Aman', 'Sneha'];
         }
     });
 
-    // Quiz & Slide Handlers
+    // --- QUIZ & SLIDES ---
     socket.on('slide_change', (newSlide) => {
         currentState.activeSlide = newSlide;
         io.emit('slide_changed', newSlide);
         broadcastState();
     });
-    
+
     socket.on('quiz_answer', (data) => {
         const { user, questionId, answer } = data;
         const question = currentState.quiz.questions.find(q => q.id === questionId);
@@ -259,9 +204,16 @@ const COUPLE_NAMES = ['Aman', 'Sneha'];
     });
 
     socket.on('disconnect', () => {
+        // Remove disconnected couple from tracking
+        Object.keys(coupleSockets).forEach(name => {
+            if (coupleSockets[name] === socket.id) {
+                delete coupleSockets[name];
+            }
+        });
         console.log('Device Disconnected');
     });
-;
+});
+
 
 app.get('/', (req, res) => {
     res.send('<h1>Server is Live & Ready to Sync (Final Build)</h1>');
