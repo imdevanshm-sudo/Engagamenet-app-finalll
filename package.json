@@ -10,11 +10,13 @@
   },
   "dependencies": {
     "@types/leaflet": "^1.9.21",
+    "axios": "^1.13.2",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "firebase": "^12.6.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.554.0",
+    "querystring": "^0.2.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-leaflet": "^4.2.1",
