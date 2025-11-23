@@ -1,17 +1,21 @@
 import { io } from 'socket.io-client';
 
-const URL = "https://engagamenet-app-finalll.onrender.com";
+const BACKEND_URL = "https://engagamenet-app-finalll.onrender.com";
 
-export const socket = io(URL, {
-    autoConnect: true,
-    transports: ['websocket', 'polling']
+console.log("Attempting to connect socket to:", BACKEND_URL);
+
+export const socket = io(BACKEND_URL, {
+  // Allow both methods. 'polling' helps establish the initial connection on some networks.
+  transports: ['polling', 'websocket'], 
+  autoConnect: true,
+  reconnection: true,
 });
 
-// Add these listeners to see what is happening in the console
+// Debugging listeners
 socket.on("connect", () => {
     console.log("✅ SOCKET CONNECTED! ID:", socket.id);
 });
 
 socket.on("connect_error", (err) => {
-    console.log("❌ SOCKET CONNECTION FAILED:", err.message);
+    console.log("❌ CONNECTION FAILED:", err.message);
 });
