@@ -1,14 +1,14 @@
 {
-  "short_name": "EngagementPortal",
-  "name": "Royal Engagement Portal",
+  "short_name": "SAE",
+  "name": "SAE",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/2830/2830501.png",
+      "src": "/pwa-192x192.png",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/2830/2830501.png",
+      "src": "/pwa-512x512.png",
       "type": "image/png",
       "sizes": "512x512"
     }

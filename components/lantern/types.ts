@@ -22,6 +22,7 @@ export enum ViewState {
 export interface LanternProps {
   message: Message;
   onClick: (message: Message) => void;
-  // If true, the lantern is shown in "Cinema Mode" (modal), revealing text
   isRevealed?: boolean;
+  variant?: 'floating' | 'grid';
+  label?: string;
 }

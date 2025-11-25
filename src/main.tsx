@@ -1,13 +1,17 @@
+
 import { AppProvider } from "./AppContext";
 import { AuthProvider } from "./AuthContext";
+import { ThemeProvider } from "./ThemeContext";
 import App from "./App";
 
 const MainApp = () => {
   return (
     <AuthProvider>
-      <AppProvider>
-        <App />
-      </AppProvider>
+      <ThemeProvider>
+        <AppProvider>
+          <App />
+        </AppProvider>
+      </ThemeProvider>
     </AuthProvider>
   );
 };

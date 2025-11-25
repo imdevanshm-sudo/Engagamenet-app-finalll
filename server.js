@@ -149,15 +149,32 @@ io.on("connection", (socket) => {
   // Immediately send full server snapshot to the connecting client
   safeEmit(socket, "sync_data", currentState);
 
-  // Restrict couple role strictly to Aman / Sneha
-if (user.role === "couple") {
-  if (COUPLE_NAMES.includes(user.name)) {
-    coupleSockets[user.name] = socket.id;
-  } else {
-    // force downgrade to guest
-    user.role = "guest";
-  }
-}
+  // USER JOIN
+  socket.on("user_join", (user) => {
+    if (!user || !user.name) return;
+
+    user.socketId = socket.id;
+
+    // Restrict couple role strictly to Aman / Sneha
+    if (user.role === "couple") {
+      if (COUPLE_NAMES.includes(user.name)) {
+        coupleSockets[user.name] = socket.id;
+      } else {
+        // force downgrade to guest
+        user.role = "guest";
+      }
+    }
+
+    const existingUserIndex = currentState.guestList.findIndex(u => u.name === user.name);
+    if (existingUserIndex > -1) {
+      currentState.guestList[existingUserIndex] = { ...currentState.guestList[existingUserIndex], ...user };
+    } else {
+      currentState.guestList.push(user);
+    }
+    
+    broadcastState();
+  });
+
 
   // TYPING
   socket.on("typing", (payload) => {
@@ -332,7 +349,12 @@ if (user.role === "couple") {
     Object.keys(coupleSockets).forEach((name) => {
       if (coupleSockets[name] === socket.id) delete coupleSockets[name];
     });
+    
+    // Also remove from guest list
+    currentState.guestList = currentState.guestList.filter(user => user.socketId !== socket.id);
+    
     console.log("❌ Device Disconnected:", socket.id, reason);
+    broadcastState();
   });
 });
 
